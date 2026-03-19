@@ -1,3 +1,9 @@
+## 1.0.6
+
+- Fixed files configuration in pubspec.yaml to include lib directory
+- Ensure script files are properly included in published package
+- Updated files pattern to use directory paths instead of glob patterns
+
 ## 1.0.5
 
 - Fixed script path resolution issue for global installation
