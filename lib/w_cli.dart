@@ -3,11 +3,39 @@ import 'package:path/path.dart' as path;
 
 /// 获取脚本文件的路径
 String getScriptPath(String scriptName) {
+  // 获取当前脚本的路径
   final scriptPath = Platform.script.path;
   final scriptFile = File(scriptPath);
+  
+  // 尝试不同的路径组合
+  List<String> possiblePaths = [];
+  
+  // 路径1: 本地开发环境 - lib/sh 目录
   final binDir = scriptFile.parent;
   final projectDir = binDir.parent;
-  return path.join(projectDir.path, 'lib', 'sh', scriptName);
+  possiblePaths.add(path.join(projectDir.path, 'lib', 'sh', scriptName));
+  
+  // 路径2: 全局安装环境 - 向上导航到正确的目录
+  // 当通过 pub global activate 安装时，路径可能是类似 ~/.pub-cache/global_packages/w_cli/bin/w_cli.dart
+  // 所以我们需要向上导航到 w_cli 目录，然后进入 lib/sh
+  var currentDir = scriptFile.parent;
+  for (int i = 0; i < 5; i++) { // 最多向上导航5级
+    possiblePaths.add(path.join(currentDir.path, 'lib', 'sh', scriptName));
+    possiblePaths.add(path.join(currentDir.path, 'sh', scriptName));
+    currentDir = currentDir.parent;
+    if (currentDir.path == '/' || currentDir.path.endsWith(':')) break; // 到达根目录时停止
+  }
+  
+  // 尝试所有可能的路径
+  for (String path in possiblePaths) {
+    final scriptFile = File(path);
+    if (scriptFile.existsSync()) {
+      return path;
+    }
+  }
+  
+  // 如果仍然不存在，抛出错误
+  throw FileSystemException('Script file not found', possiblePaths.first);
 }
 
 void handleCreateCommand(List<String> arguments) {

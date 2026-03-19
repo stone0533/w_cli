@@ -1,3 +1,9 @@
+## 1.0.3
+
+- Fixed script path resolution issue when running from global installation
+- Improved getScriptPath function to handle different installation environments
+- Added multiple path resolution strategies to find script files
+
 ## 1.0.2
 
 - Changed command name from `w` to `ww` to avoid conflict with system `w` command
