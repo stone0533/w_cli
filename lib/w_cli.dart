@@ -196,13 +196,20 @@ void handleUpdateCommand() {
     print('\nUpdating to latest version...');
     final updateResult = Process.runSync('dart', ['pub', 'global', 'activate', 'w_cli']);
     print(updateResult.stdout);
-    if (updateResult.stderr.isNotEmpty) {
-      print('Error updating: ${updateResult.stderr}');
-    }
     
-    print('\nUpdate completed successfully!');
+    // 检查更新是否成功
+    if (updateResult.exitCode == 0) {
+      print('\nUpdate completed successfully!');
+    } else {
+      print('\nUpdate failed!');
+      if (updateResult.stderr.isNotEmpty) {
+        print('Error: ${updateResult.stderr}');
+      }
+      print('Please try again or check your internet connection.');
+    }
   } catch (e) {
     print('Error during update: $e');
+    print('Please try again or check your internet connection.');
   }
 }
 

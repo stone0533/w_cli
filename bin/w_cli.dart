@@ -17,7 +17,7 @@ void main(List<String> arguments) {
     final results = parser.parse(arguments);
     
     if (results.wasParsed('version')) {
-      print('ww version 1.0.3');
+      print('ww version 1.0.4');
       return;
     }
     

@@ -1,3 +1,10 @@
+## 1.0.4
+
+- Improved handleUpdateCommand function with better error handling
+- Added exit code checking for update command
+- Enhanced user feedback for update success and failure cases
+- Added helpful error messages and suggestions
+
 ## 1.0.3
 
 - Fixed script path resolution issue when running from global installation
