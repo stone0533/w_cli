@@ -26,16 +26,25 @@ String getScriptPath(String scriptName) {
     if (currentDir.path == '/' || currentDir.path.endsWith(':')) break; // 到达根目录时停止
   }
   
+  // 路径3: 直接从 .pub-cache 目录获取
+  // 当全局安装时，脚本文件应该在 ~/.pub-cache/global_packages/w_cli/lib/sh/ 目录下
+  final homeDir = Platform.environment['HOME'];
+  if (homeDir != null) {
+    possiblePaths.add(path.join(homeDir, '.pub-cache', 'global_packages', 'w_cli', 'lib', 'sh', scriptName));
+  }
+  
   // 尝试所有可能的路径
-  for (String path in possiblePaths) {
-    final scriptFile = File(path);
+  for (String scriptPath in possiblePaths) {
+    final scriptFile = File(scriptPath);
     if (scriptFile.existsSync()) {
-      return path;
+      return scriptPath;
     }
   }
   
-  // 如果仍然不存在，抛出错误
-  throw FileSystemException('Script file not found', possiblePaths.first);
+  // 如果仍然不存在，抛出错误并显示所有尝试的路径
+  final errorMessage = 'Script file not found. Tried the following paths:\n' +
+      possiblePaths.map((p) => '  - $p').join('\n');
+  throw FileSystemException(errorMessage, possiblePaths.first);
 }
 
 void handleCreateCommand(List<String> arguments) {

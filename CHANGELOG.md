@@ -1,3 +1,10 @@
+## 1.0.5
+
+- Fixed script path resolution issue for global installation
+- Added direct .pub-cache path resolution for script files
+- Improved error messages with all attempted paths
+- Enhanced path discovery for different installation environments
+
 ## 1.0.4
 
 - Improved handleUpdateCommand function with better error handling
