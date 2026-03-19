@@ -17,24 +17,24 @@ void main(List<String> arguments) {
     final results = parser.parse(arguments);
     
     if (results.wasParsed('version')) {
-      print('w version 1.0.0');
+      print('ww version 1.0.2');
       return;
     }
     
     if (results.wasParsed('help') || arguments.isEmpty) {
-      print('w - A command-line tool for Flutter projects');
+      print('ww - A command-line tool for Flutter projects');
       print('');
       print('Usage:');
-      print('  w create [command]');
-      print('  w init');
-      print('  w generate [command]');
-      print('  w install [package]');
-      print('  w remove [package]');
-      print('  w update');
-      print('  w generate api [options]');
-      print('  w build [apk|aab|ios] [options]');
-      print('  w -v, --version');
-      print('  w -h, --help');
+      print('  ww create [command]');
+      print('  ww init');
+      print('  ww generate [command]');
+      print('  ww install [package]');
+      print('  ww remove [package]');
+      print('  ww update');
+      print('  ww generate api [options]');
+      print('  ww build [apk|aab|ios] [options]');
+      print('  ww -v, --version');
+      print('  ww -h, --help');
       return;
     }
     

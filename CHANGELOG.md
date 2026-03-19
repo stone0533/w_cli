@@ -1,3 +1,9 @@
+## 1.0.2
+
+- Changed command name from `w` to `ww` to avoid conflict with system `w` command
+- Added `executables` field to pubspec.yaml to define command name
+- Updated documentation and help messages to use `ww` command
+
 ## 1.0.1
 
 - Added `files` field to pubspec.yaml to include sh directory in published package

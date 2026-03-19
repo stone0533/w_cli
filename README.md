@@ -28,16 +28,16 @@ dart pub global activate --source=path /path/to/w_cli
 
 2. Build the executable:
    ```bash
-   dart compile exe bin/w_cli.dart -o w
+   dart compile exe bin/w_cli.dart -o ww
    ```
 
 3. Add to system path:
    ```bash
    # macOS/Linux
-   sudo mv w /usr/local/bin/
+   sudo mv ww /usr/local/bin/
    
    # Windows (run as administrator)
-   move w C:\Windows\System32\
+   move ww C:\Windows\System32\
    ```
 
 ## Usage
@@ -46,79 +46,79 @@ dart pub global activate --source=path /path/to/w_cli
 
 ```bash
 # Show help
-w --help
+ww --help
 
 # Show version
-w --version
+ww --version
 
 # Create a new Flutter project
-w create project my_app
+ww create project my_app
 
 # Initialize project structure
-w init
+ww init
 
 # Generate API code
-w generate api
+ww generate api
 
 # Build Flutter app
-w build apk
-w build aab
-w build ios
+ww build apk
+ww build aab
+ww build ios
 
 # Update w_cli to latest version
-w update
+ww update
 ```
 
 ### API Code Generation
 
 ```bash
 # Generate API code
-w generate api
+ww generate api
 
 # Generate with debug mode
-w generate api --debug
+ww generate api --debug
 ```
 
 ### Flutter App Building
 
 ```bash
 # Build APK in production mode
-w build apk
+ww build apk
 
 # Build AAB in production mode
-w build aab
+ww build aab
 
 # Build iOS in production mode
-w build ios
+ww build ios
 
 # Build in UAT mode
-w build apk -uat
+ww build apk -uat
 
 # Increment version and build
-w build apk --increment
+ww build apk --increment
 
 # Clear build directory and build
-w build apk -clear
+ww build apk -clear
 ```
 
 ### Dependency Management
 
 ```bash
 # Install dependencies
-w install http path
+ww install http path
 
 # Remove dependencies
-w remove http
+ww remove http
 ```
 
 ### Code Generation
 
 ```bash
 # Generate locales
-w generate locales assets/locales
+ww generate locales assets/locales
 
 # Generate model
-w generate model on home with assets/models/user.json
+ww generate model on home with assets/models/user.json
 ```
 
 ## Project Structure
