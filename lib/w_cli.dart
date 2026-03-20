@@ -4,7 +4,7 @@ import 'package:path/path.dart' as path;
 /// 获取当前版本号
 /// 注意：每次提交前需要手动修改此版本号
 String getVersionFromPubspec() {
-  return '1.0.10';
+  return '1.0.12';
 }
 
 /// 获取脚本文件的路径
@@ -46,6 +46,12 @@ String getScriptPath(String scriptName) {
   for (String scriptPath in possiblePaths) {
     final scriptFile = File(scriptPath);
     if (scriptFile.existsSync()) {
+      // 直接添加执行权限，不进行检查
+      try {
+        Process.runSync('chmod', ['+x', scriptPath]);
+      } catch (e) {
+        print('Warning: Failed to add execution permission to script: $e');
+      }
       return scriptPath;
     }
   }
@@ -57,17 +63,22 @@ String getScriptPath(String scriptName) {
 void handleCreateCommand(List<String> arguments) {
   if (arguments.isEmpty) {
     print('Error: No subcommand specified for create');
-    print('Usage: ww create project:name');
+    print('Usage: ww create project name');
     return;
   }
 
   final subcommand = arguments[0];
-  if (subcommand.startsWith('project:')) {
-    final projectName = subcommand.substring('project:'.length);
+  if (subcommand == 'project') {
+    if (arguments.length < 2) {
+      print('Error: Project name is required');
+      print('Usage: ww create project name');
+      return;
+    }
+    final projectName = arguments[1];
     handleCreateProject(projectName);
   } else {
     print('Error: Unknown create subcommand: $subcommand');
-    print('Usage: ww create project:name');
+    print('Usage: ww create project name');
   }
 }
 
@@ -75,7 +86,7 @@ void handleCreateProject(String projectName) {
   // 验证项目名称格式
   if (projectName.isEmpty) {
     print('Error: Project name is required');
-    print('Usage: ww create project:name');
+    print('Usage: ww create project name');
     return;
   }
   
@@ -88,12 +99,24 @@ void handleCreateProject(String projectName) {
   print('Creating Flutter project: $projectName');
   // Get the absolute path to the setup_project.sh script
   final setupScriptPath = getScriptPath('setup_project.sh');
-  print('Setup script path: $setupScriptPath');
-  // Execute the setup_project.sh script with project name argument
-  final result = Process.runSync('bash', [setupScriptPath, '--project-name:$projectName']);
-  print(result.stdout);
-  if (result.stderr.isNotEmpty) {
-    print('Error: ${result.stderr}');
+  // Execute the setup_project.sh script with project name argument and real-time output
+  try {
+    final process = Process.start('bash', [setupScriptPath, '--project-name', projectName]);
+    process.then((p) {
+      p.stdout.listen((List<int> data) {
+        print(String.fromCharCodes(data));
+      });
+      p.stderr.listen((List<int> data) {
+        print('Error: ${String.fromCharCodes(data)}');
+      });
+      p.exitCode.then((code) {
+        if (code != 0) {
+          print('Project creation failed with exit code: $code');
+        }
+      });
+    });
+  } catch (e) {
+    print('Error executing setup script: $e');
   }
 }
 
@@ -219,6 +242,7 @@ void handleUpdateCommand() {
     // 检查更新是否成功
     if (updateResult.exitCode == 0) {
       print('Update completed successfully!');
+      print('Current version: ${getVersionFromPubspec()}');
       print('Note: You may need to restart your terminal for the changes to take effect.');
     } else {
       print('Update failed!');
@@ -237,11 +261,24 @@ void handleGenerateApi(List<String> arguments) {
   print('Running API code generation');
   // Get the absolute path to the api_gen.sh script
   final apiScriptPath = getScriptPath('api_gen.sh');
-  // Execute the api_gen.sh script
-  final result = Process.runSync('bash', [apiScriptPath, ...arguments]);
-  print(result.stdout);
-  if (result.stderr.isNotEmpty) {
-    print('Error: ${result.stderr}');
+  // Execute the api_gen.sh script with real-time output
+  try {
+    final process = Process.start('bash', [apiScriptPath, ...arguments]);
+    process.then((p) {
+      p.stdout.listen((List<int> data) {
+        print(String.fromCharCodes(data));
+      });
+      p.stderr.listen((List<int> data) {
+        print('Error: ${String.fromCharCodes(data)}');
+      });
+      p.exitCode.then((code) {
+        if (code != 0) {
+          print('API code generation failed with exit code: $code');
+        }
+      });
+    });
+  } catch (e) {
+    print('Error executing API generation script: $e');
   }
 }
 
@@ -249,12 +286,24 @@ void handleBuildCommand(List<String> arguments) {
   print('Running Flutter build');
   // Get the absolute path to the build.sh script
   final buildScriptPath = getScriptPath('build.sh');
-  print('Build script path: $buildScriptPath');
-  // Execute the build.sh script
-  final result = Process.runSync('bash', [buildScriptPath, ...arguments]);
-  print(result.stdout);
-  if (result.stderr.isNotEmpty) {
-    print('Error: ${result.stderr}');
+  // Execute the build.sh script with real-time output
+  try {
+    final process = Process.start('bash', [buildScriptPath, ...arguments]);
+    process.then((p) {
+      p.stdout.listen((List<int> data) {
+        print(String.fromCharCodes(data));
+      });
+      p.stderr.listen((List<int> data) {
+        print('Error: ${String.fromCharCodes(data)}');
+      });
+      p.exitCode.then((code) {
+        if (code != 0) {
+          print('Build failed with exit code: $code');
+        }
+      });
+    });
+  } catch (e) {
+    print('Error executing build script: $e');
   }
 }
 

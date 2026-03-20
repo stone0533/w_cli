@@ -43,7 +43,7 @@ ww --help
 ww --version
 
 # Create a new Flutter project
-ww create project:my_app
+ww create project my_app
 
 # Initialize project structure
 ww init

@@ -30,7 +30,7 @@ void main(List<String> arguments) {
       print('ww - A command-line tool for Flutter projects');
       print('');
       print('Usage:');
-      print('  ww create [command]');
+      print('  ww create project name');
       print('  ww init');
       print('  ww generate [command]');
       print('  ww install [package]');

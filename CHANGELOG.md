@@ -1,3 +1,18 @@
+## 1.0.12
+
+- Updated version number to 1.0.12
+- Improved log output by using real-time streaming for script execution
+- Added current version display after update command
+- Removed unnecessary script path print statements
+- Enhanced error handling for script execution
+
+## 1.0.11
+
+- Updated version number to 1.0.11
+- Added automatic execution permission for scripts
+- Fixed command format to use `ww create project name` instead of `ww create project:name`
+- Improved error handling for script execution
+
 ## 1.0.10
 
 - Updated version number to 1.0.10
