@@ -3,7 +3,7 @@
 # ======================================================
 # open.sh - Flutter 项目打开脚本
 # Version: 1.0.0
-# Last Updated: 2026-03-20
+# Last Updated: 2026-03-21
 # Author: Stone
 # Description: 用于打开 Flutter 项目的不同部分
 # ======================================================
@@ -30,14 +30,24 @@ log_error() {
   printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
 }
 
+# 显示版本信息
+show_version() {
+  echo "open.sh version: 1.0.0"
+  echo "Last updated: 2026-03-21"
+  echo "Description: 用于打开 Flutter 项目的不同部分"
+  exit 0
+}
+
 # 显示帮助信息
 show_help() {
-  echo "使用方法: ./open.sh [ios|android|build]"
+  echo "使用方法: ./open.sh [ios|android|build|root]"
   echo "选项:"
   echo "  ios        用 Xcode 打开 iOS 项目"
   echo "  android    用 Android Studio 打开 Android 项目"
   echo "  build      用 Finder 打开构建目录"
+  echo "  root       用 Finder 打开根目录"
   echo "  --help     显示此帮助信息"
+  echo "  --version  显示脚本版本信息"
   exit 0
 }
 
@@ -110,7 +120,7 @@ open_android() {
 
 # 打开构建目录
 open_build() {
-  local build_path="$PROJECT_ROOT/../build"
+  local build_path="$PROJECT_ROOT/w_build"
   
   if [[ -d "$build_path" ]]; then
     log_info "用 Finder 打开构建目录..."
@@ -148,6 +158,46 @@ open_build() {
   return 0
 }
 
+# 打开根目录
+open_root() {
+  local root_path="$PROJECT_ROOT"
+  
+  if [[ -d "$root_path" ]]; then
+    log_info "用 Finder 打开根目录..."
+    if [[ "$(uname)" == "Darwin" ]]; then
+      open "$root_path"
+      if [[ $? -eq 0 ]]; then
+        log_info "根目录已成功打开"
+      else
+        log_error "打开根目录失败"
+        return 1
+      fi
+    elif [[ "$(uname)" == "Linux" ]]; then
+      # Linux
+      if command -v xdg-open &> /dev/null; then
+        xdg-open "$root_path"
+        if [[ $? -eq 0 ]]; then
+          log_info "根目录已成功打开"
+        else
+          log_error "打开根目录失败"
+          return 1
+        fi
+      else
+        log_error "xdg-open 命令未找到，请确保已正确安装"
+        return 1
+      fi
+    else
+      log_error "此功能仅在 macOS 和 Linux 上可用"
+      return 1
+    fi
+  else
+    log_error "根目录不存在: $root_path"
+    return 1
+  fi
+  
+  return 0
+}
+
 # 主函数
 main() {
   # 检查参数
@@ -165,8 +215,14 @@ main() {
     "build")
       open_build
       ;;
+    "root")
+      open_root
+      ;;
     "--help")
       show_help
+      ;;
+    "--version")
+      show_version
       ;;
     *)
       log_error "未知参数: $1"

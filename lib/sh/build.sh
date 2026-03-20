@@ -3,34 +3,30 @@
 # ======================================================
 # build.sh - Flutter 应用打包脚本
 # 版本管理信息
-# Version: 1.0.0
-# Last Updated: 2026-03-20
+# Version: 1.0.1
+# Last Updated: 2026-03-21
 # Author: Stone
 # Description: 用于构建 Flutter 应用的多平台打包脚本
 # Features:
 #   - 支持 Android APK、AAB 和 iOS IPA 打包
 #   - 支持生产模式和 UAT 模式
 #   - 应用商店要求检查
-#   - 文件备份和版本管理
 #   - 详细的日志和错误处理
 #   - 支持通过命令行参数指定应用名称
 # ======================================================
 
 # 配置变量
-# 输出目录，默认在当前目录的上级目录创建 build 文件夹
-OUTPUT_DIR="${OUTPUT_DIR:-../build}"
-
-# 最大备份文件数量，超过此数量会删除最旧的备份
-MAX_BACKUP_COUNT="${MAX_BACKUP_COUNT:-10}"
+# 输出目录，默认在当前目录创建 w_build 文件夹
+OUTPUT_DIR="${OUTPUT_DIR:-w_build}"
 
 # 是否启用调试模式，默认禁用
 DEBUG_MODE="${DEBUG_MODE:-false}"
 
 # 脚本版本号
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.0.1"
 
 # 脚本最后更新日期
-SCRIPT_LAST_UPDATED="2026-03-20"
+SCRIPT_LAST_UPDATED="2026-03-21"
 
 # 是否启用并行构建，默认禁用
 # 启用后可以同时构建多个平台，提高构建速度
@@ -130,8 +126,6 @@ send_notification() {
     notify-send "$escaped_title" "$escaped_message"
   fi
 }
-
-
 
 # 清理临时文件
 cleanup() {
@@ -234,12 +228,6 @@ validate_config() {
     log_warn "Low disk space: $(( available_space / 1024 )) MB available"
   fi
   
-  # 验证 MAX_BACKUP_COUNT
-  if ! echo "$MAX_BACKUP_COUNT" | grep -qE '^[0-9]+$'; then
-    log_error "Invalid MAX_BACKUP_COUNT: $MAX_BACKUP_COUNT"
-    exit 1
-  fi
-  
   log_debug "Configuration validated successfully"
 }
 
@@ -296,8 +284,6 @@ if ! check_environment; then
   exit 1
 fi
 
-
-
 # 创建输出目录
 log_warn "创建输出目录: $OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
@@ -314,39 +300,17 @@ fi
 # 记录本次生成的文件
 GENERATED_FILES=""
 
-# 备份已存在的文件
-backup_file() {
+# 删除已存在的文件
+delete_existing_file() {
   local target_file="$1"
   
   if [ ! -f "$target_file" ]; then
     return 0
   fi
   
-  # 清理旧备份，保留最新的 MAX_BACKUP_COUNT 个
-  local base_name=$(basename "$target_file")
-  local dir_name=$(dirname "$target_file")
-  local backup_count=$(ls -1 "$dir_name"/"${base_name}".*.bak 2>/dev/null | wc -l | tr -d ' ')
-  
-  log_debug "当前备份数量: $backup_count"
-  
-  if [ "$backup_count" -ge "$MAX_BACKUP_COUNT" ]; then
-    local oldest_backup=$(ls -1t "$dir_name"/"${base_name}".*.bak 2>/dev/null | tail -1)
-    if [ -n "$oldest_backup" ]; then
-      rm -f "$oldest_backup"
-      log_warn "移除旧备份: $oldest_backup"
-    fi
-  fi
-  
-  # 创建新备份
-  local counter=1
-  local backup_file="${target_file}.${counter}.bak"
-  while [ -f "$backup_file" ]; do
-    counter=$((counter + 1))
-    backup_file="${target_file}.${counter}.bak"
-  done
-  
-  mv "$target_file" "$backup_file"
-  log_warn "备份已存在文件: $target_file -> $backup_file"
+  # 直接删除已存在的文件
+  rm -f "$target_file"
+  log_warn "删除已存在文件: $target_file"
 }
 
 # 生成文件名
@@ -421,7 +385,7 @@ build_android_package() {
   
   # 处理构建产物
   local output_file=$(generate_filename "$package_type" "$package_type" "")
-  backup_file "$output_file"
+  delete_existing_file "$output_file"
   
   # 使用 rsync 或 cp
   if command -v rsync &> /dev/null; then
@@ -532,7 +496,7 @@ build_ios() {
   log_info "构建耗时: ${duration}s"
   
   local ipa_file=$(generate_filename "ios" "ipa" "")
-  backup_file "$ipa_file"
+  delete_existing_file "$ipa_file"
   
   if ! create_ipa "build/ios/iphoneos/Runner.app" "$ipa_file"; then
     log_error "创建 IPA 文件失败"
@@ -579,8 +543,6 @@ validate_parameters() {
   
   return 0
 }
-
-
 
 # 验证参数
 if ! validate_parameters "$@"; then

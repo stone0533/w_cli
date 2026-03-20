@@ -3,7 +3,7 @@
 # ======================================================
 # clean.sh - Flutter 应用清理脚本
 # Version: 1.0.0
-# Last Updated: 2026-03-20
+# Last Updated: 2026-03-21
 # Author: Stone
 # Description: 清理 Flutter 应用的构建文件并执行 flutter pub get
 # ======================================================
@@ -73,6 +73,14 @@ check_command() {
   return 0
 }
 
+# 显示版本信息
+show_version() {
+  echo "clean.sh version: 1.0.0"
+  echo "Last updated: 2026-03-21"
+  echo "Description: 清理 Flutter 应用的构建文件并执行 flutter pub get"
+  exit 0
+}
+
 # 显示帮助信息
 show_help() {
   echo "使用方法: ./clean.sh [选项] [平台]"
@@ -82,6 +90,7 @@ show_help() {
   echo "  all        清理所有平台构建文件（默认）"
   echo "选项:"
   echo "  --help     显示此帮助信息"
+  echo "  --version  显示脚本版本信息"
   echo "  --lock     清理锁文件（pubspec.lock 或 Podfile.lock）"
   echo "  --pod      清理 iOS Pods（仅适用于 iOS 平台）"
   exit 0
@@ -99,6 +108,9 @@ parse_args() {
     case "$1" in
       --help)
         show_help
+        ;;
+      --version)
+        show_version
         ;;
       --lock)
         LOCK=true

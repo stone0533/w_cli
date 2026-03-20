@@ -1,10 +1,10 @@
 # w_cli
 
-A command-line tool for Flutter projects, including API code generation and app building.
+A comprehensive command-line tool for Flutter projects, providing API code generation, app building, and project management utilities.
 
 ## Features
 
-- **API Code Generation**: Automatically generate API-related code from client.dart
+- **API Code Generation**: Automatically generate API-related code from `client.dart`
 - **Flutter App Building**: Build Flutter apps for Android (APK/AAB) and iOS (IPA)
 - **Project Creation**: Create Flutter projects with custom structure
 - **Dependency Management**: Install and remove dependencies
@@ -68,6 +68,7 @@ ww clean
 ww open ios
 ww open android
 ww open build
+ww open root
 ```
 
 ### API Code Generation
@@ -154,6 +155,9 @@ ww open android
 
 # Open build directory in file manager
 ww open build
+
+# Open root directory in file manager
+ww open root
 ```
 
 ## Project Structure
@@ -175,6 +179,33 @@ w_cli/
 ├── CHANGELOG.md              # Version change log
 └── LICENSE                   # License file
 ```
+
+## Script Details
+
+### api_gen.sh
+- **Version**: 1.0.0
+- **Description**: Generates API-related code from `client.dart`, including data sources and repositories
+- **Features**: Supports debug mode and automatic code generation
+
+### build.sh
+- **Version**: 1.0.1
+- **Description**: Builds Flutter apps for Android (APK/AAB) and iOS (IPA)
+- **Features**: Supports production and UAT modes, parallel builds, and build notifications
+
+### clean.sh
+- **Version**: 1.0.0
+- **Description**: Cleans Flutter project build files and updates dependencies
+- **Features**: Supports platform-specific cleaning and lock file removal
+
+### open.sh
+- **Version**: 1.0.0
+- **Description**: Opens Flutter project in IDEs and file managers
+- **Features**: Supports opening iOS, Android, build directory, and root directory
+
+### setup_project.sh
+- **Version**: 1.0.0
+- **Description**: Initializes Flutter projects with custom structure and dependencies
+- **Features**: Automatic dependency installation, directory structure creation, and core file generation
 
 ## Contributing
 

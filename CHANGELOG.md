@@ -1,3 +1,10 @@
+## 1.0.13
+
+- Updated version number to 1.0.13
+- Fixed issue with --clean and --uat options not being recognized for build command
+- Updated ArgParser configuration for build command options
+- Improved command parsing and option handling
+
 ## 1.0.12
 
 - Updated version number to 1.0.12

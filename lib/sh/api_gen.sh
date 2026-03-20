@@ -3,7 +3,7 @@
 # ======================================================
 # api_gen.sh - API 代码生成脚本
 # Version: 1.0.0
-# Last Updated: 2026-03-20
+# Last Updated: 2026-03-21
 # Author: Stone
 # Description: 根据 client.dart 动态生成 data_source_mixin.dart 和 repository.dart
 # ======================================================
@@ -49,6 +49,14 @@ log_debug() {
   fi
 }
 
+# 显示版本信息
+show_version() {
+  echo "api_gen.sh version: 1.0.0"
+  echo "Last updated: 2026-03-21"
+  echo "Description: 根据 client.dart 动态生成 data_source_mixin.dart 和 repository.dart"
+  exit 0
+}
+
 # 解析命令行参数
 parse_args() {
   while [[ $# -gt 0 ]]; do
@@ -57,11 +65,15 @@ parse_args() {
         DEBUG=true
         shift
         ;;
+      --version)
+        show_version
+        ;;
       *)
         log_error "未知参数: $1"
         echo "使用方法: $0 [选项]"
         echo "选项:"
         echo "  -d, --debug    启用调试模式"
+        echo "  --version      显示脚本版本信息"
         exit 1
         ;;
     esac

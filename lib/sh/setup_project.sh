@@ -5,22 +5,21 @@ set -e  # 遇到错误立即退出
 # 功能：自动完成Flutter项目的初始化、依赖安装和核心文件创建
 # Author: Stone
 # 版本：1.0.0
-# 日期：2026-03-20
+# 日期：2026-03-21
 #
 # 使用方法：
 #   bash setup_project.sh [选项]
 #
 # 选项：
 #   --help            显示帮助信息
-#   --api-base-url    指定 API 基础 URL
-#   --project-name    指定项目名称
+#   --name            指定项目名称
 #
 # 示例：
 #   # 基本使用
 #   bash setup_project.sh
 #
 #   # 自定义项目名称
-#   bash setup_project.sh --project-name my_app
+#   bash setup_project.sh --name my_app
 
 # 常量定义
 readonly DEFAULT_PROJECT_NAME="my_flutter_app"
@@ -40,7 +39,7 @@ PROJECT_NAME=""
 API_BASE_URL="$DEFAULT_API_BASE_URL"
 W_TOOLS_PATH="$DEFAULT_W_TOOLS_PATH"
 OS=""
-TOTAL_STEPS=15
+TOTAL_STEPS=14
 CURRENT_STEP=0
 
 # 错误处理函数
@@ -183,13 +182,21 @@ load_config() {
   log_message "跳过配置文件加载"
 }
 
-# 帮助信息
+# 显示版本信息
+show_version() {
+  echo "setup_project.sh version: 1.0.0"
+  echo "Last updated: 2026-03-21"
+  echo "Description: Flutter 项目初始化脚本"
+  exit 0
+}
+
+# 显示帮助信息
 show_help() {
   echo "用法: $0 [选项]"
   echo "选项:"
   echo "  --help            显示帮助信息"
-  echo "  --api-base-url    指定 API 基础 URL"
-  echo "  --project-name    指定项目名称"
+  echo "  --version         显示脚本版本信息"
+  echo "  --name            指定项目名称"
 }
 
 # 解析命令行参数
@@ -200,11 +207,10 @@ parse_args() {
         show_help
         exit 0
         ;;
-      --api-base-url)
-        API_BASE_URL="$2"
-        shift
+      --version)
+        show_version
         ;;
-      --project-name)
+      --name)
         PROJECT_NAME="$2"
         shift
         ;;
@@ -220,10 +226,6 @@ parse_args() {
   # 验证命令行参数
   if [ -n "$PROJECT_NAME" ] && ! validate_config "$PROJECT_NAME" "PROJECT_NAME"; then
     handle_error "命令行参数中的项目名称无效"
-  fi
-  
-  if [ -n "$API_BASE_URL" ] && ! validate_config "$API_BASE_URL" "API_BASE_URL"; then
-    handle_error "命令行参数中的 API 基础 URL 无效"
   fi
 }
 
@@ -396,12 +398,10 @@ ask_project_name() {
   validate_project_name
 }
 
-
-
 # 使用 get_cli 创建项目
 create_project() {
-  log_message "使用 get_cli 创建项目..."
-  run_command_with_timeout "get create project $PROJECT_NAME"
+  log_message "使用 flutter create 创建项目..."
+  run_command_with_timeout "flutter create --org com.sampras -i swift -a kotlin $PROJECT_NAME"
   log_message "${GREEN}项目创建完成${NC}"
 }
 
@@ -422,7 +422,7 @@ install_dependencies() {
   # 先执行 flutter pub get
   run_command_with_timeout "(cd \"$PROJECT_NAME\" && flutter pub get)"
   # 安装核心依赖
-  local install_cmd="(cd \"$PROJECT_NAME\" && get install dio flutter_screenutil flutter_form_builder form_builder_validators retrofit"
+  local install_cmd="(cd \"$PROJECT_NAME\" && get install get dio flutter_screenutil flutter_form_builder form_builder_validators retrofit"
   if [ -n "$DEFAULT_W_TOOLS" ]; then
     install_cmd="$install_cmd $DEFAULT_W_TOOLS"
   fi
@@ -434,6 +434,11 @@ install_dependencies() {
     run_command_with_timeout "(cd \"$PROJECT_NAME\" && get install build_runner json_serializable retrofit_generator analyzer)"
   fi
   log_message "${GREEN}依赖包安装完成${NC}"
+  
+  # 创建首页
+  log_message "创建首页..."
+  run_command_with_timeout "(cd \"$PROJECT_NAME\" && get create page:home)"
+  log_message "${GREEN}首页创建完成${NC}"
 }
 
 # 创建必要的目录结构
@@ -763,8 +768,6 @@ generate_code() {
   log_message "${GREEN}代码生成完成${NC}"
 }
 
-
-
 # 格式化代码
 format_code() {
   log_message "格式化代码..."
@@ -977,60 +980,56 @@ main() {
   
   CURRENT_STEP=3
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  check_get_cli
+  ask_project_name
   
   CURRENT_STEP=4
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  ask_project_name
+  check_directory_suitable
   
   CURRENT_STEP=5
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  check_directory_suitable
+  create_project
   
   CURRENT_STEP=6
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  create_project
+  install_dependencies
   
   CURRENT_STEP=7
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  install_dependencies
+  create_directory_structure
   
   CURRENT_STEP=8
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  create_directory_structure
+  add_w_tools_dependency
   
   CURRENT_STEP=9
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  add_w_tools_dependency
+  create_core_files
   
   CURRENT_STEP=10
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  create_core_files
+  generate_code
   
   CURRENT_STEP=11
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  generate_code
+  format_code
   
   CURRENT_STEP=12
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  format_code
-  
-  CURRENT_STEP=13
-  show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   initialize_tests
   
-  CURRENT_STEP=14
+  CURRENT_STEP=13
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   initialize_git
   create_ci_cd_config
   
-  CURRENT_STEP=15
+  CURRENT_STEP=14
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   health_check
   
   echo -e "${GREEN}=== 项目初始化完成 ===${NC}"
   echo "项目已成功初始化，包含以下内容："
-  echo "1. 使用 get_cli 创建了 Flutter 项目"
+  echo "1. 使用 flutter create 创建了 Flutter 项目"
   echo "2. 安装了必要的依赖包"
   echo "3. 创建了完整的目录结构"
   echo "4. 添加了 w_tools 本地依赖"

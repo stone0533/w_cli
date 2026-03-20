@@ -1,6 +1,6 @@
 name: w_cli
 description: A command-line tool for Flutter projects, including API code generation and app building.
-version: 1.0.12
+version: 1.0.13
 homepage: https://github.com/stone0533/w_cli
 repository: https://github.com/stone0533/w_cli
 issue_tracker: https://github.com/stone0533/w_cli/issues
@@ -28,5 +28,5 @@ files:
 
 # Define executable name
 executables:
-  ww: w_cli
+  ww: ww.sh
 
