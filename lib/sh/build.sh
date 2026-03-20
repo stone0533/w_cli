@@ -27,10 +27,10 @@ MAX_BACKUP_COUNT="${MAX_BACKUP_COUNT:-10}"
 DEBUG_MODE="${DEBUG_MODE:-false}"
 
 # 脚本版本号
-SCRIPT_VERSION="1.0.7"
+SCRIPT_VERSION="1.0.0"
 
 # 脚本最后更新日期
-SCRIPT_LAST_UPDATED="2026-03-18"
+SCRIPT_LAST_UPDATED="2026-03-20"
 
 # 是否启用并行构建，默认禁用
 # 启用后可以同时构建多个平台，提高构建速度
@@ -131,34 +131,7 @@ send_notification() {
   fi
 }
 
-# 自动版本递增
-increment_version() {
-  local version_file="pubspec.yaml"
-  local current_version=$(get_version)
-  
-  # 解析版本号
-  local major=$(echo "$current_version" | cut -d. -f1)
-  local minor=$(echo "$current_version" | cut -d. -f2 | cut -d+ -f1)
-  local patch=$(echo "$current_version" | cut -d. -f3 | cut -d+ -f1)
-  
-  # 检查是否包含构建号
-  if echo "$current_version" | grep -q "+"; then
-    local build=$(echo "$current_version" | cut -d+ -f2)
-  else
-    local build=0
-  fi
-  
-  # 递增补丁版本
-  local new_patch=$((patch + 1))
-  local new_version="$major.$minor.$new_patch+$((build + 1))"
-  
-  # 更新版本号
-  sed -i.bak "s/^version:.*/version: $new_version/" "$version_file"
-  rm -f "${version_file}.bak"
-  
-  log_info "版本号已递增至: $new_version"
-  echo "$new_version"
-}
+
 
 # 清理临时文件
 cleanup() {
@@ -181,23 +154,21 @@ fi
 
 # 检查参数是否正确
 if [ $# -lt 1 ]; then
-  log_warn "Usage: ./build.sh [apk] [aab] [ios] [-uat] [-clear] [--version] [--increment]"
+  log_warn "Usage: ./build.sh [apk] [aab] [ios] [--uat] [--clean] [--version]"
   log_warn "Options:"
-  log_info "  -uat          # Build in UAT mode with timestamp"
-  log_info "  -clear        # Clear build directory before building"
-  log_info "  --version     # Show script version information"
-  log_info "  --increment   # Increment version number before building"
+  log_info "  --uat          # Build in UAT mode with timestamp"
+  log_info "  --clean        # Clear build directory before building"
+  log_info "  --version      # Show script version information"
   log_warn "Environment variables:"
   log_info "  PARALLEL_BUILD=true         # Enable parallel builds"
   log_info "  ENABLE_NOTIFICATIONS=true   # Enable build notifications"
   log_warn "Examples:"
   log_info "  ./build.sh apk                # Build APK in production mode"
-  log_info "  ./build.sh apk aab             # Build APK and AAB in production mode"
-  log_info "  ./build.sh apk -uat            # Build APK in UAT mode"
-  log_info "  ./build.sh --version           # Show script version"
-  log_info "  ./build.sh apk --increment     # Increment version and build APK"
+  log_info "  ./build.sh apk aab            # Build APK and AAB in production mode"
+  log_info "  ./build.sh apk --uat          # Build APK in UAT mode"
+  log_info "  ./build.sh --version          # Show script version"
   log_info "  PARALLEL_BUILD=true ./build.sh apk aab # Build APK and AAB in parallel"
-  log_info "  ./build.sh apk aab ios -uat -clear # Build all platforms in UAT mode and clear build directory"
+  log_info "  ./build.sh apk aab ios --uat --clean # Build all platforms in UAT mode and clear build directory"
   exit 1
 fi
 
@@ -214,7 +185,6 @@ if [ "$1" == "--version" ]; then
   log_info "  - Detailed logging and error handling"
   log_info "  - Parallel build support"
   log_info "  - Build notifications"
-  log_info "  - Automatic version increment"
   exit 0
 fi
 
@@ -281,7 +251,6 @@ VERSION_FOR_FILENAME=$(echo $VERSION | tr '+' '-')
 # 检查参数
 UAT_MODE=false
 CLEAR_MODE=false
-INCREMENT_VERSION=false
 PLATFORMS=()
 APP_NAME=""
 for arg in "$@"; do
@@ -289,16 +258,13 @@ for arg in "$@"; do
     "apk"|"aab"|"ios")
       PLATFORMS+=($arg)
       ;;
-    "-uat")
+    "--uat")
       UAT_MODE=true
       ;;
-    "-clear")
+    "--clean")
       CLEAR_MODE=true
       ;;
-    "--increment")
-      INCREMENT_VERSION=true
-      ;;
-    -name:*) 
+    -name:* )
       APP_NAME="${arg#-name:}"
       ;;
   esac
@@ -595,9 +561,9 @@ validate_parameters() {
       apk|aab|ios)
         has_platform=true
         ;;
-      -uat|-clear|--increment)
+      --uat|--clean)
         ;;
-      -name:*) 
+      -name:* )
         ;;
       *)
         log_error "Invalid parameter: $arg"
@@ -614,13 +580,7 @@ validate_parameters() {
   return 0
 }
 
-# 自动版本递增
-if [ "$INCREMENT_VERSION" == "true" ]; then
-  log_info "正在递增版本号..."
-  VERSION=$(increment_version)
-  VERSION_FOR_FILENAME=$(echo $VERSION | tr '+' '-')
-  log_info "新版本号: $VERSION"
-fi
+
 
 # 验证参数
 if ! validate_parameters "$@"; then

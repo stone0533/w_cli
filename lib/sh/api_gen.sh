@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ======================================================
-# api.sh - API 代码生成脚本
+# api_gen.sh - API 代码生成脚本
 # Version: 1.0.0
 # Last Updated: 2026-03-20
 # Author: Stone
@@ -67,10 +67,6 @@ parse_args() {
     esac
   done
 }
-
-
-
-
 
 # 检查文件是否存在
 check_files() {

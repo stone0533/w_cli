@@ -5,17 +5,17 @@ void main() {
   // 测试命令处理函数
   test('handleCreateCommand with no arguments', () {
     // 测试没有参数的情况
-    expect(() => w.handleCreateCommand([]), prints('Error: No subcommand specified for create\nUsage: w_cli create [project]\n'));
+    expect(() => w.handleCreateCommand([]), prints('Error: No subcommand specified for create\nUsage: ww create project name\n'));
   });
 
   test('handleCreateCommand with unknown subcommand', () {
     // 测试未知子命令的情况
-    expect(() => w.handleCreateCommand(['unknown']), prints('Error: Unknown create subcommand: unknown\n'));
+    expect(() => w.handleCreateCommand(['unknown']), prints('Error: Unknown create subcommand: unknown\nUsage: ww create project name\n'));
   });
 
   test('handleGenerateCommand with no arguments', () {
     // 测试没有参数的情况
-    expect(() => w.handleGenerateCommand([]), prints('Error: No subcommand specified for generate\nUsage: w_cli generate [locales|model]\n'));
+    expect(() => w.handleGenerateCommand([]), prints('Error: No subcommand specified for generate\nUsage: ww generate [locales|model]\n'));
   });
 
   test('handleGenerateCommand with unknown subcommand', () {

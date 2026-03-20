@@ -307,4 +307,41 @@ void handleBuildCommand(List<String> arguments) {
   }
 }
 
+void handleOpenCommand(List<String> arguments) {
+  if (arguments.isEmpty) {
+    print('Error: No subcommand specified for open');
+    print('Usage: ww open [ios|android|build]');
+    return;
+  }
+
+  final subcommand = arguments[0];
+  if (subcommand == 'ios' || subcommand == 'android' || subcommand == 'build') {
+    print('Opening $subcommand');
+    // Get the absolute path to the open.sh script
+    final openScriptPath = getScriptPath('open.sh');
+    // Execute the open.sh script with the specified subcommand
+    try {
+      final process = Process.start('bash', [openScriptPath, subcommand]);
+      process.then((p) {
+        p.stdout.listen((List<int> data) {
+          print(String.fromCharCodes(data));
+        });
+        p.stderr.listen((List<int> data) {
+          print('Error: ${String.fromCharCodes(data)}');
+        });
+        p.exitCode.then((code) {
+          if (code != 0) {
+            print('Open failed with exit code: $code');
+          }
+        });
+      });
+    } catch (e) {
+      print('Error executing open script: $e');
+    }
+  } else {
+    print('Error: Unknown open subcommand: $subcommand');
+    print('Usage: ww open [ios|android|build]');
+  }
+}
+
 

@@ -10,6 +10,7 @@ void main(List<String> arguments) {
     ..addCommand('remove')
     ..addCommand('update')
     ..addCommand('build')
+    ..addCommand('open')
     ..addFlag('version', abbr: 'v', negatable: false)
     ..addFlag('help', abbr: 'h', negatable: false);
 
@@ -37,7 +38,16 @@ void main(List<String> arguments) {
       print('  ww remove [package]');
       print('  ww update');
       print('  ww generate api [options]');
-      print('  ww build [apk|aab|ios] [options]');
+      print('  ww build [apk|aab|ios] [--uat] [--clean]');
+      print('  Options:');
+      print('    --uat          # Build in UAT mode with timestamp');
+      print('    --clean        # Clear build directory before building');
+      print('  Examples:');
+      print('    ww build apk                # Build APK in production mode');
+      print('    ww build apk aab            # Build APK and AAB in production mode');
+      print('    ww build apk --uat          # Build APK in UAT mode');
+      print('    ww build apk aab ios --uat --clean # Build all platforms in UAT mode and clear build directory');
+      print('  ww open [ios|android|build]');
       print('  ww -v, --version');
       print('  ww -h, --help');
       return;
@@ -70,6 +80,9 @@ void main(List<String> arguments) {
         break;
       case 'build':
         w.handleBuildCommand(command.arguments);
+        break;
+      case 'open':
+        w.handleOpenCommand(command.arguments);
         break;
       default:
         print('Error: Unknown command: ${command.name}');

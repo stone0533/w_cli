@@ -9,6 +9,8 @@ A command-line tool for Flutter projects, including API code generation and app 
 - **Project Creation**: Create Flutter projects with custom structure
 - **Dependency Management**: Install and remove dependencies
 - **Code Generation**: Generate locales and models
+- **Project Cleaning**: Clean Flutter project build files
+- **Project Opening**: Open Flutter project in IDEs and file managers
 
 ## Installation
 
@@ -58,6 +60,14 @@ ww build ios
 
 # Update w_cli to latest version
 ww update
+
+# Clean Flutter app
+ww clean
+
+# Open Flutter project
+ww open ios
+ww open android
+ww open build
 ```
 
 ### API Code Generation
@@ -83,13 +93,16 @@ ww build aab
 ww build ios
 
 # Build in UAT mode
-ww build apk -uat
-
-# Increment version and build
-ww build apk --increment
+ww build apk --uat
 
 # Clear build directory and build
-ww build apk -clear
+ww build apk --clean
+
+# Build multiple platforms
+ww build apk aab
+
+# Build all platforms in UAT mode with clean
+ww build apk aab ios --uat --clean
 ```
 
 ### Dependency Management
@@ -112,6 +125,37 @@ ww generate locales assets/locales
 ww generate model on home with assets/models/user.json
 ```
 
+### Project Cleaning
+
+```bash
+# Clean Flutter project
+ww clean
+
+# Clean specific platform
+ww clean android
+ww clean ios
+ww clean all
+
+# Clean with lock files
+ww clean --lock
+
+# Clean iOS Pods
+ww clean ios --pod
+```
+
+### Project Opening
+
+```bash
+# Open iOS project in Xcode
+ww open ios
+
+# Open Android project in Android Studio
+ww open android
+
+# Open build directory in file manager
+ww open build
+```
+
 ## Project Structure
 
 ```
@@ -123,6 +167,8 @@ w_cli/
 │   └── sh/
 │       ├── api_gen.sh        # API code generation script
 │       ├── build.sh          # Flutter app building script
+│       ├── clean.sh          # Flutter app cleaning script
+│       ├── open.sh           # Flutter project opening script
 │       └── setup_project.sh  # Project initialization script
 ├── pubspec.yaml              # Project configuration
 ├── README.md                 # This file
