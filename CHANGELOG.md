@@ -1,3 +1,34 @@
+## 1.0.10
+
+- Updated version number to 1.0.10
+- Cleaned up code by removing unused handleSetupCommand function
+- Updated README.md with correct installation instructions and command format
+- Ensured project structure documentation is up-to-date
+
+## 1.0.9
+
+- Improved getScriptPath function with enhanced path discovery
+- Added support for finding script files in current working directory
+- Added support for traversing parent directories to find script files
+- Enhanced error messages with all attempted paths
+- Improved script path resolution for different installation environments
+
+## 1.0.8
+
+- Improved handleUpdateCommand function with better logging and error handling
+- Added detailed output for version checking and update process
+- Added verification step to confirm update success
+- Added reminder to restart terminal for changes to take effect
+- Simplified files configuration in pubspec.yaml using glob patterns
+- Changed files pattern to bin/** and lib/** to ensure all files are included
+- Ensure script files are properly included in published package
+
+## 1.0.7
+
+- Fixed files configuration in pubspec.yaml to explicitly include all script files
+- Added specific entries for lib/sh directory and individual script files
+- Ensure all script files are properly included in published package
+
 ## 1.0.6
 
 - Fixed files configuration in pubspec.yaml to include lib directory

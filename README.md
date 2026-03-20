@@ -15,10 +15,10 @@ A command-line tool for Flutter projects, including API code generation and app 
 ### Method 1: Global Installation
 
 ```bash
-dart pub global activate --source=path /path/to/w_cli
+dart pub global activate w_cli
 ```
 
-### Method 2: Build from Source
+### Method 2: Local Development
 
 1. Clone the repository:
    ```bash
@@ -26,18 +26,9 @@ dart pub global activate --source=path /path/to/w_cli
    cd w_cli
    ```
 
-2. Build the executable:
+2. Activate from path:
    ```bash
-   dart compile exe bin/w_cli.dart -o ww
-   ```
-
-3. Add to system path:
-   ```bash
-   # macOS/Linux
-   sudo mv ww /usr/local/bin/
-   
-   # Windows (run as administrator)
-   move ww C:\Windows\System32\
+   dart pub global activate --source=path .
    ```
 
 ## Usage
@@ -52,7 +43,7 @@ ww --help
 ww --version
 
 # Create a new Flutter project
-ww create project my_app
+ww create project:my_app
 
 # Initialize project structure
 ww init
@@ -128,7 +119,6 @@ w_cli/
 ├── bin/
 │   └── w_cli.dart            # Main entry point
 ├── lib/
-│   ├── w.dart                # Command handlers
 │   ├── w_cli.dart            # Command handlers
 │   └── sh/
 │       ├── api_gen.sh        # API code generation script

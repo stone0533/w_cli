@@ -4,43 +4,29 @@ set -e  # 遇到错误立即退出
 # 项目初始化脚本
 # 功能：自动完成Flutter项目的初始化、依赖安装和核心文件创建
 # Author: Stone
-# 版本：2.4.0
-# 日期：2026-03-08
+# 版本：1.0.0
+# 日期：2026-03-20
 #
 # 使用方法：
 #   bash setup_project.sh [选项]
 #
 # 选项：
 #   --help            显示帮助信息
-#   --flutter-w-path  指定 flutter_w 路径
 #   --api-base-url    指定 API 基础 URL
-#   --yes             自动确认所有操作
-#   --dry-run         模拟执行，不实际操作
 #   --project-name    指定项目名称
-#   --config          指定配置文件路径
 #
 # 示例：
 #   # 基本使用
 #   bash setup_project.sh
 #
-#   # 自动确认所有操作
-#   bash setup_project.sh --yes
-#
 #   # 自定义项目名称
 #   bash setup_project.sh --project-name my_app
-#
-#   # 模拟执行
-#   bash setup_project.sh --dry-run
-#
-#   # 使用配置文件
-#   bash setup_project.sh --config my_config.sh
 
 # 常量定义
 readonly DEFAULT_PROJECT_NAME="my_flutter_app"
 readonly DEFAULT_API_BASE_URL="https://api.example.com"
-readonly DEFAULT_FLUTTER_W_PATH="/Users/lei0533/Work/SamprasCN/Flutter/00_base/stone_flutter_w"
-readonly DEFAULT_CONFIG_FILE=".setup_config"
-readonly PLUGIN_DIRECTORY=".plugins"
+readonly DEFAULT_W_TOOLS_PATH="/Users/lei0533/flutter/github_w_tools"
+readonly DEFAULT_W_TOOLS="w_tools"
 
 # 彩色输出
 GREEN='\033[0;32m'
@@ -52,11 +38,8 @@ NC='\033[0m' # No Color
 # 全局变量
 PROJECT_NAME=""
 API_BASE_URL="$DEFAULT_API_BASE_URL"
-FLUTTER_W_PATH="$DEFAULT_FLUTTER_W_PATH"
-AUTO_CONFIRM=false
-DRY_RUN=false
+W_TOOLS_PATH="$DEFAULT_W_TOOLS_PATH"
 OS=""
-CONFIG_FILE="$DEFAULT_CONFIG_FILE"
 TOTAL_STEPS=15
 CURRENT_STEP=0
 
@@ -69,8 +52,7 @@ handle_error() {
   echo -e "${YELLOW}建议:${NC} 请检查错误信息并尝试解决问题"
   
   # 记录错误到日志文件
-  local script_dir="$(dirname "$(realpath "$0")")"
-  local log_file="$script_dir/setup_error.log"
+  local log_file="$(pwd)/setup_error.log"
   echo "[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: $error_message" >> "$log_file"
   log_message "错误已记录到: $log_file"
   
@@ -91,11 +73,6 @@ cleanup() {
   # 清理临时文件
   if [ -n "$PROJECT_NAME" ]; then
     rm -f "$PROJECT_NAME/pubspec.yaml.tmp" 2>/dev/null
-  fi
-  
-  # 清理插件目录
-  if [ -d "$PLUGIN_DIRECTORY" ]; then
-    rm -rf "$PLUGIN_DIRECTORY"
   fi
 }
 
@@ -121,15 +98,11 @@ show_progress() {
   fi
 }
 
-# 执行命令（支持模拟执行）
+# 执行命令
 run_command() {
-  if [ "$DRY_RUN" = true ]; then
-    log_message "${YELLOW}模拟执行:${NC} $1"
-  else
-    log_message "执行命令: $1"
-    if ! eval "$1"; then
-      handle_error "命令执行失败: $1"
-    fi
+  log_message "执行命令: $1"
+  if ! eval "$1"; then
+    handle_error "命令执行失败: $1"
   fi
 }
 
@@ -139,11 +112,6 @@ run_command_with_timeout() {
   local timeout="${2:-300}"  # 默认5分钟超时
   
   log_message "执行命令（超时: ${timeout}s）: $command"
-  
-  if [ "$DRY_RUN" = true ]; then
-    log_message "${YELLOW}模拟执行:${NC} $command"
-    return 0
-  fi
   
   # 使用 timeout 命令执行
   if command -v timeout &> /dev/null; then
@@ -212,44 +180,7 @@ run_cross_platform_command() {
 
 # 加载配置文件
 load_config() {
-  local config_file="${1:-"$DEFAULT_CONFIG_FILE"}"
-  
-  if [ -f "$config_file" ]; then
-    log_message "加载配置文件: $config_file"
-    source "$config_file"
-    
-    # 验证配置值
-    if [ -n "$PROJECT_NAME" ] && ! validate_config "$PROJECT_NAME" "PROJECT_NAME"; then
-      handle_error "配置文件中的项目名称无效"
-    fi
-    
-    if [ -n "$API_BASE_URL" ] && ! validate_config "$API_BASE_URL" "API_BASE_URL"; then
-      handle_error "配置文件中的 API 基础 URL 无效"
-    fi
-    
-    if [ -n "$FLUTTER_W_PATH" ] && ! validate_config "$FLUTTER_W_PATH" "FLUTTER_W_PATH"; then
-      handle_error "配置文件中的 flutter_w 路径无效"
-    fi
-  else
-    log_message "${YELLOW}配置文件不存在，使用默认配置${NC}"
-  fi
-}
-
-# 加载插件
-load_plugins() {
-  local plugin_dir="${1:-"$PLUGIN_DIRECTORY"}"
-  
-  if [ -d "$plugin_dir" ]; then
-    log_message "加载插件目录: $plugin_dir"
-    for plugin in "$plugin_dir"/*.sh; do
-      if [ -f "$plugin" ]; then
-        log_message "加载插件: $(basename "$plugin")"
-        source "$plugin"
-      fi
-    done
-  else
-    log_message "${YELLOW}插件目录不存在，跳过${NC}"
-  fi
+  log_message "跳过配置文件加载"
 }
 
 # 帮助信息
@@ -257,12 +188,8 @@ show_help() {
   echo "用法: $0 [选项]"
   echo "选项:"
   echo "  --help            显示帮助信息"
-  echo "  --flutter-w-path  指定 flutter_w 路径"
   echo "  --api-base-url    指定 API 基础 URL"
-  echo "  --yes             自动确认所有操作"
-  echo "  --dry-run         模拟执行，不实际操作"
   echo "  --project-name    指定项目名称"
-  echo "  --config          指定配置文件路径"
 }
 
 # 解析命令行参数
@@ -273,26 +200,12 @@ parse_args() {
         show_help
         exit 0
         ;;
-      --flutter-w-path)
-        FLUTTER_W_PATH="$2"
-        shift
-        ;;
       --api-base-url)
         API_BASE_URL="$2"
         shift
         ;;
-      --yes)
-        AUTO_CONFIRM=true
-        ;;
-      --dry-run)
-        DRY_RUN=true
-        ;;
       --project-name)
         PROJECT_NAME="$2"
-        shift
-        ;;
-      --config)
-        CONFIG_FILE="$2"
         shift
         ;;
       *)
@@ -311,15 +224,6 @@ parse_args() {
   
   if [ -n "$API_BASE_URL" ] && ! validate_config "$API_BASE_URL" "API_BASE_URL"; then
     handle_error "命令行参数中的 API 基础 URL 无效"
-  fi
-  
-  if [ -n "$FLUTTER_W_PATH" ] && ! validate_config "$FLUTTER_W_PATH" "FLUTTER_W_PATH"; then
-    handle_error "命令行参数中的 flutter_w 路径无效"
-  fi
-  
-  # 验证配置文件路径
-  if [ -n "$CONFIG_FILE" ] && ! validate_input "$CONFIG_FILE" "filename"; then
-    handle_error "配置文件路径无效"
   fi
 }
 
@@ -398,7 +302,7 @@ validate_config() {
     "API_BASE_URL")
       validate_input "$value" "url"
       ;;
-    "FLUTTER_W_PATH")
+    "W_TOOLS_PATH")
       validate_input "$value" "path"
       ;;
     *)
@@ -436,19 +340,9 @@ check_flutter() {
 check_directory_suitable() {
   log_message "检查项目目录..."
   if [ -d "$PROJECT_NAME" ]; then
-    if [ "$AUTO_CONFIRM" = false ]; then
-      read -p "项目目录 $PROJECT_NAME 已存在，确定要覆盖吗？(y/n): " -n 1 -r
-      echo
-      if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-      fi
-      # 删除已存在的目录
-      run_command "rm -rf \"$PROJECT_NAME\""
-    else
-      # 自动确认模式下，直接删除已存在的目录
-      log_message "删除已存在的项目目录: $PROJECT_NAME"
-      run_command "rm -rf \"$PROJECT_NAME\""
-    fi
+    # 直接删除已存在的目录
+    log_message "删除已存在的项目目录: $PROJECT_NAME"
+    run_command "rm -rf \"$PROJECT_NAME\""
   fi
   log_message "${GREEN}项目目录检查通过${NC}"
 }
@@ -483,13 +377,6 @@ check_permissions() {
 check_get_cli() {
   log_message "检查 get_cli 是否已安装..."
   if ! flutter pub global list | grep -q "get_cli"; then
-    if [ "$AUTO_CONFIRM" = false ]; then
-      read -p "get_cli 未安装，是否安装？(y/n): " -n 1 -r
-      echo
-      if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        handle_error "get_cli 未安装，无法继续"
-      fi
-    fi
     log_message "正在安装 get_cli..."
     run_command_with_timeout "flutter pub global activate get_cli"
   else
@@ -500,13 +387,8 @@ check_get_cli() {
 # 询问项目名
 ask_project_name() {
   if [ -z "$PROJECT_NAME" ]; then
-    if [ "$AUTO_CONFIRM" = false ]; then
-      read -p "请输入项目名称: " PROJECT_NAME
-      if [ -z "$PROJECT_NAME" ]; then
-        PROJECT_NAME="$DEFAULT_PROJECT_NAME"
-        log_message "使用默认项目名称: $PROJECT_NAME"
-      fi
-    else
+    read -p "请输入项目名称: " PROJECT_NAME
+    if [ -z "$PROJECT_NAME" ]; then
       PROJECT_NAME="$DEFAULT_PROJECT_NAME"
       log_message "使用默认项目名称: $PROJECT_NAME"
     fi
@@ -514,16 +396,7 @@ ask_project_name() {
   validate_project_name
 }
 
-# 确认操作
-confirm_operation() {
-  if [ "$AUTO_CONFIRM" = false ]; then
-    read -p "$1 (y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-      exit 1
-    fi
-  fi
-}
+
 
 # 使用 get_cli 创建项目
 create_project() {
@@ -549,7 +422,12 @@ install_dependencies() {
   # 先执行 flutter pub get
   run_command_with_timeout "(cd \"$PROJECT_NAME\" && flutter pub get)"
   # 安装核心依赖
-  run_command_with_timeout "(cd \"$PROJECT_NAME\" && get install dio flutter_screenutil flutter_form_builder form_builder_validators retrofit)"
+  local install_cmd="(cd \"$PROJECT_NAME\" && get install dio flutter_screenutil flutter_form_builder form_builder_validators retrofit"
+  if [ -n "$DEFAULT_W_TOOLS" ]; then
+    install_cmd="$install_cmd $DEFAULT_W_TOOLS"
+  fi
+  install_cmd="$install_cmd)"
+  run_command_with_timeout "$install_cmd"
   # 安装开发依赖（尝试两种方式，确保兼容性）
   if ! run_command_with_timeout "(cd \"$PROJECT_NAME\" && get install build_runner json_serializable retrofit_generator analyzer --dev)"; then
     log_message "${YELLOW}使用 --dev 选项失败，尝试不带 --dev 选项${NC}"
@@ -579,24 +457,27 @@ create_directory_structure() {
 }
 
 # 修改 pubspec.yaml 添加依赖
-add_flutter_w_dependency() {
+add_w_tools_dependency() {
   log_message "配置项目依赖..."
   # 确保 pubspec.yaml 存在
   if [ ! -f "$PROJECT_NAME/pubspec.yaml" ]; then
     handle_error "pubspec.yaml 文件不存在，请先创建项目"
   fi
+  
+  local pubspec_file="$PROJECT_NAME/pubspec.yaml"
+  
   # 检查 pubspec.yaml 是否已包含必要依赖
-  if ! grep -q "flutter_w" "$PROJECT_NAME/pubspec.yaml"; then
+  if ! grep -q "w_tools" "$pubspec_file"; then
     # 找到 dependencies 部分的位置
-    dependencies_line=$(grep -n "^dependencies:" "$PROJECT_NAME/pubspec.yaml" | cut -d: -f1)
+    dependencies_line=$(grep -n "^dependencies:" "$pubspec_file" | cut -d: -f1)
     if [ -n "$dependencies_line" ]; then
       # 找到 dependencies 部分的结束位置（下一个顶级键或文件结束）
-      # 使用 awk 来找到 dependencies 部分的结束并在其前插入 flutter_w 依赖
-      awk -v path="$FLUTTER_W_PATH" '{
+      # 使用 awk 来找到 dependencies 部分的结束并在其前插入 w_tools 依赖
+      awk -v path="$W_TOOLS_PATH" '{
         # 检查是否是新的顶级键（以字母开头，后面跟冒号）
         if (NR > 1 && /^[a-zA-Z_]+:/ && in_dependencies) {
-          # 遇到新的顶级键，在其前插入 flutter_w 依赖
-          print "  flutter_w:"
+          # 遇到新的顶级键，在其前插入 w_tools 依赖
+          print "  w_tools:"
           print "    path: " path
           print ""
           in_dependencies = 0
@@ -610,36 +491,23 @@ add_flutter_w_dependency() {
         # 如果文件结束时仍在 dependencies 部分，在文件末尾插入
         if (in_dependencies) {
           print ""
-          print "  flutter_w:"
+          print "  w_tools:"
           print "    path: " path
         }
-      }' "$PROJECT_NAME/pubspec.yaml" > "$PROJECT_NAME/pubspec.yaml.tmp"
-      run_command "mv \"$PROJECT_NAME/pubspec.yaml.tmp\" \"$PROJECT_NAME/pubspec.yaml\""
+      }' "$pubspec_file" > "$pubspec_file.tmp"
+      run_command "mv \"$pubspec_file.tmp\" \"$pubspec_file\""
     else
       # 如果没有找到 dependencies 部分，在文件末尾添加
-      run_command "echo \"\" >> \"$PROJECT_NAME/pubspec.yaml\""
-      run_command "echo \"dependencies:\" >> \"$PROJECT_NAME/pubspec.yaml\""
-      run_command "echo \"  flutter_w:\" >> \"$PROJECT_NAME/pubspec.yaml\""
-      run_command "echo \"    path: $FLUTTER_W_PATH\" >> \"$PROJECT_NAME/pubspec.yaml\""
+      run_command "echo \"\" >> \"$pubspec_file\""
+      run_command "echo \"dependencies:\" >> \"$pubspec_file\""
+      run_command "echo \"  w_tools:\" >> \"$pubspec_file\""
+      run_command "echo \"    path: $W_TOOLS_PATH\" >> \"$pubspec_file\""
     fi
   fi
   
-  # 确保 pubspec.yaml 存在
-  if [ ! -f "$PROJECT_NAME/pubspec.yaml" ]; then
-    log_message "${YELLOW}pubspec.yaml 文件不存在，跳过 assets 配置${NC}"
-    return
-  fi
-  
-  # 添加 assets 配置（无论 flutter_w 是否存在，都执行）
+  # 添加 assets 配置（无论 w_tools 是否存在，都执行）
   log_message "检查是否已存在 assets 配置"
-  local pubspec_file="$PROJECT_NAME/pubspec.yaml"
   log_message "检查文件: $pubspec_file"
-  
-  # 检查文件是否存在
-  if [ ! -f "$pubspec_file" ]; then
-    log_message "${YELLOW}pubspec.yaml 文件不存在，跳过 assets 配置${NC}"
-    return
-  fi
   
   # 更简单直接的方法：在 flutter 部分添加或替换 assets 配置
   # 创建临时文件，用于重写 pubspec.yaml
@@ -807,7 +675,7 @@ EOF
   # 实现远程数据源，处理网络请求
   log_message "创建远程数据源文件..."
   cat > "$project_dir/lib/app/data/sources/remote/data_source.dart" << 'EOF'
-import 'package:flutter_w/w.dart';
+import 'package:w_tools/w.dart';
 import '../client.dart';
 import '../paths.dart';
 import 'data_source_mixin.dart';
@@ -828,7 +696,7 @@ EOF
   # 实现仓库模式，提供数据访问接口
   log_message "创建仓库文件..."
   cat > "$project_dir/lib/app/data/sources/repository.dart" << 'EOF'
-import 'package:flutter_w/w.dart';
+import 'package:w_tools/w.dart';
 
 import 'remote/data_source.dart';
 import 'remote/data_source_mixin.dart';
@@ -852,7 +720,7 @@ EOF
   log_message "创建应用入口文件..."
   cat > "$project_dir/lib/main.dart" << 'EOF'
 import 'package:flutter/material.dart';
-import 'package:flutter_w/w.dart';
+import 'package:w_tools/w.dart';
 
 import 'app/routes/app_pages.dart';
 
@@ -1098,12 +966,6 @@ main() {
   # 检测操作系统
   detect_os
   
-  # 加载配置文件
-  load_config "$CONFIG_FILE"
-  
-  # 加载插件
-  load_plugins
-  
   # 执行初始化步骤
   CURRENT_STEP=1
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
@@ -1139,7 +1001,7 @@ main() {
   
   CURRENT_STEP=9
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  add_flutter_w_dependency
+  add_w_tools_dependency
   
   CURRENT_STEP=10
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
@@ -1171,7 +1033,7 @@ main() {
   echo "1. 使用 get_cli 创建了 Flutter 项目"
   echo "2. 安装了必要的依赖包"
   echo "3. 创建了完整的目录结构"
-  echo "4. 添加了 flutter_w 本地依赖"
+  echo "4. 添加了 w_tools 本地依赖"
   echo "5. 创建了核心数据层文件"
   echo "6. 生成了 Retrofit 代码"
   echo "7. 格式化了代码"

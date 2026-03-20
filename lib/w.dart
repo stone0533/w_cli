@@ -4,7 +4,7 @@ import 'package:path/path.dart' as path;
 void handleCreateCommand(List<String> arguments) {
   if (arguments.isEmpty) {
     print('Error: No subcommand specified for create');
-    print('Usage: w_cli create [project]');
+    print('Usage: ww create [project]');
     return;
   }
 
@@ -93,7 +93,7 @@ void handleInitCommand() {
 void handleGenerateCommand(List<String> arguments) {
   if (arguments.isEmpty) {
     print('Error: No subcommand specified for generate');
-    print('Usage: w_cli generate [locales|model]');
+    print('Usage: ww generate [locales|model]');
     return;
   }
 
@@ -149,43 +149,25 @@ void handleRemoveCommand(List<String> arguments) {
 }
 
 void handleUpdateCommand() {
-  print('Updating w_cli');
+  print('Updating ww...');
   try {
-    // 检查当前激活的版本
-    print('Checking current version...');
-    final listResult = Process.runSync('dart', ['pub', 'global', 'list']);
-    print(listResult.stdout);
-    if (listResult.stderr.isNotEmpty) {
-      print('Error checking current version: ${listResult.stderr}');
-    }
-    
     // 升级到最新版本
-    print('\nUpdating to latest version...');
-    final updateResult = Process.runSync('dart', ['pub', 'global', 'activate', 'flutter_w_cli']);
-    print(updateResult.stdout);
-    if (updateResult.stderr.isNotEmpty) {
-      print('Error updating: ${updateResult.stderr}');
-    }
+    final updateResult = Process.runSync('dart', ['pub', 'global', 'activate', 'w_cli']);
     
-    print('\nUpdate completed successfully!');
+    // 检查更新是否成功
+    if (updateResult.exitCode == 0) {
+      print('Update completed successfully!');
+      print('Note: You may need to restart your terminal for the changes to take effect.');
+    } else {
+      print('Update failed!');
+      if (updateResult.stderr.isNotEmpty) {
+        print('Error: ${updateResult.stderr}');
+      }
+      print('Please try again or check your internet connection.');
+    }
   } catch (e) {
     print('Error during update: $e');
-  }
-}
-
-void handleApiCommand(List<String> arguments) {
-  print('Running API code generation');
-  // Get the absolute path to the api_gen.sh script
-  final scriptPath = Platform.script.path;
-  final scriptFile = File(scriptPath);
-  final binDir = scriptFile.parent;
-  final projectDir = binDir.parent;
-  final apiScriptPath = path.join(projectDir.path, 'sh', 'api_gen.sh');
-  // Execute the api_gen.sh script
-  final result = Process.runSync('bash', [apiScriptPath, ...arguments]);
-  print(result.stdout);
-  if (result.stderr.isNotEmpty) {
-    print('Error: ${result.stderr}');
+    print('Please try again or check your internet connection.');
   }
 }
 

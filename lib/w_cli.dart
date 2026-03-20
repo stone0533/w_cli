@@ -1,36 +1,45 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
 
+/// 获取当前版本号
+/// 注意：每次提交前需要手动修改此版本号
+String getVersionFromPubspec() {
+  return '1.0.10';
+}
+
 /// 获取脚本文件的路径
+/// 支持 macOS 和 Windows 系统
 String getScriptPath(String scriptName) {
-  // 获取当前脚本的路径
-  final scriptPath = Platform.script.path;
-  final scriptFile = File(scriptPath);
-  
   // 尝试不同的路径组合
   List<String> possiblePaths = [];
   
-  // 路径1: 本地开发环境 - lib/sh 目录
-  final binDir = scriptFile.parent;
-  final projectDir = binDir.parent;
-  possiblePaths.add(path.join(projectDir.path, 'lib', 'sh', scriptName));
-  
-  // 路径2: 全局安装环境 - 向上导航到正确的目录
-  // 当通过 pub global activate 安装时，路径可能是类似 ~/.pub-cache/global_packages/w_cli/bin/w_cli.dart
-  // 所以我们需要向上导航到 w_cli 目录，然后进入 lib/sh
-  var currentDir = scriptFile.parent;
-  for (int i = 0; i < 5; i++) { // 最多向上导航5级
-    possiblePaths.add(path.join(currentDir.path, 'lib', 'sh', scriptName));
-    possiblePaths.add(path.join(currentDir.path, 'sh', scriptName));
-    currentDir = currentDir.parent;
-    if (currentDir.path == '/' || currentDir.path.endsWith(':')) break; // 到达根目录时停止
+  // 获取用户主目录（适配 macOS 和 Windows）
+  String? homeDir;
+  if (Platform.isMacOS || Platform.isLinux) {
+    homeDir = Platform.environment['HOME'];
+  } else if (Platform.isWindows) {
+    homeDir = Platform.environment['USERPROFILE'];
   }
   
-  // 路径3: 直接从 .pub-cache 目录获取
-  // 当全局安装时，脚本文件应该在 ~/.pub-cache/global_packages/w_cli/lib/sh/ 目录下
-  final homeDir = Platform.environment['HOME'];
   if (homeDir != null) {
-    possiblePaths.add(path.join(homeDir, '.pub-cache', 'global_packages', 'w_cli', 'lib', 'sh', scriptName));
+    // 从 pubspec.yaml 读取当前版本号
+    final currentVersion = getVersionFromPubspec();
+    if (currentVersion.isNotEmpty) {
+      // 遍历所有 hosted 源目录
+      final hostedDir = Directory(path.join(homeDir, '.pub-cache', 'hosted'));
+      if (hostedDir.existsSync()) {
+        final hostedSources = hostedDir.listSync(followLinks: false);
+        for (var source in hostedSources) {
+          if (source is Directory) {
+            // 查找当前版本的 w_cli 目录
+            final currentVersionDir = Directory(path.join(source.path, 'w_cli-$currentVersion'));
+            if (currentVersionDir.existsSync()) {
+              possiblePaths.add(path.join(currentVersionDir.path, 'lib', 'sh', scriptName));
+            }
+          }
+        }
+      }
+    }
   }
   
   // 尝试所有可能的路径
@@ -41,36 +50,47 @@ String getScriptPath(String scriptName) {
     }
   }
   
-  // 如果仍然不存在，抛出错误并显示所有尝试的路径
-  final errorMessage = 'Script file not found. Tried the following paths:\n' +
-      possiblePaths.map((p) => '  - $p').join('\n');
-  throw FileSystemException(errorMessage, possiblePaths.first);
+  // 如果仍然不存在，抛出错误
+  throw FileSystemException('Script file not found.', possiblePaths.isNotEmpty ? possiblePaths.first : '');
 }
 
 void handleCreateCommand(List<String> arguments) {
   if (arguments.isEmpty) {
     print('Error: No subcommand specified for create');
-    print('Usage: w_cli create [project]');
+    print('Usage: ww create project:name');
     return;
   }
 
   final subcommand = arguments[0];
-  switch (subcommand) {
-    case 'project':
-      handleCreateProject(arguments.sublist(1));
-      break;
-    default:
-      print('Error: Unknown create subcommand: $subcommand');
+  if (subcommand.startsWith('project:')) {
+    final projectName = subcommand.substring('project:'.length);
+    handleCreateProject(projectName);
+  } else {
+    print('Error: Unknown create subcommand: $subcommand');
+    print('Usage: ww create project:name');
   }
 }
 
-void handleCreateProject(List<String> arguments) {
-  print('Creating Flutter project');
+void handleCreateProject(String projectName) {
+  // 验证项目名称格式
+  if (projectName.isEmpty) {
+    print('Error: Project name is required');
+    print('Usage: ww create project:name');
+    return;
+  }
+  
+  // 验证项目名称是否以小写字母开头
+  if (!RegExp(r'^[a-z]').hasMatch(projectName)) {
+    print('Error: Project name must start with a lowercase letter');
+    return;
+  }
+  
+  print('Creating Flutter project: $projectName');
   // Get the absolute path to the setup_project.sh script
   final setupScriptPath = getScriptPath('setup_project.sh');
   print('Setup script path: $setupScriptPath');
-  // Execute the setup_project.sh script with project name argument if provided
-  final result = Process.runSync('bash', [setupScriptPath, ...arguments]);
+  // Execute the setup_project.sh script with project name argument
+  final result = Process.runSync('bash', [setupScriptPath, '--project-name:$projectName']);
   print(result.stdout);
   if (result.stderr.isNotEmpty) {
     print('Error: ${result.stderr}');
@@ -135,7 +155,7 @@ void handleInitCommand() {
 void handleGenerateCommand(List<String> arguments) {
   if (arguments.isEmpty) {
     print('Error: No subcommand specified for generate');
-    print('Usage: w_cli generate [locales|model]');
+    print('Usage: ww generate [locales|model]');
     return;
   }
 
@@ -191,26 +211,17 @@ void handleRemoveCommand(List<String> arguments) {
 }
 
 void handleUpdateCommand() {
-  print('Updating w_cli');
+  print('Updating w_cli...');
   try {
-    // 检查当前激活的版本
-    print('Checking current version...');
-    final listResult = Process.runSync('dart', ['pub', 'global', 'list']);
-    print(listResult.stdout);
-    if (listResult.stderr.isNotEmpty) {
-      print('Error checking current version: ${listResult.stderr}');
-    }
-    
     // 升级到最新版本
-    print('\nUpdating to latest version...');
     final updateResult = Process.runSync('dart', ['pub', 'global', 'activate', 'w_cli']);
-    print(updateResult.stdout);
     
     // 检查更新是否成功
     if (updateResult.exitCode == 0) {
-      print('\nUpdate completed successfully!');
+      print('Update completed successfully!');
+      print('Note: You may need to restart your terminal for the changes to take effect.');
     } else {
-      print('\nUpdate failed!');
+      print('Update failed!');
       if (updateResult.stderr.isNotEmpty) {
         print('Error: ${updateResult.stderr}');
       }
@@ -221,7 +232,6 @@ void handleUpdateCommand() {
     print('Please try again or check your internet connection.');
   }
 }
-
 
 void handleGenerateApi(List<String> arguments) {
   print('Running API code generation');
@@ -248,15 +258,4 @@ void handleBuildCommand(List<String> arguments) {
   }
 }
 
-void handleSetupCommand(List<String> arguments) {
-  print('Running project setup');
-  // Get the absolute path to the setup_project.sh script
-  final setupScriptPath = getScriptPath('setup_project.sh');
-  print('Setup script path: $setupScriptPath');
-  // Execute the setup_project.sh script
-  final result = Process.runSync('bash', [setupScriptPath, ...arguments]);
-  print(result.stdout);
-  if (result.stderr.isNotEmpty) {
-    print('Error: ${result.stderr}');
-  }
-}
+

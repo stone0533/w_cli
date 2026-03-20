@@ -2,8 +2,8 @@
 
 # ======================================================
 # api.sh - API 代码生成脚本
-# Version: 2.0.0
-# Last Updated: 2026-03-18
+# Version: 1.0.0
+# Last Updated: 2026-03-20
 # Author: Stone
 # Description: 根据 client.dart 动态生成 data_source_mixin.dart 和 repository.dart
 # ======================================================

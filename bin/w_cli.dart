@@ -17,7 +17,12 @@ void main(List<String> arguments) {
     final results = parser.parse(arguments);
     
     if (results.wasParsed('version')) {
-      print('ww version 1.0.6');
+      final version = w.getVersionFromPubspec();
+      if (version.isNotEmpty) {
+        print('ww version $version');
+      } else {
+        print('ww version (unknown)');
+      }
       return;
     }
     
