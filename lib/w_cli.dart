@@ -1,10 +1,11 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:path/path.dart' as path;
 
 /// 获取当前版本号
 /// 注意：每次提交前需要手动修改此版本号
 String getVersionFromPubspec() {
-  return '1.0.12';
+  return '1.0.13';
 }
 
 /// 获取脚本文件的路径
@@ -104,10 +105,10 @@ void handleCreateProject(String projectName) {
     final process = Process.start('bash', [setupScriptPath, '--project-name', projectName]);
     process.then((p) {
       p.stdout.listen((List<int> data) {
-        print(String.fromCharCodes(data));
+        print(utf8.decode(data));
       });
       p.stderr.listen((List<int> data) {
-        print('Error: ${String.fromCharCodes(data)}');
+        print('Error: ${utf8.decode(data)}');
       });
       p.exitCode.then((code) {
         if (code != 0) {
@@ -266,10 +267,10 @@ void handleGenerateApi(List<String> arguments) {
     final process = Process.start('bash', [apiScriptPath, ...arguments]);
     process.then((p) {
       p.stdout.listen((List<int> data) {
-        print(String.fromCharCodes(data));
+        print(utf8.decode(data));
       });
       p.stderr.listen((List<int> data) {
-        print('Error: ${String.fromCharCodes(data)}');
+        print('Error: ${utf8.decode(data)}');
       });
       p.exitCode.then((code) {
         if (code != 0) {
@@ -291,10 +292,10 @@ void handleBuildCommand(List<String> arguments) {
     final process = Process.start('bash', [buildScriptPath, ...arguments]);
     process.then((p) {
       p.stdout.listen((List<int> data) {
-        print(String.fromCharCodes(data));
+        print(utf8.decode(data));
       });
       p.stderr.listen((List<int> data) {
-        print('Error: ${String.fromCharCodes(data)}');
+        print('Error: ${utf8.decode(data)}');
       });
       p.exitCode.then((code) {
         if (code != 0) {
@@ -324,10 +325,10 @@ void handleOpenCommand(List<String> arguments) {
       final process = Process.start('bash', [openScriptPath, subcommand]);
       process.then((p) {
         p.stdout.listen((List<int> data) {
-          print(String.fromCharCodes(data));
+          print(utf8.decode(data));
         });
         p.stderr.listen((List<int> data) {
-          print('Error: ${String.fromCharCodes(data)}');
+          print('Error: ${utf8.decode(data)}');
         });
         p.exitCode.then((code) {
           if (code != 0) {

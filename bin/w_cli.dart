@@ -14,6 +14,14 @@ void main(List<String> arguments) {
     ..addFlag('version', abbr: 'v', negatable: false)
     ..addFlag('help', abbr: 'h', negatable: false);
 
+  // Get the build command parser and add options to it
+  final buildCommand = parser.commands['build'];
+  if (buildCommand != null) {
+    buildCommand
+      ..addFlag('uat', negatable: false)
+      ..addFlag('clean', negatable: false);
+  }
+
   try {
     final results = parser.parse(arguments);
     
@@ -79,7 +87,15 @@ void main(List<String> arguments) {
         w.handleUpdateCommand();
         break;
       case 'build':
-        w.handleBuildCommand(command.arguments);
+        // 构建参数列表，包括平台和选项
+        final buildArgs = List<String>.from(command.arguments);
+        if (command['uat'] as bool) {
+          buildArgs.add('--uat');
+        }
+        if (command['clean'] as bool) {
+          buildArgs.add('--clean');
+        }
+        w.handleBuildCommand(buildArgs);
         break;
       case 'open':
         w.handleOpenCommand(command.arguments);
