@@ -1,3 +1,10 @@
+## 1.0.19
+
+- Updated version number to 1.0.19
+- Enhanced setup_project.sh to use flutter pub add instead of get install
+- Improved error handling and script reliability
+- Ensured no get_cli dependency is used
+
 ## 1.0.18
 
 - Updated version number to 1.0.18
