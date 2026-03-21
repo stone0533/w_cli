@@ -137,24 +137,29 @@ bool validateProjectName(String projectName) {
 
 /// 处理 create 命令
 Future<void> handleCreateCommand(List<String> arguments) async {
+  String subcommand;
+  List<String> subArgs;
+  
   if (arguments.isEmpty) {
-    print('❌ Error: No subcommand specified for create');
-    print('   Usage: ww create project name');
-    return;
+    // 默认行为：create project
+    subcommand = 'project';
+    subArgs = [];
+  } else {
+    subcommand = arguments[0];
+    subArgs = arguments.sublist(1);
   }
 
-  final subcommand = arguments[0];
-  if (subcommand == 'project') {
-    if (arguments.length < 2) {
+  if (subcommand == 'project' || subcommand == 'p') {
+    if (subArgs.length < 1) {
       print('❌ Error: Project name is required');
-      print('   Usage: ww create project name');
+      print('   Usage: ww create|c project|p name');
       return;
     }
-    final projectName = arguments[1];
+    final projectName = subArgs[0];
     await handleCreateProject(projectName);
   } else {
     print('❌ Error: Unknown create subcommand: $subcommand');
-    print('   Usage: ww create project name');
+    print('   Usage: ww create|c project|p name');
   }
 }
 
@@ -242,18 +247,23 @@ Future<void> handleInitCommand() async {
 
 /// 处理 generate 命令
 Future<void> handleGenerateCommand(List<String> arguments) async {
+  String subcommand;
+  List<String> subArgs;
+  
   if (arguments.isEmpty) {
-    print('❌ Error: No subcommand specified for generate');
-    print('   Usage: ww generate api [options]');
-    return;
+    // 默认行为：generate api
+    subcommand = 'api';
+    subArgs = [];
+  } else {
+    subcommand = arguments[0];
+    subArgs = arguments.sublist(1);
   }
 
-  final subcommand = arguments[0];
-  if (subcommand == 'api') {
-    await handleGenerateApi(arguments.sublist(1));
+  if (subcommand == 'api' || subcommand == 'a') {
+    await handleGenerateApi(subArgs);
   } else {
     print('❌ Error: Unknown generate subcommand: $subcommand');
-    print('   Usage: ww generate api [options]');
+    print('   Usage: ww generate|g api|a [options]');
   }
 }
 
@@ -358,22 +368,43 @@ Future<void> handleBuildCommand(List<String> arguments) async {
 Future<void> handleOpenCommand(List<String> arguments) async {
   if (arguments.isEmpty) {
     print('❌ Error: No subcommand specified for open');
-    print('   Usage: ww open [ios|android|build|root]');
+    print('   Usage: ww open [ios|i|android|a|build|b|root|r]');
     return;
   }
 
   final subcommand = arguments[0];
-  if (subcommand == 'ios' || subcommand == 'android' || subcommand == 'build' || subcommand == 'root') {
-    print('\n🚀 Opening $subcommand');
-    try {
-      // 执行脚本并实时显示输出
-      await executeScript('open.sh', [subcommand], 'Opened $subcommand successfully!', 'Failed to open $subcommand');
-    } catch (e) {
-      handleError(e, 'open $subcommand');
-    }
-  } else {
-    print('❌ Error: Unknown open subcommand: $subcommand');
-    print('   Usage: ww open [ios|android|build|root]');
+  String target;
+  
+  // 处理别名
+  switch (subcommand) {
+    case 'ios':
+    case 'i':
+      target = 'ios';
+      break;
+    case 'android':
+    case 'a':
+      target = 'android';
+      break;
+    case 'build':
+    case 'b':
+      target = 'build';
+      break;
+    case 'root':
+    case 'r':
+      target = 'root';
+      break;
+    default:
+      print('❌ Error: Unknown open subcommand: $subcommand');
+      print('   Usage: ww open [ios|i|android|a|build|b|root|r]');
+      return;
+  }
+
+  print('\n🚀 Opening $target');
+  try {
+    // 执行脚本并实时显示输出
+    await executeScript('open.sh', [target], 'Opened $target successfully!', 'Failed to open $target');
+  } catch (e) {
+    handleError(e, 'open $target');
   }
 }
 

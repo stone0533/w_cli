@@ -1,3 +1,24 @@
+## 1.0.17
+
+- Updated version number to 1.0.17
+- Added command aliases for easier usage:
+  - `create` → `c`
+  - `generate` → `g`
+  - `update` → `u`
+  - `build` → `b`
+  - `open` → `o`
+  - `project` → `p`
+  - `api` → `a`
+  - `ios` → `i`
+  - `android` → `a`
+  - `build` → `b`
+  - `root` → `r`
+- Added default behaviors:
+  - `ww create` → `ww create project`
+  - `ww generate` → `ww generate api`
+  - `ww g` → `ww g api`
+- Updated help messages to include aliases and default behaviors
+
 ## 1.0.16
 
 - Updated version number to 1.0.16
