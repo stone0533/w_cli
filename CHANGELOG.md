@@ -1,3 +1,11 @@
+## 1.0.14
+
+- Updated version number to 1.0.14
+- Removed deprecated w.dart file
+- Added additional tests for script path resolution
+- Improved error messages with detailed suggestions
+- Enhanced resource file extraction logic
+
 ## 1.0.13
 
 - Updated version number to 1.0.13

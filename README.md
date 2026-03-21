@@ -7,9 +7,6 @@ A comprehensive command-line tool for Flutter projects, providing API code gener
 - **API Code Generation**: Automatically generate API-related code from `client.dart`
 - **Flutter App Building**: Build Flutter apps for Android (APK/AAB) and iOS (IPA)
 - **Project Creation**: Create Flutter projects with custom structure
-- **Dependency Management**: Install and remove dependencies
-- **Code Generation**: Generate locales and models
-- **Project Cleaning**: Clean Flutter project build files
 - **Project Opening**: Open Flutter project in IDEs and file managers
 
 ## Installation
@@ -47,9 +44,6 @@ ww --version
 # Create a new Flutter project
 ww create project my_app
 
-# Initialize project structure
-ww init
-
 # Generate API code
 ww generate api
 
@@ -60,9 +54,6 @@ ww build ios
 
 # Update w_cli to latest version
 ww update
-
-# Clean Flutter app
-ww clean
 
 # Open Flutter project
 ww open ios
@@ -106,43 +97,7 @@ ww build apk aab
 ww build apk aab ios --uat --clean
 ```
 
-### Dependency Management
 
-```bash
-# Install dependencies
-ww install http path
-
-# Remove dependencies
-ww remove http
-```
-
-### Code Generation
-
-```bash
-# Generate locales
-ww generate locales assets/locales
-
-# Generate model
-ww generate model on home with assets/models/user.json
-```
-
-### Project Cleaning
-
-```bash
-# Clean Flutter project
-ww clean
-
-# Clean specific platform
-ww clean android
-ww clean ios
-ww clean all
-
-# Clean with lock files
-ww clean --lock
-
-# Clean iOS Pods
-ww clean ios --pod
-```
 
 ### Project Opening
 
@@ -191,11 +146,6 @@ w_cli/
 - **Version**: 1.0.1
 - **Description**: Builds Flutter apps for Android (APK/AAB) and iOS (IPA)
 - **Features**: Supports production and UAT modes, parallel builds, and build notifications
-
-### clean.sh
-- **Version**: 1.0.0
-- **Description**: Cleans Flutter project build files and updates dependencies
-- **Features**: Supports platform-specific cleaning and lock file removal
 
 ### open.sh
 - **Version**: 1.0.0

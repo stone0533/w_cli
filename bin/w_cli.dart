@@ -1,13 +1,12 @@
 import 'package:args/args.dart';
 import 'package:w_cli/w_cli.dart' as w;
+import 'package:w_cli/src/resources.dart' as resources;
 
-void main(List<String> arguments) {
+Future<void> main(List<String> arguments) async {
+  // 原始执行逻辑
   final parser = ArgParser()
    ..addCommand('create')
-    ..addCommand('init') 
     ..addCommand('generate')
-    ..addCommand('install')
-    ..addCommand('remove')
     ..addCommand('update')
     ..addCommand('build')
     ..addCommand('open')
@@ -40,12 +39,8 @@ void main(List<String> arguments) {
       print('');
       print('Usage:');
       print('  ww create project name');
-      print('  ww init');
-      print('  ww generate [command]');
-      print('  ww install [package]');
-      print('  ww remove [package]');
-      print('  ww update');
       print('  ww generate api [options]');
+      print('  ww update');
       print('  ww build [apk|aab|ios] [--uat] [--clean]');
       print('  Options:');
       print('    --uat          # Build in UAT mode with timestamp');
@@ -55,7 +50,7 @@ void main(List<String> arguments) {
       print('    ww build apk aab            # Build APK and AAB in production mode');
       print('    ww build apk --uat          # Build APK in UAT mode');
       print('    ww build apk aab ios --uat --clean # Build all platforms in UAT mode and clear build directory');
-      print('  ww open [ios|android|build]');
+      print('  ww open [ios|android|build|root]');
       print('  ww -v, --version');
       print('  ww -h, --help');
       return;
@@ -69,22 +64,13 @@ void main(List<String> arguments) {
     
     switch (command.name) {
       case 'create':
-        w.handleCreateCommand(command.arguments);
-        break;
-      case 'init':
-        w.handleInitCommand();
+        await w.handleCreateCommand(command.arguments);
         break;
       case 'generate':
-        w.handleGenerateCommand(command.arguments);
-        break;
-      case 'install':
-        w.handleInstallCommand(command.arguments);
-        break;
-      case 'remove':
-        w.handleRemoveCommand(command.arguments);
+        await w.handleGenerateCommand(command.arguments);
         break;
       case 'update':
-        w.handleUpdateCommand();
+        await w.handleUpdateCommand();
         break;
       case 'build':
         // 构建参数列表，包括平台和选项
@@ -95,15 +81,18 @@ void main(List<String> arguments) {
         if (command['clean'] as bool) {
           buildArgs.add('--clean');
         }
-        w.handleBuildCommand(buildArgs);
+        await w.handleBuildCommand(buildArgs);
         break;
       case 'open':
-        w.handleOpenCommand(command.arguments);
+        await w.handleOpenCommand(command.arguments);
         break;
       default:
         print('Error: Unknown command: ${command.name}');
     }
   } catch (e) {
     print('Error: $e');
+  } finally {
+    // 清理临时文件
+    resources.Resources.cleanupTempFiles();
   }
 }

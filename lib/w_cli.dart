@@ -1,348 +1,413 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:path/path.dart' as path;
+import 'src/version.dart';
+import 'src/resources.dart';
 
 /// 获取当前版本号
-/// 注意：每次提交前需要手动修改此版本号
+/// 从自动生成的版本文件中读取版本号
 String getVersionFromPubspec() {
-  return '1.0.13';
+  return version;
 }
 
 /// 获取脚本文件的路径
-/// 支持 macOS 和 Windows 系统
-String getScriptPath(String scriptName) {
-  // 尝试不同的路径组合
-  List<String> possiblePaths = [];
-  
-  // 获取用户主目录（适配 macOS 和 Windows）
-  String? homeDir;
-  if (Platform.isMacOS || Platform.isLinux) {
-    homeDir = Platform.environment['HOME'];
-  } else if (Platform.isWindows) {
-    homeDir = Platform.environment['USERPROFILE'];
+/// 从嵌入的资源文件中提取到临时目录
+Future<String> getScriptPath(String scriptName) async {
+  try {
+    // 从资源文件中提取到临时文件
+    final resourcePath = 'lib/sh/$scriptName';
+    final tempPath = await Resources.extractResourceToTempFile(resourcePath, scriptName);
+    return tempPath;
+  } catch (e) {
+    throw FileSystemException('Failed to extract script: $e');
   }
-  
-  if (homeDir != null) {
-    // 从 pubspec.yaml 读取当前版本号
-    final currentVersion = getVersionFromPubspec();
-    if (currentVersion.isNotEmpty) {
-      // 遍历所有 hosted 源目录
-      final hostedDir = Directory(path.join(homeDir, '.pub-cache', 'hosted'));
-      if (hostedDir.existsSync()) {
-        final hostedSources = hostedDir.listSync(followLinks: false);
-        for (var source in hostedSources) {
-          if (source is Directory) {
-            // 查找当前版本的 w_cli 目录
-            final currentVersionDir = Directory(path.join(source.path, 'w_cli-$currentVersion'));
-            if (currentVersionDir.existsSync()) {
-              possiblePaths.add(path.join(currentVersionDir.path, 'lib', 'sh', scriptName));
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  // 尝试所有可能的路径
-  for (String scriptPath in possiblePaths) {
-    final scriptFile = File(scriptPath);
-    if (scriptFile.existsSync()) {
-      // 直接添加执行权限，不进行检查
-      try {
-        Process.runSync('chmod', ['+x', scriptPath]);
-      } catch (e) {
-        print('Warning: Failed to add execution permission to script: $e');
-      }
-      return scriptPath;
-    }
-  }
-  
-  // 如果仍然不存在，抛出错误
-  throw FileSystemException('Script file not found.', possiblePaths.isNotEmpty ? possiblePaths.first : '');
 }
 
-void handleCreateCommand(List<String> arguments) {
+/// 执行脚本文件并实时显示输出
+/// [scriptName] - 脚本文件名称
+/// [arguments] - 传递给脚本的参数
+/// [successMessage] - 执行成功时显示的消息
+/// [failureMessage] - 执行失败时显示的消息
+Future<void> executeScript(String scriptName, List<String> arguments, String successMessage, String failureMessage) async {
+  try {
+    // 获取脚本路径（从资源文件提取）
+    final scriptPath = await getScriptPath(scriptName);
+    print('Executing script: $scriptPath with arguments: ${arguments.join(' ')}');
+    
+    Process process;
+    if (Platform.isWindows) {
+      // 在 Windows 上使用 PowerShell 执行脚本
+      process = await Process.start('powershell.exe', ['-File', scriptPath, ...arguments]);
+    } else {
+      // 在 macOS 和 Linux 上使用 bash 执行脚本
+      process = await Process.start('bash', [scriptPath, ...arguments]);
+    }
+    
+    // 实时显示标准输出
+    process.stdout.listen((List<int> data) {
+      print(utf8.decode(data));
+    });
+    
+    // 实时显示错误输出
+    process.stderr.listen((List<int> data) {
+      print('Error: ${utf8.decode(data)}');
+    });
+    
+    // 等待进程完成并获取退出码
+    final exitCode = await process.exitCode;
+    if (exitCode == 0) {
+      if (successMessage.isNotEmpty) {
+        print('\n✅ $successMessage');
+      }
+    } else {
+      print('\n❌ $failureMessage with exit code: $exitCode');
+    }
+  } catch (e) {
+    print('\n❌ Error executing script: $e');
+  }
+}
+
+/// 处理错误信息，提供更详细的错误日志
+void handleError(dynamic error, String context) {
+  print('\n❌ Error in $context: $error');
+  
+  if (error is FileSystemException) {
+    print('   File system error: ${error.path}');
+    if (error.message.isNotEmpty) {
+      print('   Message: ${error.message}');
+    }
+    print('   Suggestion:');
+    print('   - Check if the file or directory exists');
+    print('   - Verify you have permission to access it');
+    print('   - Ensure the path is correct');
+  } else if (error is ProcessException) {
+    print('   Process error: ${error.executable} ${error.arguments.join(' ')}');
+    print('   Message: ${error.message}');
+    print('   Suggestion:');
+    print('   - Check if the command is installed');
+    print('   - Verify the command is accessible in your PATH');
+    print('   - Ensure you have permission to execute the command');
+  } else if (error is FormatException) {
+    print('   Format error: ${error.message}');
+    if (error.source != null) {
+      print('   Source: ${error.source}');
+    }
+    print('   Suggestion:');
+    print('   - Check the input format');
+    print('   - Ensure all required arguments are provided');
+    print('   - Refer to the help documentation for correct usage');
+  } else if (error is ArgumentError) {
+    print('   Argument error: ${error.name}');
+    print('   Suggestion:');
+    print('   - Check the command arguments');
+    print('   - Ensure all required arguments are provided');
+    print('   - Use --help to see the correct usage');
+  } else {
+    print('   Unknown error type: ${error.runtimeType}');
+    print('   Suggestion:');
+    print('   - Try again with different parameters');
+    print('   - Check your internet connection if applicable');
+    print('   - Contact the maintainer if the issue persists');
+  }
+  
+  print('   Stack trace:');
+  print(StackTrace.current);
+}
+
+/// 验证项目名称是否有效
+/// 项目名称必须非空且以小写字母开头
+bool validateProjectName(String projectName) {
+  if (projectName.isEmpty) {
+    print('❌ Error: Project name is required');
+    print('   Usage: ww create project name');
+    return false;
+  }
+  
+  if (!RegExp(r'^[a-z]').hasMatch(projectName)) {
+    print('❌ Error: Project name must start with a lowercase letter');
+    return false;
+  }
+  
+  if (!RegExp(r'^[a-z0-9_]+$').hasMatch(projectName)) {
+    print('❌ Error: Project name can only contain lowercase letters, numbers, and underscores');
+    return false;
+  }
+  
+  return true;
+}
+
+/// 处理 create 命令
+Future<void> handleCreateCommand(List<String> arguments) async {
   if (arguments.isEmpty) {
-    print('Error: No subcommand specified for create');
-    print('Usage: ww create project name');
+    print('❌ Error: No subcommand specified for create');
+    print('   Usage: ww create project name');
     return;
   }
 
   final subcommand = arguments[0];
   if (subcommand == 'project') {
     if (arguments.length < 2) {
-      print('Error: Project name is required');
-      print('Usage: ww create project name');
+      print('❌ Error: Project name is required');
+      print('   Usage: ww create project name');
       return;
     }
     final projectName = arguments[1];
-    handleCreateProject(projectName);
+    await handleCreateProject(projectName);
   } else {
-    print('Error: Unknown create subcommand: $subcommand');
-    print('Usage: ww create project name');
+    print('❌ Error: Unknown create subcommand: $subcommand');
+    print('   Usage: ww create project name');
   }
 }
 
-void handleCreateProject(String projectName) {
-  // 验证项目名称格式
-  if (projectName.isEmpty) {
-    print('Error: Project name is required');
-    print('Usage: ww create project name');
+/// 处理项目创建
+Future<void> handleCreateProject(String projectName) async {
+  // 验证项目名称
+  if (!validateProjectName(projectName)) {
     return;
   }
   
-  // 验证项目名称是否以小写字母开头
-  if (!RegExp(r'^[a-z]').hasMatch(projectName)) {
-    print('Error: Project name must start with a lowercase letter');
-    return;
-  }
-  
-  print('Creating Flutter project: $projectName');
-  // Get the absolute path to the setup_project.sh script
-  final setupScriptPath = getScriptPath('setup_project.sh');
-  // Execute the setup_project.sh script with project name argument and real-time output
+  print('\n🚀 Creating Flutter project: $projectName');
   try {
-    final process = Process.start('bash', [setupScriptPath, '--project-name', projectName]);
-    process.then((p) {
-      p.stdout.listen((List<int> data) {
-        print(utf8.decode(data));
-      });
-      p.stderr.listen((List<int> data) {
-        print('Error: ${utf8.decode(data)}');
-      });
-      p.exitCode.then((code) {
-        if (code != 0) {
-          print('Project creation failed with exit code: $code');
-        }
-      });
-    });
+    // 执行脚本并实时显示输出
+    await executeScript('setup_project.sh', ['--project-name', projectName], 'Project created successfully!', 'Project creation failed');
   } catch (e) {
-    print('Error executing setup script: $e');
+    handleError(e, 'project creation');
   }
 }
 
-void handleCreatePage(List<String> arguments) {
+/// 处理页面创建
+Future<void> handleCreatePage(List<String> arguments) async {
   if (arguments.isEmpty) {
-    print('Error: No page name specified');
+    print('❌ Error: No page name specified');
+    print('   Usage: ww create page name');
     return;
   }
   final pageName = arguments[0];
-  print('Creating page: $pageName');
+  print('\n🚀 Creating page: $pageName');
   // TODO: Implement page creation logic
+  print('   Note: Page creation functionality is not yet implemented');
 }
 
-void handleCreateScreen(List<String> arguments) {
+/// 处理屏幕创建
+Future<void> handleCreateScreen(List<String> arguments) async {
   if (arguments.isEmpty) {
-    print('Error: No screen name specified');
+    print('❌ Error: No screen name specified');
+    print('   Usage: ww create screen name');
     return;
   }
   final screenName = arguments[0];
-  print('Creating screen: $screenName');
+  print('\n🚀 Creating screen: $screenName');
   // TODO: Implement screen creation logic
+  print('   Note: Screen creation functionality is not yet implemented');
 }
 
-void handleCreateController(List<String> arguments) {
+/// 处理控制器创建
+Future<void> handleCreateController(List<String> arguments) async {
   if (arguments.isEmpty) {
-    print('Error: No controller name specified');
+    print('❌ Error: No controller name specified');
+    print('   Usage: ww create controller name');
     return;
   }
   final controllerName = arguments[0];
-  print('Creating controller: $controllerName');
+  print('\n🚀 Creating controller: $controllerName');
   // TODO: Implement controller creation logic
+  print('   Note: Controller creation functionality is not yet implemented');
 }
 
-void handleCreateView(List<String> arguments) {
+/// 处理视图创建
+Future<void> handleCreateView(List<String> arguments) async {
   if (arguments.isEmpty) {
-    print('Error: No view name specified');
+    print('❌ Error: No view name specified');
+    print('   Usage: ww create view name');
     return;
   }
   final viewName = arguments[0];
-  print('Creating view: $viewName');
+  print('\n🚀 Creating view: $viewName');
   // TODO: Implement view creation logic
+  print('   Note: View creation functionality is not yet implemented');
 }
 
-void handleCreateProvider(List<String> arguments) {
+/// 处理提供者创建
+Future<void> handleCreateProvider(List<String> arguments) async {
   if (arguments.isEmpty) {
-    print('Error: No provider name specified');
+    print('❌ Error: No provider name specified');
+    print('   Usage: ww create provider name');
     return;
   }
   final providerName = arguments[0];
-  print('Creating provider: $providerName');
+  print('\n🚀 Creating provider: $providerName');
   // TODO: Implement provider creation logic
+  print('   Note: Provider creation functionality is not yet implemented');
 }
 
-void handleInitCommand() {
-  print('Initializing project structure');
+/// 处理初始化命令
+Future<void> handleInitCommand() async {
+  print('\n🚀 Initializing project structure');
   // TODO: Implement init logic
+  print('   Note: Init functionality is not yet implemented');
 }
 
-void handleGenerateCommand(List<String> arguments) {
+/// 处理 generate 命令
+Future<void> handleGenerateCommand(List<String> arguments) async {
   if (arguments.isEmpty) {
-    print('Error: No subcommand specified for generate');
-    print('Usage: ww generate [locales|model]');
+    print('❌ Error: No subcommand specified for generate');
+    print('   Usage: ww generate api [options]');
     return;
   }
 
   final subcommand = arguments[0];
-  switch (subcommand) {
-    case 'locales':
-      handleGenerateLocales(arguments.sublist(1));
-      break;
-    case 'model':
-      handleGenerateModel(arguments.sublist(1));
-      break;
-    case 'api':
-      handleGenerateApi(arguments.sublist(1));
-      break;
-    default:
-      print('Error: Unknown generate subcommand: $subcommand');
+  if (subcommand == 'api') {
+    await handleGenerateApi(arguments.sublist(1));
+  } else {
+    print('❌ Error: Unknown generate subcommand: $subcommand');
+    print('   Usage: ww generate api [options]');
   }
 }
 
-void handleGenerateLocales(List<String> arguments) {
+/// 处理本地化文件生成
+Future<void> handleGenerateLocales(List<String> arguments) async {
   if (arguments.isEmpty) {
-    print('Error: No locales directory specified');
+    print('❌ Error: No locales directory specified');
+    print('   Usage: ww generate locales directory');
     return;
   }
   final localesDir = arguments[0];
-  print('Generating locales from: $localesDir');
+  print('\n🚀 Generating locales from: $localesDir');
   // TODO: Implement locales generation logic
+  print('   Note: Locales generation functionality is not yet implemented');
 }
 
-void handleGenerateModel(List<String> arguments) {
-  print('Generating model');
+/// 处理模型生成
+Future<void> handleGenerateModel(List<String> arguments) async {
+  print('\n🚀 Generating model');
   // TODO: Implement model generation logic
+  print('   Note: Model generation functionality is not yet implemented');
 }
 
-void handleInstallCommand(List<String> arguments) {
+/// 处理包安装命令
+Future<void> handleInstallCommand(List<String> arguments) async {
   if (arguments.isEmpty) {
-    print('Error: No package specified');
+    print('❌ Error: No package specified');
+    print('   Usage: ww install package1 [package2 ...]');
     return;
   }
   final packages = arguments.join(' ');
-  print('Installing packages: $packages');
+  print('\n🚀 Installing packages: $packages');
   // TODO: Implement package installation logic
+  print('   Note: Package installation functionality is not yet implemented');
 }
 
-void handleRemoveCommand(List<String> arguments) {
+/// 处理包移除命令
+Future<void> handleRemoveCommand(List<String> arguments) async {
   if (arguments.isEmpty) {
-    print('Error: No package specified');
+    print('❌ Error: No package specified');
+    print('   Usage: ww remove package1 [package2 ...]');
     return;
   }
   final packages = arguments.join(' ');
-  print('Removing packages: $packages');
+  print('\n🚀 Removing packages: $packages');
   // TODO: Implement package removal logic
+  print('   Note: Package removal functionality is not yet implemented');
 }
 
-void handleUpdateCommand() {
-  print('Updating w_cli...');
+/// 处理更新命令
+Future<void> handleUpdateCommand() async {
+  print('\n🚀 Updating w_cli...');
   try {
     // 升级到最新版本
-    final updateResult = Process.runSync('dart', ['pub', 'global', 'activate', 'w_cli']);
+    final process = await Process.start('dart', ['pub', 'global', 'activate', 'w_cli']);
     
-    // 检查更新是否成功
-    if (updateResult.exitCode == 0) {
-      print('Update completed successfully!');
-      print('Current version: ${getVersionFromPubspec()}');
-      print('Note: You may need to restart your terminal for the changes to take effect.');
+    // 实时显示标准输出
+    process.stdout.listen((List<int> data) {
+      print(utf8.decode(data));
+    });
+    
+    // 实时显示错误输出
+    process.stderr.listen((List<int> data) {
+      print('Error: ${utf8.decode(data)}');
+    });
+    
+    // 等待进程完成并获取退出码
+    final exitCode = await process.exitCode;
+    if (exitCode == 0) {
+      print('\n✅ Update completed successfully!');
+      print('   Current version: ${getVersionFromPubspec()}');
+      print('   Note: You may need to restart your terminal for the changes to take effect.');
     } else {
-      print('Update failed!');
-      if (updateResult.stderr.isNotEmpty) {
-        print('Error: ${updateResult.stderr}');
-      }
-      print('Please try again or check your internet connection.');
+      print('\n❌ Update failed with exit code: $exitCode');
+      print('   Please try again or check your internet connection.');
     }
   } catch (e) {
-    print('Error during update: $e');
-    print('Please try again or check your internet connection.');
+    handleError(e, 'update');
+    print('   Please try again or check your internet connection.');
   }
 }
 
-void handleGenerateApi(List<String> arguments) {
-  print('Running API code generation');
-  // Get the absolute path to the api_gen.sh script
-  final apiScriptPath = getScriptPath('api_gen.sh');
-  // Execute the api_gen.sh script with real-time output
+/// 处理 API 代码生成
+Future<void> handleGenerateApi(List<String> arguments) async {
+  print('\n🚀 Running API code generation');
   try {
-    final process = Process.start('bash', [apiScriptPath, ...arguments]);
-    process.then((p) {
-      p.stdout.listen((List<int> data) {
-        print(utf8.decode(data));
-      });
-      p.stderr.listen((List<int> data) {
-        print('Error: ${utf8.decode(data)}');
-      });
-      p.exitCode.then((code) {
-        if (code != 0) {
-          print('API code generation failed with exit code: $code');
-        }
-      });
-    });
+    // 执行脚本并实时显示输出
+    await executeScript('api_gen.sh', arguments, 'API code generation completed successfully!', 'API code generation failed');
   } catch (e) {
-    print('Error executing API generation script: $e');
+    handleError(e, 'API code generation');
   }
 }
 
-void handleBuildCommand(List<String> arguments) {
-  print('Running Flutter build');
-  // Get the absolute path to the build.sh script
-  final buildScriptPath = getScriptPath('build.sh');
-  // Execute the build.sh script with real-time output
+/// 处理构建命令
+Future<void> handleBuildCommand(List<String> arguments) async {
+  print('\n🚀 Running Flutter build');
   try {
-    final process = Process.start('bash', [buildScriptPath, ...arguments]);
-    process.then((p) {
-      p.stdout.listen((List<int> data) {
-        print(utf8.decode(data));
-      });
-      p.stderr.listen((List<int> data) {
-        print('Error: ${utf8.decode(data)}');
-      });
-      p.exitCode.then((code) {
-        if (code != 0) {
-          print('Build failed with exit code: $code');
-        }
-      });
-    });
+    // 执行脚本并实时显示输出
+    await executeScript('build.sh', arguments, 'Build completed successfully!', 'Build failed');
   } catch (e) {
-    print('Error executing build script: $e');
+    handleError(e, 'build');
   }
 }
 
-void handleOpenCommand(List<String> arguments) {
+/// 处理打开命令
+Future<void> handleOpenCommand(List<String> arguments) async {
   if (arguments.isEmpty) {
-    print('Error: No subcommand specified for open');
-    print('Usage: ww open [ios|android|build]');
+    print('❌ Error: No subcommand specified for open');
+    print('   Usage: ww open [ios|android|build|root]');
     return;
   }
 
   final subcommand = arguments[0];
-  if (subcommand == 'ios' || subcommand == 'android' || subcommand == 'build') {
-    print('Opening $subcommand');
-    // Get the absolute path to the open.sh script
-    final openScriptPath = getScriptPath('open.sh');
-    // Execute the open.sh script with the specified subcommand
+  if (subcommand == 'ios' || subcommand == 'android' || subcommand == 'build' || subcommand == 'root') {
+    print('\n🚀 Opening $subcommand');
     try {
-      final process = Process.start('bash', [openScriptPath, subcommand]);
-      process.then((p) {
-        p.stdout.listen((List<int> data) {
-          print(utf8.decode(data));
-        });
-        p.stderr.listen((List<int> data) {
-          print('Error: ${utf8.decode(data)}');
-        });
-        p.exitCode.then((code) {
-          if (code != 0) {
-            print('Open failed with exit code: $code');
-          }
-        });
-      });
+      // 执行脚本并实时显示输出
+      await executeScript('open.sh', [subcommand], 'Opened $subcommand successfully!', 'Failed to open $subcommand');
     } catch (e) {
-      print('Error executing open script: $e');
+      handleError(e, 'open $subcommand');
     }
   } else {
-    print('Error: Unknown open subcommand: $subcommand');
-    print('Usage: ww open [ios|android|build]');
+    print('❌ Error: Unknown open subcommand: $subcommand');
+    print('   Usage: ww open [ios|android|build|root]');
   }
+}
+
+/// 单元测试辅助函数
+/// 验证版本号格式是否正确
+bool isValidVersion(String version) {
+  return RegExp(r'^\d+\.\d+\.\d+$').hasMatch(version);
+}
+
+/// 单元测试辅助函数
+/// 验证脚本路径是否存在
+Future<bool> scriptExists(String scriptName) async {
+  try {
+    await getScriptPath(scriptName);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// 单元测试辅助函数
+/// 验证项目名称是否有效
+bool isValidProjectName(String projectName) {
+  return validateProjectName(projectName);
 }
 
 
