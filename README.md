@@ -8,6 +8,9 @@ A comprehensive command-line tool for Flutter projects, providing API code gener
 - **Flutter App Building**: Build Flutter apps for Android (APK/AAB) and iOS (IPA)
 - **Project Creation**: Create Flutter projects with custom structure
 - **Project Opening**: Open Flutter project in IDEs and file managers
+- **Command Aliases**: Short aliases for all commands for faster usage
+- **Default Behaviors**: Intelligent defaults for common commands
+- **Cross-Platform**: Works on macOS, Linux, and Windows
 
 ## Installation
 
@@ -60,6 +63,54 @@ ww open ios
 ww open android
 ww open build
 ww open root
+```
+
+### Command Aliases
+
+```bash
+# Main commands
+ww create   → ww c
+ww generate → ww g
+ww update   → ww u
+ww build    → ww b
+ww open     → ww o
+
+# Subcommands
+ww create project → ww create p
+ww generate api   → ww generate a
+ww open ios       → ww open i
+ww open android   → ww open a
+ww open build     → ww open b
+ww open root      → ww open r
+```
+
+### Default Behaviors
+
+```bash
+# Default to project creation
+ww create     → ww create project
+
+# Default to API code generation
+ww generate   → ww generate api
+ww g          → ww g api
+```
+
+### Examples with Aliases
+
+```bash
+# Create a project using aliases
+ww c p my_app
+
+# Generate API code using aliases
+ww g
+ww g a
+
+# Build using aliases
+ww b apk --uat
+
+# Open using aliases
+ww o i  # Open iOS project
+ww o r  # Open root directory
 ```
 
 ### API Code Generation
@@ -123,16 +174,24 @@ w_cli/
 │   └── w_cli.dart            # Main entry point
 ├── lib/
 │   ├── w_cli.dart            # Command handlers
+│   ├── src/
+│   │   ├── resources.dart    # Resource file handling
+│   │   └── version.dart      # Version information
 │   └── sh/
 │       ├── api_gen.sh        # API code generation script
 │       ├── build.sh          # Flutter app building script
 │       ├── clean.sh          # Flutter app cleaning script
 │       ├── open.sh           # Flutter project opening script
 │       └── setup_project.sh  # Project initialization script
+├── test/
+│   └── w_cli_test.dart       # Unit tests
+├── tool/
+│   └── generate_version.dart # Version generation script
 ├── pubspec.yaml              # Project configuration
 ├── README.md                 # This file
 ├── CHANGELOG.md              # Version change log
-└── LICENSE                   # License file
+├── LICENSE                   # License file
+└── analysis_options.yaml     # Linter configuration
 ```
 
 ## Script Details
