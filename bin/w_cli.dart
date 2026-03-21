@@ -22,9 +22,9 @@ Future<void> main(List<String> arguments) async {
   final buildCommand = parser.commands['build'];
   if (buildCommand != null) {
     buildCommand
-      ..addFlag('uat', negatable: false)
-      ..addFlag('clean', negatable: false)
-      ..addFlag('open', negatable: false);
+      ..addFlag('uat', abbr: 'u', negatable: false)
+      ..addFlag('clean', abbr: 'c', negatable: false)
+      ..addFlag('open', abbr: 'o', negatable: false);
   }
 
   try {
@@ -53,11 +53,11 @@ Future<void> main(List<String> arguments) async {
       print(
         '  ww update|u                      # Update w_cli to the latest version',
       );
-      print('  ww build|b [apk|aab|ios] [--uat] [--clean] [--open]');
+      print('  ww build|b [apk|aab|ios] [--uat|-u] [--clean|-c] [--open|-o]');
       print('  Options:');
-      print('    --uat          # Build in UAT mode with timestamp');
-      print('    --clean        # Clear build directory before building');
-      print('    --open         # Open output directory in Finder after build');
+      print('    --uat, -u      # Build in UAT mode with timestamp');
+      print('    --clean, -c    # Clear build directory before building');
+      print('    --open, -o     # Open output directory in Finder after build');
       print('  Examples:');
       print('    ww build apk                # Build APK in production mode');
       print(
@@ -67,6 +67,8 @@ Future<void> main(List<String> arguments) async {
       print(
         '    ww build apk aab ios --uat --clean # Build all platforms in UAT mode and clear build directory',
       );
+      print('    ww b apk -u -o              # Build APK in UAT mode and open output directory');
+      print('    ww b apk aab -c -o          # Build APK and AAB with clean and open output directory');
       print('  ww open|o [ios|i|android|a|build|b|root|r]');
       print('  ww -v, --version');
       print('  ww -h, --help');
