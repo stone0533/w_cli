@@ -69,12 +69,30 @@ class Resources {
               }
             }
             
-            // 如果当前版本不存在，尝试其他版本（按版本号降序）
-            // 简单的版本号比较，实际项目中可能需要更复杂的版本号解析
+            // 如果当前版本不存在，尝试其他版本（按版本号降序，优先使用较新版本）
+            // 版本号比较逻辑：按点分割成数字数组进行比较
             wCliDirs.sort((a, b) {
               final versionA = a.path.split('w_cli-').last;
               final versionB = b.path.split('w_cli-').last;
-              return versionB.compareTo(versionA);
+              
+              // 版本号比较函数
+              int compareVersions(String v1, String v2) {
+                final parts1 = v1.split('.').map(int.tryParse).toList();
+                final parts2 = v2.split('.').map(int.tryParse).toList();
+                
+                for (int i = 0; i < parts1.length && i < parts2.length; i++) {
+                  final p1 = parts1[i] ?? 0;
+                  final p2 = parts2[i] ?? 0;
+                  if (p1 != p2) {
+                    return p2 - p1; // 降序排序
+                  }
+                }
+                
+                // 如果前面的版本号部分相同，长度较长的版本号更大
+                return parts2.length - parts1.length;
+              }
+              
+              return compareVersions(versionA, versionB);
             });
             
             for (var wCliDir in wCliDirs) {
