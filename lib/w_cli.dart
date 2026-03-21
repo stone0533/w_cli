@@ -44,12 +44,18 @@ Future<void> executeScript(String scriptName, List<String> arguments, String suc
     
     // 实时显示标准输出
     process.stdout.listen((List<int> data) {
-      print(utf8.decode(data));
+      final output = utf8.decode(data).trimRight();
+      if (output.isNotEmpty) {
+        print(output);
+      }
     });
     
     // 实时显示错误输出
     process.stderr.listen((List<int> data) {
-      print('Error: ${utf8.decode(data)}');
+      final output = utf8.decode(data).trimRight();
+      if (output.isNotEmpty) {
+        print('Error: $output');
+      }
     });
     
     // 等待进程完成并获取退出码
@@ -150,7 +156,7 @@ Future<void> handleCreateCommand(List<String> arguments) async {
   }
 
   if (subcommand == 'project' || subcommand == 'p') {
-    if (subArgs.length < 1) {
+    if (subArgs.isEmpty) {
       print('❌ Error: Project name is required');
       print('   Usage: ww create|c project|p name');
       return;
