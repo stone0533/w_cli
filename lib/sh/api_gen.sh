@@ -453,7 +453,7 @@ generate_repository() {
   local api_methods=($@)
   
   cat << 'EOF'
-import 'package:flutter_w/w.dart';
+import 'package:w_tools/w.dart';
 
 import 'remote/data_source.dart';
 import 'remote/data_source_mixin.dart';

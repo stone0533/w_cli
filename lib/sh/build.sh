@@ -148,10 +148,11 @@ fi
 
 # 检查参数是否正确
 if [ $# -lt 1 ]; then
-  log_warn "Usage: ./build.sh [apk] [aab] [ios] [--uat] [--clean] [--version]"
+  log_warn "Usage: ./build.sh [apk] [aab] [ios] [--uat] [--clean] [--open] [--version]"
   log_warn "Options:"
   log_info "  --uat          # Build in UAT mode with timestamp"
   log_info "  --clean        # Clear build directory before building"
+  log_info "  --open         # Open output directory in Finder after build"
   log_info "  --version      # Show script version information"
   log_warn "Environment variables:"
   log_info "  PARALLEL_BUILD=true         # Enable parallel builds"
@@ -239,6 +240,7 @@ VERSION_FOR_FILENAME=$(echo $VERSION | tr '+' '-')
 # 检查参数
 UAT_MODE=false
 CLEAR_MODE=false
+OPEN_MODE=false
 PLATFORMS=()
 APP_NAME=""
 for arg in "$@"; do
@@ -251,6 +253,9 @@ for arg in "$@"; do
       ;;
     "--clean")
       CLEAR_MODE=true
+      ;;
+    "--open")
+      OPEN_MODE=true
       ;;
     -name:* )
       APP_NAME="${arg#-name:}"
@@ -525,7 +530,7 @@ validate_parameters() {
       apk|aab|ios)
         has_platform=true
         ;;
-      --uat|--clean)
+      --uat|--clean|--open)
         ;;
       -name:* )
         ;;
@@ -649,6 +654,23 @@ log_to_file "Packaging completed successfully"
 
 # 发送构建完成通知
 send_notification "构建完成，生成了 ${#PLATFORMS[@]} 个文件"
+
+# 打开输出目录
+if [ "$OPEN_MODE" == "true" ]; then
+  log_info "正在打开输出目录..."
+  if [ "$(uname)" == "Darwin" ]; then
+    # macOS 使用 Finder 打开
+    open "$OUTPUT_DIR"
+  elif command -v xdg-open &> /dev/null; then
+    # Linux 使用 xdg-open 打开
+    xdg-open "$OUTPUT_DIR"
+  elif command -v start &> /dev/null; then
+    # Windows 使用 start 打开
+    start "$OUTPUT_DIR"
+  else
+    log_warn "无法打开输出目录: 不支持的操作系统"
+  fi
+fi
 
 # 添加运行结束分隔线
 printf "${GREEN}======================================================${NC}\n"
