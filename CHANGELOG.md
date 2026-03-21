@@ -1,6 +1,8 @@
-## 1.0.17
+## 1.0.16
 
-- Updated version number to 1.0.17
+- Updated version number to 1.0.16
+- Fixed parameter name in setup_project.sh call
+- Changed --project-name to --name to match script expectations
 - Added command aliases for easier usage:
   - `create` → `c`
   - `generate` → `g`
@@ -18,12 +20,6 @@
   - `ww generate` → `ww generate api`
   - `ww g` → `ww g api`
 - Updated help messages to include aliases and default behaviors
-
-## 1.0.16
-
-- Updated version number to 1.0.16
-- Fixed parameter name in setup_project.sh call
-- Changed --project-name to --name to match script expectations
 
 ## 1.0.15
 
