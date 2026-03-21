@@ -168,7 +168,7 @@ Future<void> handleCreateProject(String projectName) async {
   print('\n🚀 Creating Flutter project: $projectName');
   try {
     // 执行脚本并实时显示输出
-    await executeScript('setup_project.sh', ['--project-name', projectName], 'Project created successfully!', 'Project creation failed');
+    await executeScript('setup_project.sh', ['--name', projectName], 'Project created successfully!', 'Project creation failed');
   } catch (e) {
     handleError(e, 'project creation');
   }

@@ -1,3 +1,9 @@
+## 1.0.16
+
+- Updated version number to 1.0.16
+- Fixed parameter name in setup_project.sh call
+- Changed --project-name to --name to match script expectations
+
 ## 1.0.15
 
 - Updated version number to 1.0.15
