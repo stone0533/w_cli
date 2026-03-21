@@ -183,7 +183,6 @@ Future<void> handleCreatePage(List<String> arguments) async {
   }
   final pageName = arguments[0];
   print('\n🚀 Creating page: $pageName');
-  // TODO: Implement page creation logic
   print('   Note: Page creation functionality is not yet implemented');
 }
 
@@ -196,7 +195,6 @@ Future<void> handleCreateScreen(List<String> arguments) async {
   }
   final screenName = arguments[0];
   print('\n🚀 Creating screen: $screenName');
-  // TODO: Implement screen creation logic
   print('   Note: Screen creation functionality is not yet implemented');
 }
 
@@ -209,7 +207,6 @@ Future<void> handleCreateController(List<String> arguments) async {
   }
   final controllerName = arguments[0];
   print('\n🚀 Creating controller: $controllerName');
-  // TODO: Implement controller creation logic
   print('   Note: Controller creation functionality is not yet implemented');
 }
 
@@ -222,7 +219,6 @@ Future<void> handleCreateView(List<String> arguments) async {
   }
   final viewName = arguments[0];
   print('\n🚀 Creating view: $viewName');
-  // TODO: Implement view creation logic
   print('   Note: View creation functionality is not yet implemented');
 }
 
@@ -235,14 +231,12 @@ Future<void> handleCreateProvider(List<String> arguments) async {
   }
   final providerName = arguments[0];
   print('\n🚀 Creating provider: $providerName');
-  // TODO: Implement provider creation logic
   print('   Note: Provider creation functionality is not yet implemented');
 }
 
 /// 处理初始化命令
 Future<void> handleInitCommand() async {
   print('\n🚀 Initializing project structure');
-  // TODO: Implement init logic
   print('   Note: Init functionality is not yet implemented');
 }
 
@@ -272,14 +266,12 @@ Future<void> handleGenerateLocales(List<String> arguments) async {
   }
   final localesDir = arguments[0];
   print('\n🚀 Generating locales from: $localesDir');
-  // TODO: Implement locales generation logic
   print('   Note: Locales generation functionality is not yet implemented');
 }
 
 /// 处理模型生成
 Future<void> handleGenerateModel(List<String> arguments) async {
   print('\n🚀 Generating model');
-  // TODO: Implement model generation logic
   print('   Note: Model generation functionality is not yet implemented');
 }
 
@@ -292,7 +284,6 @@ Future<void> handleInstallCommand(List<String> arguments) async {
   }
   final packages = arguments.join(' ');
   print('\n🚀 Installing packages: $packages');
-  // TODO: Implement package installation logic
   print('   Note: Package installation functionality is not yet implemented');
 }
 
@@ -305,7 +296,6 @@ Future<void> handleRemoveCommand(List<String> arguments) async {
   }
   final packages = arguments.join(' ');
   print('\n🚀 Removing packages: $packages');
-  // TODO: Implement package removal logic
   print('   Note: Package removal functionality is not yet implemented');
 }
 
