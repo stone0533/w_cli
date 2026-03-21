@@ -32,6 +32,7 @@ resources:
   - lib/sh/build.sh
   - lib/sh/open.sh
   - lib/sh/setup_project.sh
+  - lib/sh/project.sh
 
 # Define executable name
 executables:

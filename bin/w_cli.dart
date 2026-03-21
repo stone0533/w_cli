@@ -13,6 +13,8 @@ Future<void> main(List<String> arguments) async {
     ..addCommand('u') // 别名
     ..addCommand('build')
     ..addCommand('b') // 别名
+    ..addCommand('project')
+    ..addCommand('p') // 别名
     ..addCommand('open')
     ..addCommand('o') // 别名
     ..addFlag('version', abbr: 'v', negatable: false)
@@ -58,6 +60,9 @@ Future<void> main(List<String> arguments) async {
       print('    --uat, -u      # Build in UAT mode with timestamp');
       print('    --clean, -c    # Clear build directory before building');
       print('    --open, -o     # Open output directory in Finder after build');
+      print('  ww project|p --update            # Update Flutter project dependencies and configuration');
+      print('  Options:');
+      print('    --update       # Update Flutter project dependencies and configuration');
       print('  Examples:');
       print('    ww build apk                # Build APK in production mode');
       print(
@@ -69,6 +74,7 @@ Future<void> main(List<String> arguments) async {
       );
       print('    ww b apk -u -o              # Build APK in UAT mode and open output directory');
       print('    ww b apk aab -c -o          # Build APK and AAB with clean and open output directory');
+      print('    ww p --update               # Update Flutter project dependencies and configuration');
       print('  ww open|o [ios|i|android|a|build|b|root|r]');
       print('  ww -v, --version');
       print('  ww -h, --help');
@@ -78,8 +84,8 @@ Future<void> main(List<String> arguments) async {
       print('  generate  -> g');
       print('  update    -> u');
       print('  build     -> b');
-      print('  open      -> o');
       print('  project   -> p');
+      print('  open      -> o');
       print('  api       -> a');
       print('  ios       -> i');
       print('  android   -> a');
@@ -126,6 +132,10 @@ Future<void> main(List<String> arguments) async {
           buildArgs.add('--open');
         }
         await w.handleBuildCommand(buildArgs);
+        break;
+      case 'project':
+      case 'p':
+        await w.handleProjectCommand(command.arguments);
         break;
       case 'open':
       case 'o':

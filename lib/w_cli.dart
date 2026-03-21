@@ -408,6 +408,22 @@ Future<void> handleBuildCommand(List<String> arguments) async {
   }
 }
 
+/// 处理项目管理命令
+Future<void> handleProjectCommand(List<String> arguments) async {
+  print('\n🚀 Managing Flutter project');
+  try {
+    // 执行脚本并实时显示输出
+    await executeScript(
+      'project.sh',
+      arguments,
+      'Project operation completed successfully!',
+      'Project operation failed',
+    );
+  } catch (e) {
+    handleError(e, 'project');
+  }
+}
+
 /// 处理打开命令
 Future<void> handleOpenCommand(List<String> arguments) async {
   if (arguments.isEmpty) {

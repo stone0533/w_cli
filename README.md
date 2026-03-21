@@ -58,6 +58,9 @@ ww build ios
 # Update w_cli to latest version
 ww update
 
+# Update Flutter project dependencies and configuration
+ww project --update
+
 # Open Flutter project
 ww open ios
 ww open android
@@ -73,6 +76,7 @@ ww create   → ww c
 ww generate → ww g
 ww update   → ww u
 ww build    → ww b
+ww project  → ww p
 ww open     → ww o
 
 # Subcommands
@@ -111,6 +115,9 @@ ww b apk --uat
 # Open using aliases
 ww o i  # Open iOS project
 ww o r  # Open root directory
+
+# Update project using alias
+ww p --update  # Update Flutter project dependencies and configuration
 ```
 
 ### API Code Generation
