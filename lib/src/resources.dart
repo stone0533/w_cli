@@ -54,7 +54,7 @@ class Resources {
                 .where((e) => e is Directory && e.path.contains('w_cli-'))
                 .toList();
             
-            // 优先查找当前版本
+            // 只查找当前版本，不尝试其他版本
             final currentVersion = version;
             final currentVersionDir = wCliDirs.firstWhere(
               (dir) => dir.path.endsWith('w_cli-$currentVersion'),
@@ -63,40 +63,6 @@ class Resources {
             
             if (currentVersionDir.existsSync()) {
               final tempPath = path.join(currentVersionDir.path, resourcePath);
-              final resourceFile = File(tempPath);
-              if (resourceFile.existsSync()) {
-                return resourceFile.readAsBytes();
-              }
-            }
-            
-            // 如果当前版本不存在，尝试其他版本（按版本号降序，优先使用较新版本）
-            // 版本号比较逻辑：按点分割成数字数组进行比较
-            wCliDirs.sort((a, b) {
-              final versionA = a.path.split('w_cli-').last;
-              final versionB = b.path.split('w_cli-').last;
-              
-              // 版本号比较函数
-              int compareVersions(String v1, String v2) {
-                final parts1 = v1.split('.').map(int.tryParse).toList();
-                final parts2 = v2.split('.').map(int.tryParse).toList();
-                
-                for (int i = 0; i < parts1.length && i < parts2.length; i++) {
-                  final p1 = parts1[i] ?? 0;
-                  final p2 = parts2[i] ?? 0;
-                  if (p1 != p2) {
-                    return p2 - p1; // 降序排序
-                  }
-                }
-                
-                // 如果前面的版本号部分相同，长度较长的版本号更大
-                return parts2.length - parts1.length;
-              }
-              
-              return compareVersions(versionA, versionB);
-            });
-            
-            for (var wCliDir in wCliDirs) {
-              final tempPath = path.join(wCliDir.path, resourcePath);
               final resourceFile = File(tempPath);
               if (resourceFile.existsSync()) {
                 return resourceFile.readAsBytes();
