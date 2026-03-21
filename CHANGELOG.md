@@ -1,3 +1,11 @@
+## 1.0.15
+
+- Updated version number to 1.0.15
+- Fixed script path resolution issue for global installation
+- Added symbolic link handling for script path resolution
+- Improved .pub-cache directory traversal logic
+- Enhanced error messages for resource file not found errors
+
 ## 1.0.14
 
 - Updated version number to 1.0.14

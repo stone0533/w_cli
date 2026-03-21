@@ -16,10 +16,15 @@ class Resources {
       return cwdFile.readAsBytes();
     }
 
-    // 尝试从脚本所在目录读取
-    final scriptDir = path.dirname(Platform.script.toFilePath());
-    final scriptPath = path.join(scriptDir, '..', resourcePath);
-    final scriptFile = File(scriptPath);
+    // 尝试从脚本所在目录读取（处理符号链接）
+    var scriptPath = Platform.script;
+    // 解析符号链接
+    if (await scriptPath.resolveSymbolicLinks() != scriptPath.path) {
+      scriptPath = File(await scriptPath.resolveSymbolicLinks());
+    }
+    final scriptDir = path.dirname(scriptPath.toFilePath());
+    final relativePath = path.join(scriptDir, '..', resourcePath);
+    final scriptFile = File(relativePath);
     if (scriptFile.existsSync()) {
       return scriptFile.readAsBytes();
     }
@@ -39,7 +44,7 @@ class Resources {
         for (var source in hostedSources) {
           if (source is Directory) {
             final wCliDirs = source.listSync(followLinks: false)
-                .where((e) => e is Directory && e.path.endsWith('w_cli-'));
+                .where((e) => e is Directory && e.path.contains('w_cli-'));
             for (var wCliDir in wCliDirs) {
               final tempPath = path.join(wCliDir.path, resourcePath);
               final resourceFile = File(tempPath);
