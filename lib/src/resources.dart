@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:path/path.dart' as path;
+import 'version.dart';
 
 /// 资源文件访问工具类
 class Resources {
@@ -47,9 +48,35 @@ class Resources {
         final hostedSources = hostedDir.listSync(followLinks: false);
         for (var source in hostedSources) {
           if (source is Directory) {
+            // 获取所有 w_cli 目录
             final wCliDirs = source
                 .listSync(followLinks: false)
-                .where((e) => e is Directory && e.path.contains('w_cli-'));
+                .where((e) => e is Directory && e.path.contains('w_cli-'))
+                .toList();
+            
+            // 优先查找当前版本
+            final currentVersion = getVersion();
+            final currentVersionDir = wCliDirs.firstWhere(
+              (dir) => dir.path.endsWith('w_cli-$currentVersion'),
+              orElse: () => Directory(''),
+            );
+            
+            if (currentVersionDir.existsSync()) {
+              final tempPath = path.join(currentVersionDir.path, resourcePath);
+              final resourceFile = File(tempPath);
+              if (resourceFile.existsSync()) {
+                return resourceFile.readAsBytes();
+              }
+            }
+            
+            // 如果当前版本不存在，尝试其他版本（按版本号降序）
+            // 简单的版本号比较，实际项目中可能需要更复杂的版本号解析
+            wCliDirs.sort((a, b) {
+              final versionA = a.path.split('w_cli-').last;
+              final versionB = b.path.split('w_cli-').last;
+              return versionB.compareTo(versionA);
+            });
+            
             for (var wCliDir in wCliDirs) {
               final tempPath = path.join(wCliDir.path, resourcePath);
               final resourceFile = File(tempPath);
