@@ -141,11 +141,18 @@ ww build apk --uat
 # Clear build directory and build
 ww build apk --clean
 
+# Open output directory after build
+ww build apk --open
+
 # Build multiple platforms
 ww build apk aab
 
-# Build all platforms in UAT mode with clean
-ww build apk aab ios --uat --clean
+# Build all platforms in UAT mode with clean and open
+ww build apk aab ios --uat --clean --open
+
+# Using short aliases
+ww b apk -u -o          # Build APK in UAT mode and open output directory
+ww b apk aab -c -o      # Build APK and AAB with clean and open output directory
 ```
 
 
