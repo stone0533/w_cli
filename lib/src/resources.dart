@@ -19,14 +19,18 @@ class Resources {
     // 尝试从脚本所在目录读取（处理符号链接）
     var scriptPath = Platform.script;
     // 解析符号链接
-    if (await scriptPath.resolveSymbolicLinks() != scriptPath.path) {
-      scriptPath = File(await scriptPath.resolveSymbolicLinks());
+    final scriptFile = File(scriptPath.toFilePath());
+    if (scriptFile.existsSync()) {
+      final resolvedPath = await scriptFile.resolveSymbolicLinks();
+      if (resolvedPath != scriptFile.path) {
+        scriptPath = Uri.file(resolvedPath);
+      }
     }
     final scriptDir = path.dirname(scriptPath.toFilePath());
     final relativePath = path.join(scriptDir, '..', resourcePath);
-    final scriptFile = File(relativePath);
-    if (scriptFile.existsSync()) {
-      return scriptFile.readAsBytes();
+    final resourceScriptFile = File(relativePath);
+    if (resourceScriptFile.existsSync()) {
+      return resourceScriptFile.readAsBytes();
     }
 
     // 尝试从 .pub-cache 目录读取
