@@ -367,23 +367,9 @@ check_permissions() {
     handle_error "Flutter 未安装或未添加到 PATH"
   fi
   
-  # 检查 get 命令执行权限
-  if ! command -v get &> /dev/null; then
-    log_message "${YELLOW}get 命令未找到，将在后续步骤中安装${NC}"
-  fi
+
   
   log_message "${GREEN}权限检查通过${NC}"
-}
-
-# 检查 get_cli 是否已安装
-check_get_cli() {
-  log_message "检查 get_cli 是否已安装..."
-  if ! flutter pub global list | grep -q "get_cli"; then
-    log_message "正在安装 get_cli..."
-    run_command_with_timeout "flutter pub global activate get_cli"
-  else
-    log_message "${GREEN}get_cli 已安装${NC}"
-  fi
 }
 
 # 询问项目名
@@ -398,7 +384,7 @@ ask_project_name() {
   validate_project_name
 }
 
-# 使用 get_cli 创建项目
+# 创建项目
 create_project() {
   log_message "使用 flutter create 创建项目..."
   run_command_with_timeout "flutter create --org com.sampras -i swift -a kotlin $PROJECT_NAME"

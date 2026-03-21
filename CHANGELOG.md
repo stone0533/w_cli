@@ -1,3 +1,10 @@
+## 1.0.18
+
+- Updated version number to 1.0.18
+- Removed get_cli dependency to avoid network issues
+- Simplified dependency installation using flutter pub add
+- Improved error handling and script reliability
+
 ## 1.0.17
 
 - Updated version number to 1.0.17
