@@ -23,7 +23,8 @@ Future<void> main(List<String> arguments) async {
   if (buildCommand != null) {
     buildCommand
       ..addFlag('uat', negatable: false)
-      ..addFlag('clean', negatable: false);
+      ..addFlag('clean', negatable: false)
+      ..addFlag('open', negatable: false);
   }
 
   try {
@@ -52,10 +53,11 @@ Future<void> main(List<String> arguments) async {
       print(
         '  ww update|u                      # Update w_cli to the latest version',
       );
-      print('  ww build|b [apk|aab|ios] [--uat] [--clean]');
+      print('  ww build|b [apk|aab|ios] [--uat] [--clean] [--open]');
       print('  Options:');
       print('    --uat          # Build in UAT mode with timestamp');
       print('    --clean        # Clear build directory before building');
+      print('    --open         # Open output directory in Finder after build');
       print('  Examples:');
       print('    ww build apk                # Build APK in production mode');
       print(
@@ -117,6 +119,9 @@ Future<void> main(List<String> arguments) async {
         }
         if (command['clean'] as bool) {
           buildArgs.add('--clean');
+        }
+        if (command['open'] as bool) {
+          buildArgs.add('--open');
         }
         await w.handleBuildCommand(buildArgs);
         break;
