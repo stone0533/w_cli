@@ -1,7 +1,6 @@
 ## 1.0.17
 
 - Updated version number to 1.0.17
-- Optimized setup_project.sh to support both --name and --project-name parameters
 - Improved script error handling and logging
 - Enhanced code structure and readability
 
