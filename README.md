@@ -166,56 +166,6 @@ ww open build
 ww open root
 ```
 
-## Project Structure
-
-```
-w_cli/
-├── bin/
-│   └── w_cli.dart            # Main entry point
-├── lib/
-│   ├── w_cli.dart            # Command handlers
-│   ├── src/
-│   │   ├── resources.dart    # Resource file handling
-│   │   └── version.dart      # Version information
-│   └── sh/
-│       ├── api_gen.sh        # API code generation script
-│       ├── build.sh          # Flutter app building script
-│       ├── clean.sh          # Flutter app cleaning script
-│       ├── open.sh           # Flutter project opening script
-│       └── setup_project.sh  # Project initialization script
-├── test/
-│   └── w_cli_test.dart       # Unit tests
-├── tool/
-│   └── generate_version.dart # Version generation script
-├── pubspec.yaml              # Project configuration
-├── README.md                 # This file
-├── CHANGELOG.md              # Version change log
-├── LICENSE                   # License file
-└── analysis_options.yaml     # Linter configuration
-```
-
-## Script Details
-
-### api_gen.sh
-- **Version**: 1.0.0
-- **Description**: Generates API-related code from `client.dart`, including data sources and repositories
-- **Features**: Supports debug mode and automatic code generation
-
-### build.sh
-- **Version**: 1.0.1
-- **Description**: Builds Flutter apps for Android (APK/AAB) and iOS (IPA)
-- **Features**: Supports production and UAT modes, parallel builds, and build notifications
-
-### open.sh
-- **Version**: 1.0.0
-- **Description**: Opens Flutter project in IDEs and file managers
-- **Features**: Supports opening iOS, Android, build directory, and root directory
-
-### setup_project.sh
-- **Version**: 1.0.0
-- **Description**: Initializes Flutter projects with custom structure and dependencies
-- **Features**: Automatic dependency installation, directory structure creation, and core file generation
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
