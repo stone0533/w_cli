@@ -55,7 +55,7 @@ class Resources {
                 .toList();
             
             // 优先查找当前版本
-            final currentVersion = getVersion();
+            final currentVersion = version;
             final currentVersionDir = wCliDirs.firstWhere(
               (dir) => dir.path.endsWith('w_cli-$currentVersion'),
               orElse: () => Directory(''),
