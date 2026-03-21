@@ -418,26 +418,139 @@ install_dependencies() {
   if [ ! -f "$PROJECT_NAME/pubspec.yaml" ]; then
     handle_error "pubspec.yaml 文件不存在，请先创建项目"
   fi
-  # 一次性执行所有依赖安装，减少 Flutter 启动次数
-  # 先执行 flutter pub get
-  run_command_with_timeout "(cd \"$PROJECT_NAME\" && flutter pub get)"
+  # 使用 flutter pub add 安装依赖，避免使用 get_cli 导致的崩溃
   # 安装核心依赖
-  local install_cmd="(cd \"$PROJECT_NAME\" && get install get dio flutter_screenutil flutter_form_builder form_builder_validators retrofit"
-  if [ -n "$DEFAULT_W_TOOLS" ]; then
-    install_cmd="$install_cmd $DEFAULT_W_TOOLS"
-  fi
-  install_cmd="$install_cmd)"
-  run_command_with_timeout "$install_cmd"
-  # 安装开发依赖（尝试两种方式，确保兼容性）
-  if ! run_command_with_timeout "(cd \"$PROJECT_NAME\" && get install build_runner json_serializable retrofit_generator analyzer --dev)"; then
-    log_message "${YELLOW}使用 --dev 选项失败，尝试不带 --dev 选项${NC}"
-    run_command_with_timeout "(cd \"$PROJECT_NAME\" && get install build_runner json_serializable retrofit_generator analyzer)"
-  fi
+  run_command_with_timeout "(cd \"$PROJECT_NAME\" && flutter pub add get dio flutter_screenutil flutter_form_builder form_builder_validators retrofit $DEFAULT_W_TOOLS)"
+  # 安装开发依赖
+  run_command_with_timeout "(cd \"$PROJECT_NAME\" && flutter pub add build_runner json_serializable retrofit_generator analyzer --dev)"
   log_message "${GREEN}依赖包安装完成${NC}"
   
-  # 创建首页
+  # 手动创建首页文件，避免使用 get_cli 导致的崩溃
   log_message "创建首页..."
-  run_command_with_timeout "(cd \"$PROJECT_NAME\" && get create page:home)"
+  
+  # 创建目录结构
+  mkdir -p "$PROJECT_NAME/lib/app/modules/home/controllers"
+  mkdir -p "$PROJECT_NAME/lib/app/modules/home/views"
+  mkdir -p "$PROJECT_NAME/lib/app/modules/home/bindings"
+  mkdir -p "$PROJECT_NAME/lib/app/routes"
+  
+  # 创建 home_controller.dart
+  cat > "$PROJECT_NAME/lib/app/modules/home/controllers/home_controller.dart" << 'EOF'
+import 'package:get/get.dart';
+
+class HomeController extends GetxController {
+  final count = 0.obs;
+  
+  void increment() {
+    count.value++;
+  }
+}
+EOF
+  
+  # 创建 home_view.dart
+  cat > "$PROJECT_NAME/lib/app/modules/home/views/home_view.dart" << 'EOF'
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../controllers/home_controller.dart';
+
+class HomeView extends GetView<HomeController> {
+  const HomeView({Key? key}) : super(key: key);
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Home'),
+        centerTitle: true,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'You have pushed the button this many times:',
+            ),
+            Obx(() => Text(
+              '${controller.count}',
+            )),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: controller.increment,
+        tooltip: 'Increment',
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+EOF
+  
+  # 创建 home_binding.dart
+  cat > "$PROJECT_NAME/lib/app/modules/home/bindings/home_binding.dart" << 'EOF'
+import 'package:get/get.dart';
+import '../controllers/home_controller.dart';
+
+class HomeBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut<HomeController>(
+      () => HomeController(),
+    );
+  }
+}
+EOF
+  
+  # 创建 app_routes.dart
+  cat > "$PROJECT_NAME/lib/app/routes/app_routes.dart" << 'EOF'
+part of 'app_pages.dart';
+
+abstract class AppRoutes {
+  AppRoutes._();
+  static const HOME = '/home';
+}
+EOF
+  
+  # 创建 app_pages.dart
+  cat > "$PROJECT_NAME/lib/app/routes/app_pages.dart" << 'EOF'
+import 'package:get/get.dart';
+import '../modules/home/bindings/home_binding.dart';
+import '../modules/home/views/home_view.dart';
+
+part 'app_routes.dart';
+
+class AppPages {
+  AppPages._();
+  
+  static const INITIAL = AppRoutes.HOME;
+  
+  static final routes = [
+    GetPage(
+      name: AppRoutes.HOME,
+      page: () => const HomeView(),
+      binding: HomeBinding(),
+    ),
+  ];
+}
+EOF
+  
+  # 更新 main.dart 文件
+  cat > "$PROJECT_NAME/lib/main.dart" << 'EOF'
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'app/routes/app_pages.dart';
+
+void main() {
+  runApp(
+    GetMaterialApp(
+      title: "Application",
+      initialRoute: AppPages.INITIAL,
+      getPages: AppPages.routes,
+    ),
+  );
+}
+EOF
+  
   log_message "${GREEN}首页创建完成${NC}"
 }
 

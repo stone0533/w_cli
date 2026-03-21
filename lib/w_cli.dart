@@ -15,7 +15,10 @@ Future<String> getScriptPath(String scriptName) async {
   try {
     // 从资源文件中提取到临时文件
     final resourcePath = 'lib/sh/$scriptName';
-    final tempPath = await Resources.extractResourceToTempFile(resourcePath, scriptName);
+    final tempPath = await Resources.extractResourceToTempFile(
+      resourcePath,
+      scriptName,
+    );
     return tempPath;
   } catch (e) {
     throw FileSystemException('Failed to extract script: $e');
@@ -27,21 +30,32 @@ Future<String> getScriptPath(String scriptName) async {
 /// [arguments] - 传递给脚本的参数
 /// [successMessage] - 执行成功时显示的消息
 /// [failureMessage] - 执行失败时显示的消息
-Future<void> executeScript(String scriptName, List<String> arguments, String successMessage, String failureMessage) async {
+Future<void> executeScript(
+  String scriptName,
+  List<String> arguments,
+  String successMessage,
+  String failureMessage,
+) async {
   try {
     // 获取脚本路径（从资源文件提取）
     final scriptPath = await getScriptPath(scriptName);
-    print('Executing script: $scriptPath with arguments: ${arguments.join(' ')}');
-    
+    print(
+      'Executing script: $scriptPath with arguments: ${arguments.join(' ')}',
+    );
+
     Process process;
     if (Platform.isWindows) {
       // 在 Windows 上使用 PowerShell 执行脚本
-      process = await Process.start('powershell.exe', ['-File', scriptPath, ...arguments]);
+      process = await Process.start('powershell.exe', [
+        '-File',
+        scriptPath,
+        ...arguments,
+      ]);
     } else {
       // 在 macOS 和 Linux 上使用 bash 执行脚本
       process = await Process.start('bash', [scriptPath, ...arguments]);
     }
-    
+
     // 实时显示标准输出
     process.stdout.listen((List<int> data) {
       final output = utf8.decode(data).trimRight();
@@ -49,7 +63,7 @@ Future<void> executeScript(String scriptName, List<String> arguments, String suc
         print(output);
       }
     });
-    
+
     // 实时显示错误输出
     process.stderr.listen((List<int> data) {
       final output = utf8.decode(data).trimRight();
@@ -57,7 +71,7 @@ Future<void> executeScript(String scriptName, List<String> arguments, String suc
         print('Error: $output');
       }
     });
-    
+
     // 等待进程完成并获取退出码
     final exitCode = await process.exitCode;
     if (exitCode == 0) {
@@ -75,7 +89,7 @@ Future<void> executeScript(String scriptName, List<String> arguments, String suc
 /// 处理错误信息，提供更详细的错误日志
 void handleError(dynamic error, String context) {
   print('\n❌ Error in $context: $error');
-  
+
   if (error is FileSystemException) {
     print('   File system error: ${error.path}');
     if (error.message.isNotEmpty) {
@@ -114,7 +128,7 @@ void handleError(dynamic error, String context) {
     print('   - Check your internet connection if applicable');
     print('   - Contact the maintainer if the issue persists');
   }
-  
+
   print('   Stack trace:');
   print(StackTrace.current);
 }
@@ -127,17 +141,19 @@ bool validateProjectName(String projectName) {
     print('   Usage: ww create project name');
     return false;
   }
-  
+
   if (!RegExp(r'^[a-z]').hasMatch(projectName)) {
     print('❌ Error: Project name must start with a lowercase letter');
     return false;
   }
-  
+
   if (!RegExp(r'^[a-z0-9_]+$').hasMatch(projectName)) {
-    print('❌ Error: Project name can only contain lowercase letters, numbers, and underscores');
+    print(
+      '❌ Error: Project name can only contain lowercase letters, numbers, and underscores',
+    );
     return false;
   }
-  
+
   return true;
 }
 
@@ -145,7 +161,7 @@ bool validateProjectName(String projectName) {
 Future<void> handleCreateCommand(List<String> arguments) async {
   String subcommand;
   List<String> subArgs;
-  
+
   if (arguments.isEmpty) {
     // 默认行为：create project
     subcommand = 'project';
@@ -175,11 +191,16 @@ Future<void> handleCreateProject(String projectName) async {
   if (!validateProjectName(projectName)) {
     return;
   }
-  
+
   print('\n🚀 Creating Flutter project: $projectName');
   try {
     // 执行脚本并实时显示输出
-    await executeScript('setup_project.sh', ['--name', projectName], 'Project created successfully!', 'Project creation failed');
+    await executeScript(
+      'setup_project.sh',
+      ['--name', projectName],
+      'Project created successfully!',
+      'Project creation failed',
+    );
   } catch (e) {
     handleError(e, 'project creation');
   }
@@ -255,7 +276,7 @@ Future<void> handleInitCommand() async {
 Future<void> handleGenerateCommand(List<String> arguments) async {
   String subcommand;
   List<String> subArgs;
-  
+
   if (arguments.isEmpty) {
     // 默认行为：generate api
     subcommand = 'api';
@@ -320,24 +341,31 @@ Future<void> handleUpdateCommand() async {
   print('\n🚀 Updating w_cli...');
   try {
     // 升级到最新版本
-    final process = await Process.start('dart', ['pub', 'global', 'activate', 'w_cli']);
-    
+    final process = await Process.start('dart', [
+      'pub',
+      'global',
+      'activate',
+      'w_cli',
+    ]);
+
     // 实时显示标准输出
     process.stdout.listen((List<int> data) {
       print(utf8.decode(data));
     });
-    
+
     // 实时显示错误输出
     process.stderr.listen((List<int> data) {
       print('Error: ${utf8.decode(data)}');
     });
-    
+
     // 等待进程完成并获取退出码
     final exitCode = await process.exitCode;
     if (exitCode == 0) {
       print('\n✅ Update completed successfully!');
       print('   Current version: ${getVersionFromPubspec()}');
-      print('   Note: You may need to restart your terminal for the changes to take effect.');
+      print(
+        '   Note: You may need to restart your terminal for the changes to take effect.',
+      );
     } else {
       print('\n❌ Update failed with exit code: $exitCode');
       print('   Please try again or check your internet connection.');
@@ -353,7 +381,12 @@ Future<void> handleGenerateApi(List<String> arguments) async {
   print('\n🚀 Running API code generation');
   try {
     // 执行脚本并实时显示输出
-    await executeScript('api_gen.sh', arguments, 'API code generation completed successfully!', 'API code generation failed');
+    await executeScript(
+      'api_gen.sh',
+      arguments,
+      'API code generation completed successfully!',
+      'API code generation failed',
+    );
   } catch (e) {
     handleError(e, 'API code generation');
   }
@@ -364,7 +397,12 @@ Future<void> handleBuildCommand(List<String> arguments) async {
   print('\n🚀 Running Flutter build');
   try {
     // 执行脚本并实时显示输出
-    await executeScript('build.sh', arguments, 'Build completed successfully!', 'Build failed');
+    await executeScript(
+      'build.sh',
+      arguments,
+      'Build completed successfully!',
+      'Build failed',
+    );
   } catch (e) {
     handleError(e, 'build');
   }
@@ -380,7 +418,7 @@ Future<void> handleOpenCommand(List<String> arguments) async {
 
   final subcommand = arguments[0];
   String target;
-  
+
   // 处理别名
   switch (subcommand) {
     case 'ios':
@@ -408,7 +446,12 @@ Future<void> handleOpenCommand(List<String> arguments) async {
   print('\n🚀 Opening $target');
   try {
     // 执行脚本并实时显示输出
-    await executeScript('open.sh', [target], 'Opened $target successfully!', 'Failed to open $target');
+    await executeScript(
+      'open.sh',
+      [target],
+      'Opened $target successfully!',
+      'Failed to open $target',
+    );
   } catch (e) {
     handleError(e, 'open $target');
   }
@@ -436,5 +479,3 @@ Future<bool> scriptExists(String scriptName) async {
 bool isValidProjectName(String projectName) {
   return validateProjectName(projectName);
 }
-
-

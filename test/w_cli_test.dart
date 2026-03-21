@@ -61,7 +61,10 @@ void main() {
     });
 
     test('should throw an exception for non-existent scripts', () async {
-      expect(() async => await getScriptPath('non_existent_script.sh'), throwsA(isA<FileSystemException>()));
+      expect(
+        () async => await getScriptPath('non_existent_script.sh'),
+        throwsA(isA<FileSystemException>()),
+      );
     });
   });
 

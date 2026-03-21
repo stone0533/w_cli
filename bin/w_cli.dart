@@ -5,8 +5,8 @@ import 'package:w_cli/src/resources.dart' as resources;
 Future<void> main(List<String> arguments) async {
   // 原始执行逻辑
   final parser = ArgParser()
-   ..addCommand('create')
-   ..addCommand('c') // 别名
+    ..addCommand('create')
+    ..addCommand('c') // 别名
     ..addCommand('generate')
     ..addCommand('g') // 别名
     ..addCommand('update')
@@ -28,7 +28,7 @@ Future<void> main(List<String> arguments) async {
 
   try {
     final results = parser.parse(arguments);
-    
+
     if (results.wasParsed('version')) {
       final version = w.getVersionFromPubspec();
       if (version.isNotEmpty) {
@@ -38,23 +38,33 @@ Future<void> main(List<String> arguments) async {
       }
       return;
     }
-    
+
     if (results.wasParsed('help') || arguments.isEmpty) {
       print('ww - A command-line tool for Flutter projects');
       print('');
       print('Usage:');
-      print('  ww create|c project|p name       # Create a new Flutter project');
-      print('  ww generate|g api|a [options]    # Generate API code (default for generate)');
-      print('  ww update|u                      # Update w_cli to the latest version');
+      print(
+        '  ww create|c project|p name       # Create a new Flutter project',
+      );
+      print(
+        '  ww generate|g api|a [options]    # Generate API code (default for generate)',
+      );
+      print(
+        '  ww update|u                      # Update w_cli to the latest version',
+      );
       print('  ww build|b [apk|aab|ios] [--uat] [--clean]');
       print('  Options:');
       print('    --uat          # Build in UAT mode with timestamp');
       print('    --clean        # Clear build directory before building');
       print('  Examples:');
       print('    ww build apk                # Build APK in production mode');
-      print('    ww build apk aab            # Build APK and AAB in production mode');
+      print(
+        '    ww build apk aab            # Build APK and AAB in production mode',
+      );
       print('    ww build apk --uat          # Build APK in UAT mode');
-      print('    ww build apk aab ios --uat --clean # Build all platforms in UAT mode and clear build directory');
+      print(
+        '    ww build apk aab ios --uat --clean # Build all platforms in UAT mode and clear build directory',
+      );
       print('  ww open|o [ios|i|android|a|build|b|root|r]');
       print('  ww -v, --version');
       print('  ww -h, --help');
@@ -78,13 +88,13 @@ Future<void> main(List<String> arguments) async {
       print('  ww g          -> ww g api');
       return;
     }
-    
+
     final command = results.command;
     if (command == null) {
       print('Error: No command specified');
       return;
     }
-    
+
     switch (command.name) {
       case 'create':
       case 'c':

@@ -47,7 +47,8 @@ class Resources {
         final hostedSources = hostedDir.listSync(followLinks: false);
         for (var source in hostedSources) {
           if (source is Directory) {
-            final wCliDirs = source.listSync(followLinks: false)
+            final wCliDirs = source
+                .listSync(followLinks: false)
                 .where((e) => e is Directory && e.path.contains('w_cli-'));
             for (var wCliDir in wCliDirs) {
               final tempPath = path.join(wCliDir.path, resourcePath);
@@ -65,7 +66,10 @@ class Resources {
   }
 
   /// 将资源文件复制到临时文件并返回路径
-  static Future<String> extractResourceToTempFile(String resourcePath, String fileName) async {
+  static Future<String> extractResourceToTempFile(
+    String resourcePath,
+    String fileName,
+  ) async {
     // 检查缓存
     if (_scriptPathCache.containsKey(fileName)) {
       return _scriptPathCache[fileName]!;
@@ -75,12 +79,12 @@ class Resources {
     final tempDir = await Directory.systemTemp.createTemp('w_cli_');
     final tempFile = File('${tempDir.path}/$fileName');
     await tempFile.writeAsBytes(data);
-    
+
     // 设置执行权限（非Windows系统）
     if (!Platform.isWindows) {
       await Process.run('chmod', ['+x', tempFile.path]);
     }
-    
+
     // 缓存结果
     _scriptPathCache[fileName] = tempFile.path;
     return tempFile.path;
