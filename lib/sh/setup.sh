@@ -1,14 +1,25 @@
 #!/bin/bash
 set -e  # 遇到错误立即退出
 
-# 项目初始化脚本
-# 功能：自动完成Flutter项目的初始化、依赖安装和核心文件创建
+# ======================================================
+# setup.sh - Flutter 项目初始化脚本
+# Version: 1.0.0
+# Last Updated: 2026-03-23
 # Author: Stone
-# 版本：1.0.0
-# 日期：2026-03-21
-#
+# Description: 自动完成Flutter项目的初始化、依赖安装和核心文件创建
+# Features:
+#   - 自动检测操作系统
+#   - 检查 Flutter 安装状态
+#   - 创建完整的目录结构
+#   - 安装必要的依赖包
+#   - 创建核心数据层文件
+#   - 生成 Retrofit 代码
+#   - 初始化 Git 仓库
+#   - 创建 CI/CD 配置
+# ======================================================
+
 # 使用方法：
-#   bash setup_project.sh [选项]
+#   bash setup.sh [选项]
 #
 # 选项：
 #   --help            显示帮助信息
@@ -16,10 +27,10 @@ set -e  # 遇到错误立即退出
 #
 # 示例：
 #   # 基本使用
-#   bash setup_project.sh
+#   bash setup.sh
 #
 #   # 自定义项目名称
-#   bash setup_project.sh --name my_app
+#   bash setup.sh --name my_app
 
 # 常量定义
 readonly DEFAULT_PROJECT_NAME="my_flutter_app"
@@ -77,6 +88,19 @@ cleanup() {
 
 # 捕获错误
 trap 'handle_error "脚本执行失败"' ERR
+
+# 日志函数
+log_info() {
+  printf "${GREEN}[INFO]${NC} %s\n" "$1"
+}
+
+log_warn() {
+  printf "${YELLOW}[WARN]${NC} %s\n" "$1"
+}
+
+log_error() {
+  printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
+}
 
 # 日志记录函数
 log_message() {
@@ -184,19 +208,45 @@ load_config() {
 
 # 显示版本信息
 show_version() {
-  echo "setup_project.sh version: 1.0.0"
-  echo "Last updated: 2026-03-21"
+  echo "setup.sh version: 1.0.0"
+  echo "Last updated: 2026-03-23"
   echo "Description: Flutter 项目初始化脚本"
+  echo "Features:"
+  echo "  - 自动检测操作系统"
+  echo "  - 检查 Flutter 安装状态"
+  echo "  - 创建完整的目录结构"
+  echo "  - 安装必要的依赖包"
+  echo "  - 创建核心数据层文件"
+  echo "  - 生成 Retrofit 代码"
+  echo "  - 初始化 Git 仓库"
+  echo "  - 创建 CI/CD 配置"
   exit 0
 }
 
 # 显示帮助信息
 show_help() {
-  echo "用法: $0 [选项]"
+  echo "使用方法: $0 [选项]"
   echo "选项:"
   echo "  --help            显示帮助信息"
   echo "  --version         显示脚本版本信息"
   echo "  --name            指定项目名称"
+  echo ""
+  echo "示例:"
+  echo "  # 基本使用"
+  echo "  bash setup.sh"
+  echo ""
+  echo "  # 自定义项目名称"
+  echo "  bash setup.sh --name my_app"
+  exit 0
+}
+
+# 检查执行权限
+check_execution_permission() {
+  if [ ! -x "$0" ]; then
+    log_error "Script does not have execution permission."
+    log_warn "Please run: chmod +x $0"
+    exit 1
+  fi
 }
 
 # 解析命令行参数
@@ -205,7 +255,6 @@ parse_args() {
     case $1 in
       --help)
         show_help
-        exit 0
         ;;
       --version)
         show_version
@@ -215,9 +264,8 @@ parse_args() {
         shift
         ;;
       *)
-        echo -e "${RED}未知选项:${NC} $1"
+        log_error "未知选项: $1"
         show_help
-        exit 1
         ;;
     esac
     shift
@@ -550,14 +598,13 @@ EOF
 # - lib/app/data/models：存放数据模型
 # - lib/app/data/sources：存放数据源
 # - lib/app/data/sources/remote：存放远程数据源
-# - lib/app/data/w_json：存放 JSON 相关文件
 # - test：存放测试文件
 # - .github/workflows：存放 CI/CD 配置
 create_directory_structure() {
   log_message "创建目录结构..."
   # 合并为一个命令，减少进程创建
   local project_path="$PROJECT_NAME"
-  run_command "mkdir -p \"$project_path\"/assets/{fonts,images} \"$project_path\"/lib/app/{components,utils,services} \"$project_path\"/lib/app/data/{models,sources,w_json} \"$project_path\"/lib/app/data/sources/remote \"$project_path\"/test \"$project_path\"/.github/workflows"
+  run_command "mkdir -p \"$project_path\"/assets/{fonts,images} \"$project_path\"/lib/app/{components,utils,services} \"$project_path\"/lib/app/data/{models,sources} \"$project_path\"/lib/app/data/sources/remote \"$project_path\"/test \"$project_path\"/.github/workflows \"$project_path\"/w_json"
   log_message "${GREEN}目录结构创建完成${NC}"
 }
 
@@ -1080,6 +1127,9 @@ test_script() {
 
 # 主函数
 main() {
+  # 检查执行权限
+  check_execution_permission
+  
   # 首先解析命令行参数，这样 --help 可以立即生效
   parse_args "$@"
   

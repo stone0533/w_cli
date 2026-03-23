@@ -42,10 +42,10 @@ void main() {
 
   group('scriptExists', () {
     test('should return true for existing scripts', () async {
-      expect(await scriptExists('api_gen.sh'), isTrue);
+      expect(await scriptExists('api.sh'), isTrue);
       expect(await scriptExists('build.sh'), isTrue);
       expect(await scriptExists('open.sh'), isTrue);
-      expect(await scriptExists('setup_project.sh'), isTrue);
+      expect(await scriptExists('setup.sh'), isTrue);
     });
 
     test('should return false for non-existent scripts', () async {
@@ -55,7 +55,7 @@ void main() {
 
   group('getScriptPath', () {
     test('should return a valid path for existing scripts', () async {
-      final path = await getScriptPath('api_gen.sh');
+      final path = await getScriptPath('api.sh');
       expect(path, isNotEmpty);
       expect(File(path).existsSync(), isTrue);
     });

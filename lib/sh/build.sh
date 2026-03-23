@@ -146,14 +146,15 @@ if [ ! -x "$0" ]; then
   exit 1
 fi
 
-# 检查参数是否正确
-if [ $# -lt 1 ]; then
-  log_warn "Usage: ./build.sh [apk] [aab] [ios] [--uat] [--clean] [--open] [--version]"
+# 显示帮助信息
+show_help() {
+  log_warn "Usage: ./build.sh [apk] [aab] [ios] [--uat] [--clean] [--open] [--version] [--help]"
   log_warn "Options:"
   log_info "  --uat          # Build in UAT mode with timestamp"
   log_info "  --clean        # Clear build directory before building"
   log_info "  --open         # Open output directory in Finder after build"
   log_info "  --version      # Show script version information"
+  log_info "  --help         # Show this help message"
   log_warn "Environment variables:"
   log_info "  PARALLEL_BUILD=true         # Enable parallel builds"
   log_info "  ENABLE_NOTIFICATIONS=true   # Enable build notifications"
@@ -162,9 +163,20 @@ if [ $# -lt 1 ]; then
   log_info "  ./build.sh apk aab            # Build APK and AAB in production mode"
   log_info "  ./build.sh apk --uat          # Build APK in UAT mode"
   log_info "  ./build.sh --version          # Show script version"
+  log_info "  ./build.sh --help             # Show this help message"
   log_info "  PARALLEL_BUILD=true ./build.sh apk aab # Build APK and AAB in parallel"
   log_info "  ./build.sh apk aab ios --uat --clean # Build all platforms in UAT mode and clear build directory"
-  exit 1
+  exit 0
+}
+
+# 检查参数是否正确
+if [ $# -lt 1 ]; then
+  show_help
+fi
+
+# 检查帮助参数
+if [ "$1" == "--help" ]; then
+  show_help
 fi
 
 # 检查版本参数
@@ -256,6 +268,9 @@ for arg in "$@"; do
       ;;
     "--open")
       OPEN_MODE=true
+      ;;
+    "--help")
+      show_help
       ;;
     -name:* )
       APP_NAME="${arg#-name:}"

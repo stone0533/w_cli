@@ -2,8 +2,9 @@ import 'package:args/args.dart';
 import 'package:w_cli/w_cli.dart' as w;
 import 'package:w_cli/src/resources.dart' as resources;
 
+/// 主函数 - 处理命令行参数并执行相应的命令
 Future<void> main(List<String> arguments) async {
-  // 原始执行逻辑
+  // 初始化命令行参数解析器
   final parser = ArgParser()
     ..addCommand('create')
     ..addCommand('c') // 别名
@@ -20,7 +21,7 @@ Future<void> main(List<String> arguments) async {
     ..addFlag('version', abbr: 'v', negatable: false)
     ..addFlag('help', abbr: 'h', negatable: false);
 
-  // Get the build command parser and add options to it
+  // 为 build 命令添加选项
   final buildCommand = parser.commands['build'];
   if (buildCommand != null) {
     buildCommand
@@ -32,6 +33,7 @@ Future<void> main(List<String> arguments) async {
   try {
     final results = parser.parse(arguments);
 
+    // 处理版本命令
     if (results.wasParsed('version')) {
       final version = w.getVersionFromPubspec();
       if (version.isNotEmpty) {
@@ -42,64 +44,9 @@ Future<void> main(List<String> arguments) async {
       return;
     }
 
+    // 处理帮助命令或无参数情况
     if (results.wasParsed('help') || arguments.isEmpty) {
-      print('ww - A command-line tool for Flutter projects');
-      print('');
-      print('Usage:');
-      print(
-        '  ww create|c project|p name       # Create a new Flutter project',
-      );
-      print(
-        '  ww api|a generate|g [options]    # Generate API code',
-      );
-      print(
-        '  ww api|a --init                  # Initialize API directory structure',
-      );
-      print(
-        '  ww update|u                      # Update w_cli to the latest version',
-      );
-      print('  ww build|b [apk|aab|ios] [--uat|-u] [--clean|-c] [--open|-o]');
-      print('  Options:');
-      print('    --uat, -u      # Build in UAT mode with timestamp');
-      print('    --clean, -c    # Clear build directory before building');
-      print('    --open, -o     # Open output directory in Finder after build');
-      print('  ww project|p --update            # Update Flutter project dependencies and configuration');
-      print('  Options:');
-      print('    --update       # Update Flutter project dependencies and configuration');
-      print('  Examples:');
-      print('    ww build apk                # Build APK in production mode');
-      print(
-        '    ww build apk aab            # Build APK and AAB in production mode',
-      );
-      print('    ww build apk --uat          # Build APK in UAT mode');
-      print(
-        '    ww build apk aab ios --uat --clean # Build all platforms in UAT mode and clear build directory',
-      );
-      print('    ww b apk -u -o              # Build APK in UAT mode and open output directory');
-      print('    ww b apk aab -c -o          # Build APK and AAB with clean and open output directory');
-      print('    ww p --update               # Update Flutter project dependencies and configuration');
-      print('    ww a --init                 # Initialize API directory structure');
-      print('  ww open|o [ios|i|android|a|build|b|root|r]');
-      print('  ww -v, --version');
-      print('  ww -h, --help');
-      print('');
-      print('Aliases:');
-      print('  create    -> c');
-      print('  generate  -> g');
-      print('  update    -> u');
-      print('  build     -> b');
-      print('  project   -> p');
-      print('  open      -> o');
-      print('  api       -> a');
-      print('  ios       -> i');
-      print('  android   -> a');
-      print('  build     -> b');
-      print('  root      -> r');
-      print('');
-      print('Default behaviors:');
-      print('  ww create     -> ww create project');
-      print('  ww api        -> ww api generate');
-      print('  ww a          -> ww a generate');
+      showHelp();
       return;
     }
 
@@ -109,6 +56,7 @@ Future<void> main(List<String> arguments) async {
       return;
     }
 
+    // 处理不同的命令
     switch (command.name) {
       case 'create':
       case 'c':
@@ -154,4 +102,71 @@ Future<void> main(List<String> arguments) async {
     // 清理临时文件
     resources.Resources.cleanupTempFiles();
   }
+}
+
+/// 显示帮助信息
+void showHelp() {
+  print('ww - A command-line tool for Flutter projects');
+  print('');
+  print('Usage:');
+  print('  ww create|c project|p name       # Create a new Flutter project');
+  print('  ww api|a [options]               # Generate API code');
+  print(
+    '  ww api|a --init                  # Initialize API directory structure',
+  );
+  print('  ww api|a --models                # Generate model files from JSON');
+  print(
+    '  ww update|u                      # Update w_cli to the latest version',
+  );
+  print('  ww build|b [apk|aab|ios] [--uat|-u] [--clean|-c] [--open|-o]');
+  print('  Options:');
+  print('    --uat, -u      # Build in UAT mode with timestamp');
+  print('    --clean, -c    # Clear build directory before building');
+  print('    --open, -o     # Open output directory in Finder after build');
+  print(
+    '  ww project|p --update            # Update Flutter project dependencies and configuration',
+  );
+  print('  Options:');
+  print(
+    '    --update       # Update Flutter project dependencies and configuration',
+  );
+  print('  Examples:');
+  print('    ww build apk                # Build APK in production mode');
+  print(
+    '    ww build apk aab            # Build APK and AAB in production mode',
+  );
+  print('    ww build apk --uat          # Build APK in UAT mode');
+  print(
+    '    ww build apk aab ios --uat --clean # Build all platforms in UAT mode and clear build directory',
+  );
+  print(
+    '    ww b apk -u -o              # Build APK in UAT mode and open output directory',
+  );
+  print(
+    '    ww b apk aab -c -o          # Build APK and AAB with clean and open output directory',
+  );
+  print(
+    '    ww p --update               # Update Flutter project dependencies and configuration',
+  );
+  print('    ww a --init                 # Initialize API directory structure');
+  print('    ww a --models               # Generate model files from JSON');
+  print('  ww open|o [ios|i|android|a|build|b|root|r]');
+  print('  ww -v, --version');
+  print('  ww -h, --help');
+  print('');
+  print('Aliases:');
+  print('  create    -> c');
+  print('  generate  -> g');
+  print('  update    -> u');
+  print('  build     -> b');
+  print('  project   -> p');
+  print('  open      -> o');
+  print('  api       -> a');
+  print('  ios       -> i');
+  print('  android   -> a');
+  print('  build     -> b');
+  print('  root      -> r');
+  print('');
+  print('Default behaviors:');
+  print('  ww create     -> ww create project');
 }

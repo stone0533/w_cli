@@ -47,8 +47,13 @@ ww --version
 # Create a new Flutter project
 ww create project my_app
 
+# Using aliases
+ww c p my_app
+
+# Project creation automatically adds w_build directory to .gitignore
+
 # Generate API code
-ww api generate
+ww api
 
 # Build Flutter app
 ww build apk
@@ -81,7 +86,6 @@ ww open     → ww o
 
 # Subcommands
 ww create project → ww create p
-ww api generate   → ww api g
 ww open ios       → ww open i
 ww open android   → ww open a
 ww open build     → ww open b
@@ -93,10 +97,6 @@ ww open root      → ww open r
 ```bash
 # Default to project creation
 ww create     → ww create project
-
-# Default to API code generation
-ww api        → ww api generate
-ww a          → ww a generate
 ```
 
 ### Examples with Aliases
@@ -106,7 +106,6 @@ ww a          → ww a generate
 ww c p my_app
 
 # Generate API code using aliases
-ww a g
 ww a
 
 # Build using aliases
@@ -124,13 +123,21 @@ ww p --update  # Update Flutter project dependencies and configuration
 
 ```bash
 # Generate API code
-ww api generate
+ww api
 
 # Generate with debug mode
-ww api generate --debug
+ww api --debug
 
 # Initialize API directory structure
 ww api --init
+
+# Generate model files from JSON
+ww api --models
+
+# Using aliases
+ww a            # Generate API code
+ww a --init     # Initialize API directory structure
+ww a --models   # Generate model files from JSON
 ```
 
 ### Flutter App Building

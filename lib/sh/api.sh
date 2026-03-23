@@ -1,12 +1,14 @@
 #!/bin/bash
 
 # ======================================================
-# api_gen.sh - API 代码生成脚本
+# api.sh - API 代码生成脚本
 # Version: 1.0.0
-# Last Updated: 2026-03-21
+# Last Updated: 2026-03-23
 # Author: Stone
 # Description: 根据 client.dart 动态生成 data_source_mixin.dart 和 repository.dart
 # ======================================================
+
+set -euo pipefail  # Exit on error, undefined vars, and pipe failures
 
 # 颜色定义
 GREEN='\033[0;32m'
@@ -17,6 +19,8 @@ NC='\033[0m'
 
 # 配置选项
 DEBUG=false
+INIT_MODE=false
+MODELS_MODE=false
 
 # 配置路径
 CLIENT_FILE="lib/app/data/sources/client.dart"
@@ -29,6 +33,11 @@ CLIENT_FILE=$(realpath "$CLIENT_FILE" 2>/dev/null || echo "$CLIENT_FILE")
 REMOTE_DS_FILE=$(realpath "$REMOTE_DS_FILE" 2>/dev/null || echo "$REMOTE_DS_FILE")
 REPOSITORY_FILE=$(realpath "$REPOSITORY_FILE" 2>/dev/null || echo "$REPOSITORY_FILE")
 APP_REMOTE_DS_FILE=$(realpath "$APP_REMOTE_DS_FILE" 2>/dev/null || echo "$APP_REMOTE_DS_FILE")
+
+# 辅助函数：检查命令是否可用
+command_available() {
+  command -v "$1" &> /dev/null
+}
 
 # 日志函数
 log_info() {
@@ -51,9 +60,27 @@ log_debug() {
 
 # 显示版本信息
 show_version() {
-  echo "api_gen.sh version: 1.0.0"
+  echo "api.sh version: 1.0.0"
   echo "Last updated: 2026-03-21"
   echo "Description: 根据 client.dart 动态生成 data_source_mixin.dart 和 repository.dart"
+  exit 0
+}
+
+# 显示帮助信息
+show_help() {
+  echo "使用方法: $0 [选项]"
+  echo "选项:"
+  echo "  -d, --debug    启用调试模式"
+  echo "  --version      显示脚本版本信息"
+  echo "  --init         初始化目录结构"
+  echo "  --models       生成模型文件"
+  echo "  --help         显示帮助信息"
+  echo ""
+  echo "示例:"
+  echo "  $0              # 生成 API 代码"
+  echo "  $0 --init       # 初始化目录结构"
+  echo "  $0 --debug      # 启用调试模式生成代码"
+  echo "  $0 --models     # 生成模型文件"
   exit 0
 }
 
@@ -73,14 +100,17 @@ parse_args() {
         INIT_MODE=true
         shift
         ;;
+      --models)
+        # 标记为模型生成模式
+        MODELS_MODE=true
+        shift
+        ;;
+      --help)
+        show_help
+        ;;
       *)
         log_error "未知参数: $1"
-        echo "使用方法: $0 [选项]"
-        echo "选项:"
-        echo "  -d, --debug    启用调试模式"
-        echo "  --version      显示脚本版本信息"
-        echo "  --init         初始化目录结构"
-        exit 1
+        show_help
         ;;
     esac
   done
@@ -131,6 +161,15 @@ init_directory_structure() {
     mkdir -p "$models_dir"
   else
     log_info "目录已存在: $models_dir"
+  fi
+  
+  # 检查并创建 w_json 目录
+  local json_dir="w_json"
+  if [[ ! -d "$json_dir" ]]; then
+    log_info "创建目录: $json_dir"
+    mkdir -p "$json_dir"
+  else
+    log_info "目录已存在: $json_dir"
   fi
   
   # 检查并创建必要的文件
@@ -287,10 +326,10 @@ parse_params() {
       # 提取 @Path 参数名
       if [[ "$annotation" == *"@Path('"* ]]; then
         local param_name=$(echo "$annotation" | grep -o "'[^']*'" | cut -d"'" -f2)
-        params+=("$param_name")
+        params+=($param_name)
       elif [[ "$annotation" == *"@Path("* ]]; then
         local param_name=$(echo "$annotation" | grep -o "@Path([^)]*)" | cut -d'(' -f2 | cut -d')' -f1 | awk '{print $2}')
-        params+=("$param_name")
+        params+=($param_name)
       fi
     elif [[ "$annotation" == *"@Body"* ]]; then
       # 提取 @Body 参数名
@@ -378,7 +417,56 @@ to_snake_case() {
   local base_name=$(echo "$camel_case" | sed 's/Result$//')
   # 转换为蛇形命名
   local snake_case=$(echo "$base_name" | awk '{for(i=1;i<=length;i++) {c=substr($0,i,1); if(c~/[A-Z]/ && i>1) printf "_" tolower(c); else printf tolower(c)}}')
-  echo "${snake_case}_result.dart"
+  
+  # 定义可能的文件名
+  local result_file="${snake_case}_result.dart"
+  local simple_file="${snake_case}.dart"
+  local models_dir="lib/app/data/models"
+  
+  # 检查最常见的文件名（最快捷的匹配方式）
+  if [ -f "$models_dir/$result_file" ]; then
+    echo "$result_file"
+    return
+  fi
+  
+  if [ -f "$models_dir/$simple_file" ]; then
+    echo "$simple_file"
+    return
+  fi
+  
+  # 如果目录不存在，直接返回默认值
+  if [ ! -d "$models_dir" ]; then
+    echo "$result_file"
+    return
+  fi
+  
+  # 一次性获取所有模型文件，避免重复执行 find 命令
+  local all_models
+  all_models=$(find "$models_dir" -name "*.dart" -type f -exec basename {} \; 2>/dev/null)
+  
+  # 如果 find 命令失败或没有结果，返回默认值
+  if [ -z "$all_models" ]; then
+    echo "$result_file"
+    return
+  fi
+  
+  # 内容匹配：查找包含指定类定义的文件（最准确的匹配方式）
+  local model_file
+  local class_pattern="(^|[[:space:]])class[[:space:]]+$camel_case([[:space:]]+|{|extends|implements)"
+  local typedef_pattern="(^|[[:space:]])typedef[[:space:]]+$camel_case[[:space:]]*=[[:space:]]*"
+  local extension_pattern="^extension[[:space:]]+$camel_case([[:space:]]+|on)"
+  
+  for model_file in $all_models; do
+    local full_path="$models_dir/$model_file"
+    # 检查文件中是否定义了所需的类，使用更精确的正则表达式
+    if [ -f "$full_path" ] && grep -Eq "$class_pattern|$typedef_pattern|$extension_pattern" "$full_path" 2>/dev/null; then
+      echo "$model_file"
+      return
+    fi
+  done
+
+  # 如果都没有找到，返回带 _result 后缀的文件名（保持向后兼容）
+  echo "$result_file"
 }
 
 # 生成方法定义
@@ -552,7 +640,7 @@ extract_imports() {
       fi
     else
       # 只在终端输出警告，不写入文件
-      log_warn "模型文件不存在: $model_path"
+      log_warn "模型文件不存在: $model_path" >&2
     fi
   done
   
@@ -584,7 +672,7 @@ generate_header_comment() {
 // **************************************************************************
 // Auto-generated file. Do not edit manually.
 // **************************************************************************
-// This file was generated by api_gen.sh on $timestamp
+// This file was generated by api.sh on $timestamp
 // Changes will be overwritten the next time the script runs.
 // **************************************************************************
 
@@ -600,15 +688,20 @@ generate_remote_datasource() {
   # 确保调试信息输出到终端，而不是文件
   log_debug "提取到的已存在方法: $existing_methods" >&2
   
-  # 生成动态模型导入
-  extract_imports "../../models/" "${api_methods[@]}"
-  
   # 生成注释头部
-  generate_header_comment
+  local header_comment=$(generate_header_comment)
   
-  cat << EOF
+  # 生成动态模型导入
+  local model_imports=$(extract_imports "../../models/" "${api_methods[@]}")
+  
+  # 输出文件内容
+  echo "$header_comment"
+  cat << 'EOF'
 import '../client.dart';
 
+EOF
+  echo "$model_imports"
+  cat << 'EOF'
 abstract class IAppRemoteDataSource {
 EOF
   
@@ -647,26 +740,26 @@ EOF
 EOF
 }
 
-
-
 # 生成 app_repository.dart
 generate_repository() {
   local api_methods=($@)
   
   # 生成注释头部
-  generate_header_comment
+  local header_comment=$(generate_header_comment)
   
-  cat << EOF
+  # 生成动态模型导入
+  local model_imports=$(extract_imports "../models/" "${api_methods[@]}")
+  
+  # 输出文件内容
+  echo "$header_comment"
+  cat << 'EOF'
 import 'package:w_tools/w.dart';
 
 import 'remote/data_source.dart';
 import 'remote/data_source_mixin.dart';
 
 EOF
-  
-  # 生成动态模型导入
-  extract_imports "../models/" "${api_methods[@]}"
-  
+  echo "$model_imports"
   cat << 'EOF'
 
 class AppRepository extends BaseRepository<Null, AppRemoteDataSource>
@@ -718,10 +811,10 @@ update_files() {
   
   # 格式化生成的代码
   log_info "开始格式化代码..."
-  if command -v dart &> /dev/null; then
+  if command_available dart; then
     dart format "$REMOTE_DS_FILE" "$REPOSITORY_FILE"
     log_info "代码格式化完成"
-  elif command -v flutter &> /dev/null; then
+  elif command_available flutter; then
     flutter format "$REMOTE_DS_FILE" "$REPOSITORY_FILE"
     log_info "代码格式化完成"
   else
@@ -732,6 +825,331 @@ update_files() {
   log_info "已更新: $REPOSITORY_FILE"
 }
 
+# 检查并添加必要的依赖项
+check_and_add_dependencies() {
+  local pubspec_file="pubspec.yaml"
+  
+  if [[ ! -f "$pubspec_file" ]]; then
+    log_error "文件不存在: $pubspec_file"
+    return 1
+  fi
+  
+  if ! command_available flutter; then
+    log_error "Flutter 命令不可用，无法添加依赖项"
+    return 1
+  fi
+  
+  local updated=false
+  
+  # 检查并添加 dependencies 部分的依赖
+  if ! grep -q "retrofit:" "$pubspec_file"; then
+    log_info "添加 retrofit 依赖..."
+    flutter pub add retrofit
+    updated=true
+  fi
+  
+  # 检查并添加 dev_dependencies 部分的依赖
+  local dev_deps=(
+    "build_runner"
+    "json_serializable"
+    "retrofit_generator"
+  )
+  
+  for dep in "${dev_deps[@]}"; do
+    if ! grep -q "$dep:" "$pubspec_file"; then
+      log_info "添加 $dep 依赖..."
+      flutter pub add --dev $dep
+      updated=true
+    fi
+  done
+  
+  if [[ "$updated" = true ]]; then
+    log_info "依赖项添加完成"
+  else
+    log_info "所有必要的依赖项已存在"
+  fi
+}
+
+# 执行 build_runner build
+run_build_runner() {
+  log_info "执行 build_runner build..."
+  if command_available dart; then
+    dart pub run build_runner build
+    log_info "build_runner build 执行完成"
+  elif command_available flutter; then
+    flutter pub run build_runner build
+    log_info "build_runner build 执行完成"
+  else
+    log_warn "Dart 和 Flutter 命令都不可用，跳过 build_runner build"
+  fi
+}
+
+# 生成模型文件
+generate_models() {
+  local pubspec_file="pubspec.yaml"
+  local json_dir="w_json"
+  local models_dir="lib/app/data/models"
+  
+  # 检查 pubspec.yaml 文件
+  if [[ ! -f "$pubspec_file" ]]; then
+    log_error "文件不存在: $pubspec_file"
+    return 1
+  fi
+  
+  # 检查 json_serializable 依赖
+  if ! grep -q "json_serializable:" "$pubspec_file"; then
+    log_info "添加 json_serializable 依赖..."
+    if command_available flutter; then
+      flutter pub add --dev json_serializable
+    elif command_available dart; then
+      dart pub add --dev json_serializable
+    else
+      log_error "Dart 和 Flutter 命令都不可用，无法添加依赖项"
+      return 1
+    fi
+  else
+    log_info "json_serializable 依赖已存在"
+  fi
+  
+  # 检查 build_runner 依赖
+  if ! grep -q "build_runner:" "$pubspec_file"; then
+    log_info "添加 build_runner 依赖..."
+    if command_available flutter; then
+      flutter pub add --dev build_runner
+    elif command_available dart; then
+      dart pub add --dev build_runner
+    else
+      log_error "Dart 和 Flutter 命令都不可用，无法添加依赖项"
+      return 1
+    fi
+  else
+    log_info "build_runner 依赖已存在"
+  fi
+  
+  # 检查 w_json 目录
+  if [[ ! -d "$json_dir" ]]; then
+    log_info "创建目录: $json_dir"
+    mkdir -p "$json_dir"
+  else
+    log_info "目录已存在: $json_dir"
+  fi
+  
+  # 检查 models 目录
+  if [[ ! -d "$models_dir" ]]; then
+    log_info "创建目录: $models_dir"
+    mkdir -p "$models_dir"
+  fi
+  
+  # 读取 json 文件
+  local json_files=($json_dir/*.json)
+  if [[ ${#json_files[@]} -eq 0 ]]; then
+    log_error "未找到 json 文件: $json_dir"
+    return 1
+  fi
+  
+  log_info "找到 ${#json_files[@]} 个 json 文件:"
+  for json_file in "${json_files[@]}"; do
+    log_info "  - $(basename "$json_file")"
+  done
+  
+  # 类型推断函数
+  infer_type() {
+    local value="$1"
+    local field="$2"
+    local class_name="$3"
+    
+    # 移除首尾空格
+    value=$(echo "$value" | tr -d ' ')
+    
+    if [[ "$value" == "null" || "$value" == "None" ]]; then
+      echo "String"
+    elif [[ "$value" == "true" || "$value" == "false" || "$value" == "True" || "$value" == "False" ]]; then
+      echo "bool"
+    elif [[ "$value" =~ ^[0-9]+$ ]]; then
+      echo "int"
+    elif [[ "$value" =~ ^[0-9]+\.[0-9]+$ ]]; then
+      echo "double"
+    elif [[ "$value" == "["* ]]; then
+      echo "List"
+    else
+      # 对于字符串，Python 输出不带引号，所以我们假设非数字、非布尔、非 null 的值都是字符串
+      echo "String"
+    fi
+  }
+
+  # 生成字段声明函数
+  generate_field_declaration() {
+    local field="$1"
+    local field_type="$2"
+    local camel_field="$3"
+    
+    local declaration=""
+    declaration+="  @JsonKey(name: '$field')\n"
+    if [[ "$field_type" == *"?" ]]; then
+      declaration+="  $field_type $camel_field;\n"
+    else
+      declaration+="  $field_type? $camel_field;\n"
+    fi
+    echo -e "$declaration"
+  }
+
+  # 生成模型类函数
+  generate_model_class() {
+    local json_content="$1"
+    local class_name="$2"
+    local file_path="$3"
+    
+    # 使用Python提取所有第一层字段
+    local all_fields=$(echo "$json_content" | python3 -c "import json, sys; print(' '.join(json.load(sys.stdin).keys()))" 2>/dev/null || echo "")
+    
+    local field_declarations=""
+    local constructor_params=""
+    local nested_classes=""
+    
+    # 处理所有字段
+    for field in $all_fields; do
+      # 转换字段名（下划线转驼峰）
+      local camel_field=$(echo "$field" | sed -E 's/(_)([a-z])/\U\2/g')
+      
+      # 提取字段值
+      local value=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); print(data.get('$field'))" 2>/dev/null || echo "")
+      
+      # 处理嵌套对象
+      if [[ "$value" == "{"* ]]; then
+        # 生成嵌套类名
+        local nested_class_name="${class_name}$(echo "$camel_field" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
+        local field_type="$nested_class_name"
+        
+        # 提取嵌套对象内容
+        local nested_content=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); print(json.dumps(data.get('$field')))" 2>/dev/null || echo "{}")
+        
+        # 生成嵌套类
+        nested_classes+="\n"$(generate_model_class "$nested_content" "$nested_class_name" "$file_path")
+        
+        # 生成字段声明（添加 @JsonKey 注解和空安全）
+        field_declarations+="\n"$(generate_field_declaration "$field" "$field_type" "$camel_field")
+        
+        # 生成构造函数参数
+        constructor_params+="this.$camel_field, "
+      # 处理数组类型
+      elif [[ "$value" == "["* ]]; then
+        # 检查数组元素类型
+        local array_content=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); arr=data.get('$field', []); print(json.dumps(arr[0]) if arr else '[]')" 2>/dev/null || echo "[]")
+        
+        if [[ "$array_content" == "{"* ]]; then
+          # 数组元素是对象，生成嵌套类
+          local nested_class_name="${class_name}$(echo "$camel_field" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
+          field_type="List<$nested_class_name>"
+          
+          # 生成嵌套类
+          nested_classes+="\n"$(generate_model_class "$array_content" "$nested_class_name" "$file_path")
+        elif [[ "$array_content" == '"'* ]]; then
+          # 数组元素是字符串
+          field_type="List<String>"
+        elif [[ "$array_content" =~ ^[0-9]+$ ]]; then
+          # 数组元素是整数
+          field_type="List<int>"
+        elif [[ "$array_content" =~ ^[0-9]+\.[0-9]+$ ]]; then
+          # 数组元素是浮点数
+          field_type="List<double>"
+        elif [[ "$array_content" == "true" || "$array_content" == "false" ]]; then
+          # 数组元素是布尔值
+          field_type="List<bool>"
+        else
+          # 其他类型数组
+          field_type="List<dynamic>"
+        fi
+        
+        # 生成字段声明（添加 @JsonKey 注解和空安全）
+        field_declarations+="\n"$(generate_field_declaration "$field" "$field_type" "$camel_field")
+        
+        # 生成构造函数参数
+        constructor_params+="this.$camel_field, "
+      # 处理基本类型
+      else
+        # 推断类型
+        local field_type=$(infer_type "$value" "$field" "$class_name")
+        
+        # 生成字段声明（添加 @JsonKey 注解和空安全）
+        field_declarations+="\n"$(generate_field_declaration "$field" "$field_type" "$camel_field")
+        
+        # 生成构造函数参数
+        constructor_params+="this.$camel_field, "
+      fi
+    done
+    
+    # 移除最后一个逗号和空格
+    constructor_params=$(echo "$constructor_params" | sed 's/, $//')
+    
+    # 生成构造函数
+    local constructor="$class_name($constructor_params);"
+    
+    # 生成类内容
+    local class_content=""
+    class_content+="@JsonSerializable()\n"
+    class_content+="class $class_name extends Object {\n"
+    class_content+="$field_declarations"
+    
+    if [[ -n "$all_fields" ]]; then
+      class_content+="\n"
+    fi
+    
+    class_content+="  $constructor\n"
+    class_content+="\n"
+    class_content+="  factory $class_name.fromJson(Map<String, dynamic> srcJson) => _\$${class_name}FromJson(srcJson);\n"
+    class_content+="  Map<String, dynamic> toJson() => _\$${class_name}ToJson(this);\n"
+    class_content+="}\n"
+    
+    # 返回类内容和嵌套类
+    echo -e "$class_content$nested_classes"
+  }
+
+  # 转换 json 文件为 dart 文件
+  log_info "开始转换 json 文件为 dart 文件..."
+  for json_file in "${json_files[@]}"; do
+    local json_name=$(basename "$json_file" .json)
+    local dart_file="$models_dir/${json_name}.dart"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local class_name=$(echo "$json_name" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+    
+    # 读取 json 文件内容并提取字段
+    local json_content=$(cat "$json_file")
+    
+    # 生成主模型类
+    local main_class_name="${class_name}Result"
+    local file_content=""
+    file_content+="$(generate_header_comment)"
+    file_content+="\n"
+    file_content+="import 'package:json_annotation/json_annotation.dart';\n"
+    file_content+="\n"
+    file_content+="part '${json_name}.g.dart';\n"
+    file_content+="\n"
+    
+    # 使用 generate_model_class 函数生成主类和嵌套类
+    local model_content=$(generate_model_class "$json_content" "$main_class_name" "$dart_file")
+    file_content+="$model_content"
+    
+    # 生成 dart 文件
+    log_info "生成文件: $dart_file"
+    printf "$file_content" > "$dart_file"
+
+  done
+  
+  # 执行 build_runner build
+  run_build_runner
+  
+  # 格式化模型目录
+  log_info "格式化模型目录..."
+  if command_available dart; then
+    dart format lib/app/data/models/
+    log_info "模型目录格式化完成"
+  else
+    log_warn "Dart 命令不可用，跳过格式化"
+  fi
+  
+  log_info "✅ 模型文件生成完成！"
+}
+
 # 主函数
 main() {
   # 解析命令行参数
@@ -739,65 +1157,20 @@ main() {
   
   # 添加运行开始分隔线
   printf "${GREEN}======================================================${NC}\n"
-  
-  # 检查并添加必要的依赖项
-  check_and_add_dependencies() {
-    local pubspec_file="pubspec.yaml"
-    
-    if [[ ! -f "$pubspec_file" ]]; then
-      log_error "文件不存在: $pubspec_file"
-      return 1
-    fi
-    
-    if ! command -v flutter &> /dev/null; then
-      log_error "Flutter 命令不可用，无法添加依赖项"
-      return 1
-    fi
-    
-    local updated=false
-    
-    # 检查并添加 dependencies 部分的依赖
-    if ! grep -q "retrofit:" "$pubspec_file"; then
-      log_info "添加 retrofit 依赖..."
-      flutter pub add retrofit
-      updated=true
-    fi
-    
-    # 检查并添加 dev_dependencies 部分的依赖
-    local dev_deps=(
-      "build_runner"
-      "json_serializable"
-      "retrofit_generator"
-    )
-    
-    for dep in "${dev_deps[@]}"; do
-      if ! grep -q "$dep:" "$pubspec_file"; then
-        log_info "添加 $dep 依赖..."
-        flutter pub add --dev $dep
-        updated=true
-      fi
-    done
-    
-    if [[ "$updated" = true ]]; then
-      log_info "依赖项添加完成"
-    else
-      log_info "所有必要的依赖项已存在"
-    fi
-  }
 
-  # 执行 build_runner build
-  run_build_runner() {
-    log_info "执行 build_runner build..."
-    if command -v dart &> /dev/null; then
-      dart pub run build_runner build
-      log_info "build_runner build 执行完成"
-    elif command -v flutter &> /dev/null; then
-      flutter pub run build_runner build
-      log_info "build_runner build 执行完成"
-    else
-      log_warn "Dart 和 Flutter 命令都不可用，跳过 build_runner build"
-    fi
-  }
+  # 处理模型生成模式
+  if [[ "$MODELS_MODE" = true ]]; then
+    printf "${GREEN}模型文件生成开始${NC}\n"
+    printf "${GREEN}======================================================${NC}\n"
+    
+    generate_models
+    
+    # 添加运行结束分隔线
+    printf "${GREEN}======================================================${NC}\n"
+    printf "${GREEN}模型文件生成结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
+    printf "${GREEN}======================================================${NC}\n"
+    exit 0
+  fi
 
   # 处理初始化模式
   if [[ "$INIT_MODE" = true ]]; then
@@ -830,6 +1203,37 @@ main() {
   if ! check_files; then
     log_error "文件检查失败"
     exit 1
+  fi
+
+  # 检查并添加 retrofit_generator 依赖
+  local pubspec_file="pubspec.yaml"
+  if [[ ! -f "$pubspec_file" ]]; then
+    log_error "文件不存在: $pubspec_file"
+  else
+    if ! grep -q "retrofit_generator:" "$pubspec_file"; then
+      log_info "添加 retrofit_generator 依赖..."
+      if command_available flutter; then
+        flutter pub add --dev retrofit_generator
+      elif command_available dart; then
+        dart pub add --dev retrofit_generator
+      else
+        log_warn "Dart 和 Flutter 命令都不可用，无法添加 retrofit_generator 依赖"
+      fi
+    else
+      log_info "retrofit_generator 依赖已存在"
+    fi
+  fi
+
+  # 执行：dart pub run build_runner build
+  log_info "执行 build_runner..."
+  if command_available dart; then
+    dart pub run build_runner build --delete-conflicting-outputs
+    log_info "build_runner 执行完成"
+  elif command_available flutter; then
+    flutter packages pub run build_runner build --delete-conflicting-outputs
+    log_info "build_runner 执行完成"
+  else
+    log_warn "Dart 或 Flutter 命令均不可用，跳过 build_runner"
   fi
   
   # 直接解析 API 方法
@@ -867,5 +1271,5 @@ main() {
   printf "${GREEN}======================================================${NC}\n"
 }
 
-# 执行主函数
+# 调用主函数
 main "$@"

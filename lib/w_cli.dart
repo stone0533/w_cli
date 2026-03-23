@@ -11,6 +11,8 @@ String getVersionFromPubspec() {
 
 /// 获取脚本文件的路径
 /// 从嵌入的资源文件中提取到临时目录
+/// [scriptName] - 脚本文件名称
+/// 返回脚本文件的临时路径
 Future<String> getScriptPath(String scriptName) async {
   try {
     // 从资源文件中提取到临时文件
@@ -87,6 +89,8 @@ Future<void> executeScript(
 }
 
 /// 处理错误信息，提供更详细的错误日志
+/// [error] - 错误对象
+/// [context] - 错误上下文
 void handleError(dynamic error, String context) {
   print('\n❌ Error in $context: $error');
 
@@ -135,6 +139,8 @@ void handleError(dynamic error, String context) {
 
 /// 验证项目名称是否有效
 /// 项目名称必须非空且以小写字母开头
+/// [projectName] - 项目名称
+/// 返回验证结果
 bool validateProjectName(String projectName) {
   if (projectName.isEmpty) {
     print('❌ Error: Project name is required');
@@ -158,6 +164,7 @@ bool validateProjectName(String projectName) {
 }
 
 /// 处理 create 命令
+/// [arguments] - 命令参数
 Future<void> handleCreateCommand(List<String> arguments) async {
   String subcommand;
   List<String> subArgs;
@@ -186,6 +193,7 @@ Future<void> handleCreateCommand(List<String> arguments) async {
 }
 
 /// 处理项目创建
+/// [projectName] - 项目名称
 Future<void> handleCreateProject(String projectName) async {
   // 验证项目名称
   if (!validateProjectName(projectName)) {
@@ -196,7 +204,7 @@ Future<void> handleCreateProject(String projectName) async {
   try {
     // 执行脚本并实时显示输出
     await executeScript(
-      'setup_project.sh',
+      'setup.sh',
       ['--name', projectName],
       'Project created successfully!',
       'Project creation failed',
@@ -207,6 +215,7 @@ Future<void> handleCreateProject(String projectName) async {
 }
 
 /// 处理页面创建
+/// [arguments] - 命令参数
 Future<void> handleCreatePage(List<String> arguments) async {
   if (arguments.isEmpty) {
     print('❌ Error: No page name specified');
@@ -219,6 +228,7 @@ Future<void> handleCreatePage(List<String> arguments) async {
 }
 
 /// 处理屏幕创建
+/// [arguments] - 命令参数
 Future<void> handleCreateScreen(List<String> arguments) async {
   if (arguments.isEmpty) {
     print('❌ Error: No screen name specified');
@@ -231,6 +241,7 @@ Future<void> handleCreateScreen(List<String> arguments) async {
 }
 
 /// 处理控制器创建
+/// [arguments] - 命令参数
 Future<void> handleCreateController(List<String> arguments) async {
   if (arguments.isEmpty) {
     print('❌ Error: No controller name specified');
@@ -243,6 +254,7 @@ Future<void> handleCreateController(List<String> arguments) async {
 }
 
 /// 处理视图创建
+/// [arguments] - 命令参数
 Future<void> handleCreateView(List<String> arguments) async {
   if (arguments.isEmpty) {
     print('❌ Error: No view name specified');
@@ -255,6 +267,7 @@ Future<void> handleCreateView(List<String> arguments) async {
 }
 
 /// 处理提供者创建
+/// [arguments] - 命令参数
 Future<void> handleCreateProvider(List<String> arguments) async {
   if (arguments.isEmpty) {
     print('❌ Error: No provider name specified');
@@ -273,10 +286,8 @@ Future<void> handleInitCommand() async {
 }
 
 /// 处理 generate 命令
+/// [arguments] - 命令参数
 Future<void> handleGenerateCommand(List<String> arguments) async {
-  String subcommand;
-  List<String> subArgs;
-
   // 检查是否有 --init 参数
   if (arguments.contains('--init')) {
     // 直接执行 api 命令，传递所有参数
@@ -284,24 +295,17 @@ Future<void> handleGenerateCommand(List<String> arguments) async {
     return;
   }
 
-  if (arguments.isEmpty || arguments[0] == 'generate' || arguments[0] == 'g') {
-    // 默认行为：api generate
-    subcommand = 'api';
-    subArgs = arguments.length > 1 ? arguments.sublist(1) : [];
-  } else {
-    subcommand = arguments[0];
-    subArgs = arguments.sublist(1);
-  }
+  // 过滤掉 generate 或 g 子命令
+  final filteredArgs = arguments
+      .where((arg) => arg != 'generate' && arg != 'g')
+      .toList();
 
-  if (subcommand == 'api' || subcommand == 'a') {
-    await handleGenerateApi(subArgs);
-  } else {
-    print('❌ Error: Unknown api subcommand: $subcommand');
-    print('   Usage: ww api|a generate|g [options]');
-  }
+  // 执行 api 命令，传递过滤后的参数
+  await handleGenerateApi(filteredArgs);
 }
 
 /// 处理本地化文件生成
+/// [arguments] - 命令参数
 Future<void> handleGenerateLocales(List<String> arguments) async {
   if (arguments.isEmpty) {
     print('❌ Error: No locales directory specified');
@@ -314,12 +318,14 @@ Future<void> handleGenerateLocales(List<String> arguments) async {
 }
 
 /// 处理模型生成
+/// [arguments] - 命令参数
 Future<void> handleGenerateModel(List<String> arguments) async {
   print('\n🚀 Generating model');
   print('   Note: Model generation functionality is not yet implemented');
 }
 
 /// 处理包安装命令
+/// [arguments] - 命令参数
 Future<void> handleInstallCommand(List<String> arguments) async {
   if (arguments.isEmpty) {
     print('❌ Error: No package specified');
@@ -332,6 +338,7 @@ Future<void> handleInstallCommand(List<String> arguments) async {
 }
 
 /// 处理包移除命令
+/// [arguments] - 命令参数
 Future<void> handleRemoveCommand(List<String> arguments) async {
   if (arguments.isEmpty) {
     print('❌ Error: No package specified');
@@ -384,12 +391,13 @@ Future<void> handleUpdateCommand() async {
 }
 
 /// 处理 API 代码生成
+/// [arguments] - 命令参数
 Future<void> handleGenerateApi(List<String> arguments) async {
   print('\n🚀 Running API code generation');
   try {
     // 执行脚本并实时显示输出
     await executeScript(
-      'api_gen.sh',
+      'api.sh',
       arguments,
       'API code generation completed successfully!',
       'API code generation failed',
@@ -400,6 +408,7 @@ Future<void> handleGenerateApi(List<String> arguments) async {
 }
 
 /// 处理构建命令
+/// [arguments] - 命令参数
 Future<void> handleBuildCommand(List<String> arguments) async {
   print('\n🚀 Running Flutter build');
   try {
@@ -416,6 +425,7 @@ Future<void> handleBuildCommand(List<String> arguments) async {
 }
 
 /// 处理项目管理命令
+/// [arguments] - 命令参数
 Future<void> handleProjectCommand(List<String> arguments) async {
   print('\n🚀 Managing Flutter project');
   try {
@@ -432,6 +442,7 @@ Future<void> handleProjectCommand(List<String> arguments) async {
 }
 
 /// 处理打开命令
+/// [arguments] - 命令参数
 Future<void> handleOpenCommand(List<String> arguments) async {
   if (arguments.isEmpty) {
     print('❌ Error: No subcommand specified for open');
@@ -482,12 +493,16 @@ Future<void> handleOpenCommand(List<String> arguments) async {
 
 /// 单元测试辅助函数
 /// 验证版本号格式是否正确
+/// [version] - 版本号
+/// 返回验证结果
 bool isValidVersion(String version) {
   return RegExp(r'^\d+\.\d+\.\d+$').hasMatch(version);
 }
 
 /// 单元测试辅助函数
 /// 验证脚本路径是否存在
+/// [scriptName] - 脚本文件名称
+/// 返回验证结果
 Future<bool> scriptExists(String scriptName) async {
   try {
     await getScriptPath(scriptName);
@@ -499,6 +514,8 @@ Future<bool> scriptExists(String scriptName) async {
 
 /// 单元测试辅助函数
 /// 验证项目名称是否有效
+/// [projectName] - 项目名称
+/// 返回验证结果
 bool isValidProjectName(String projectName) {
   return validateProjectName(projectName);
 }

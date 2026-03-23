@@ -9,6 +9,8 @@ class Resources {
   static final Map<String, String> _scriptPathCache = {};
 
   /// 读取资源文件内容
+  /// [resourcePath] - 资源文件路径
+  /// 返回资源文件的字节数据
   static Future<Uint8List> readResource(String resourcePath) async {
     // 尝试从当前工作目录读取
     final cwdPath = path.join(Directory.current.path, resourcePath);
@@ -53,14 +55,14 @@ class Resources {
                 .listSync(followLinks: false)
                 .where((e) => e is Directory && e.path.contains('w_cli-'))
                 .toList();
-            
+
             // 只查找当前版本，不尝试其他版本
             final currentVersion = version;
             final currentVersionDir = wCliDirs.firstWhere(
               (dir) => dir.path.endsWith('w_cli-$currentVersion'),
               orElse: () => Directory(''),
             );
-            
+
             if (currentVersionDir.existsSync()) {
               final tempPath = path.join(currentVersionDir.path, resourcePath);
               final resourceFile = File(tempPath);
@@ -77,6 +79,9 @@ class Resources {
   }
 
   /// 将资源文件复制到临时文件并返回路径
+  /// [resourcePath] - 资源文件路径
+  /// [fileName] - 临时文件名称
+  /// 返回临时文件的路径
   static Future<String> extractResourceToTempFile(
     String resourcePath,
     String fileName,
