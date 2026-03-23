@@ -53,6 +53,9 @@ Future<void> main(List<String> arguments) async {
         '  ww api|a generate|g [options]    # Generate API code',
       );
       print(
+        '  ww api|a --init                  # Initialize API directory structure',
+      );
+      print(
         '  ww update|u                      # Update w_cli to the latest version',
       );
       print('  ww build|b [apk|aab|ios] [--uat|-u] [--clean|-c] [--open|-o]');
@@ -75,6 +78,7 @@ Future<void> main(List<String> arguments) async {
       print('    ww b apk -u -o              # Build APK in UAT mode and open output directory');
       print('    ww b apk aab -c -o          # Build APK and AAB with clean and open output directory');
       print('    ww p --update               # Update Flutter project dependencies and configuration');
+      print('    ww a --init                 # Initialize API directory structure');
       print('  ww open|o [ios|i|android|a|build|b|root|r]');
       print('  ww -v, --version');
       print('  ww -h, --help');

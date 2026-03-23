@@ -128,6 +128,9 @@ ww api generate
 
 # Generate with debug mode
 ww api generate --debug
+
+# Initialize API directory structure
+ww api --init
 ```
 
 ### Flutter App Building

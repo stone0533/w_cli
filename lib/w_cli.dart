@@ -277,6 +277,13 @@ Future<void> handleGenerateCommand(List<String> arguments) async {
   String subcommand;
   List<String> subArgs;
 
+  // 检查是否有 --init 参数
+  if (arguments.contains('--init')) {
+    // 直接执行 api 命令，传递所有参数
+    await handleGenerateApi(arguments);
+    return;
+  }
+
   if (arguments.isEmpty || arguments[0] == 'generate' || arguments[0] == 'g') {
     // 默认行为：api generate
     subcommand = 'api';
