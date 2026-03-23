@@ -1,3 +1,12 @@
+## 1.0.20
+
+- Updated version number to 1.0.20
+- Renamed setup_project.sh to setup.sh for consistency
+- Updated test file to use setup.sh instead of setup_project.sh
+- Generated detailed usage documentation for all scripts
+- Improved code formatting and consistency
+- Fixed script path resolution issues
+
 ## 1.0.19
 
 - Updated version number to 1.0.19
