@@ -277,10 +277,10 @@ Future<void> handleGenerateCommand(List<String> arguments) async {
   String subcommand;
   List<String> subArgs;
 
-  if (arguments.isEmpty) {
-    // 默认行为：generate api
+  if (arguments.isEmpty || arguments[0] == 'generate' || arguments[0] == 'g') {
+    // 默认行为：api generate
     subcommand = 'api';
-    subArgs = [];
+    subArgs = arguments.length > 1 ? arguments.sublist(1) : [];
   } else {
     subcommand = arguments[0];
     subArgs = arguments.sublist(1);
@@ -289,8 +289,8 @@ Future<void> handleGenerateCommand(List<String> arguments) async {
   if (subcommand == 'api' || subcommand == 'a') {
     await handleGenerateApi(subArgs);
   } else {
-    print('❌ Error: Unknown generate subcommand: $subcommand');
-    print('   Usage: ww generate|g api|a [options]');
+    print('❌ Error: Unknown api subcommand: $subcommand');
+    print('   Usage: ww api|a generate|g [options]');
   }
 }
 

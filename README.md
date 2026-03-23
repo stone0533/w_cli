@@ -48,7 +48,7 @@ ww --version
 ww create project my_app
 
 # Generate API code
-ww generate api
+ww api generate
 
 # Build Flutter app
 ww build apk
@@ -73,7 +73,7 @@ ww open root
 ```bash
 # Main commands
 ww create   → ww c
-ww generate → ww g
+ww api      → ww a
 ww update   → ww u
 ww build    → ww b
 ww project  → ww p
@@ -81,7 +81,7 @@ ww open     → ww o
 
 # Subcommands
 ww create project → ww create p
-ww generate api   → ww generate a
+ww api generate   → ww api g
 ww open ios       → ww open i
 ww open android   → ww open a
 ww open build     → ww open b
@@ -95,8 +95,8 @@ ww open root      → ww open r
 ww create     → ww create project
 
 # Default to API code generation
-ww generate   → ww generate api
-ww g          → ww g api
+ww api        → ww api generate
+ww a          → ww a generate
 ```
 
 ### Examples with Aliases
@@ -106,8 +106,8 @@ ww g          → ww g api
 ww c p my_app
 
 # Generate API code using aliases
-ww g
-ww g a
+ww a g
+ww a
 
 # Build using aliases
 ww b apk --uat
@@ -124,10 +124,10 @@ ww p --update  # Update Flutter project dependencies and configuration
 
 ```bash
 # Generate API code
-ww generate api
+ww api generate
 
 # Generate with debug mode
-ww generate api --debug
+ww api generate --debug
 ```
 
 ### Flutter App Building

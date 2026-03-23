@@ -68,12 +68,18 @@ parse_args() {
       --version)
         show_version
         ;;
+      --init)
+        # 标记为初始化模式
+        INIT_MODE=true
+        shift
+        ;;
       *)
         log_error "未知参数: $1"
         echo "使用方法: $0 [选项]"
         echo "选项:"
         echo "  -d, --debug    启用调试模式"
         echo "  --version      显示脚本版本信息"
+        echo "  --init         初始化目录结构"
         exit 1
         ;;
     esac
@@ -88,6 +94,184 @@ check_files() {
   fi
   
   return 0
+}
+
+# 初始化目录结构
+init_directory_structure() {
+  local base_dir="lib/app/data"
+  local sources_dir="$base_dir/sources"
+  local remote_dir="$sources_dir/remote"
+  
+  # 检查并创建目录
+  if [[ ! -d "$base_dir" ]]; then
+    log_info "创建目录: $base_dir"
+    mkdir -p "$base_dir"
+  else
+    log_info "目录已存在: $base_dir"
+  fi
+  
+  if [[ ! -d "$sources_dir" ]]; then
+    log_info "创建目录: $sources_dir"
+    mkdir -p "$sources_dir"
+  else
+    log_info "目录已存在: $sources_dir"
+  fi
+  
+  if [[ ! -d "$remote_dir" ]]; then
+    log_info "创建目录: $remote_dir"
+    mkdir -p "$remote_dir"
+  else
+    log_info "目录已存在: $remote_dir"
+  fi
+  
+  # 检查并创建 models 目录
+  local models_dir="$base_dir/models"
+  if [[ ! -d "$models_dir" ]]; then
+    log_info "创建目录: $models_dir"
+    mkdir -p "$models_dir"
+  else
+    log_info "目录已存在: $models_dir"
+  fi
+  
+  # 检查并创建必要的文件
+  if [[ ! -f "$sources_dir/client.dart" ]]; then
+    log_info "创建文件: $sources_dir/client.dart"
+    cat > "$sources_dir/client.dart" << 'EOF'
+import 'package:retrofit/retrofit.dart';
+import 'package:dio/dio.dart';
+import 'paths.dart';
+
+part 'client.g.dart';
+
+@RestApi()
+abstract class ApiClient {
+  factory ApiClient(Dio dio, {String baseUrl}) = _ApiClient;
+
+  // 认证相关
+  @POST(ApiPath.login)
+  Future<dynamic> login(@Body() Map<String, dynamic> data);
+
+  // 这里新增需要的 API，然后执行 ww api generate 来自动生成对应的代码
+}
+EOF
+  else
+    log_info "文件已存在: $sources_dir/client.dart"
+  fi
+  
+  if [[ ! -f "$sources_dir/paths.dart" ]]; then
+    log_info "创建文件: $sources_dir/paths.dart"
+    cat > "$sources_dir/paths.dart" << 'EOF'
+class ApiPath {
+  static const String baseUrl = 'https://api.example.com';
+
+  // 认证相关
+  static const String login = '/auth/login';
+}
+EOF
+  else
+    log_info "文件已存在: $sources_dir/paths.dart"
+  fi
+  
+  if [[ ! -f "$remote_dir/data_source.dart" ]]; then
+    log_info "创建文件: $remote_dir/data_source.dart"
+    cat > "$remote_dir/data_source.dart" << 'EOF'
+import 'package:w_tools/w.dart';
+import '../client.dart';
+import '../paths.dart';
+import 'data_source_mixin.dart';
+
+class AppRemoteDataSource extends BaseRemoteDataSource
+    with AppRemoteDataSourceMixin {
+  AppRemoteDataSource() {
+    libRest = ApiClient(
+      DioUtil.instance(
+        ApiPath.baseUrl,
+        interceptors: [
+          WTokenInterceptor(),
+          WLogInterceptor(),
+          WErrorInterceptor(),
+        ],
+      ).dio,
+    );
+  }
+}
+
+EOF
+  else
+    log_info "文件已存在: $remote_dir/data_source.dart"
+  fi
+  
+  # 检查并创建 data_source_mixin.dart 文件
+  if [[ ! -f "$remote_dir/data_source_mixin.dart" ]]; then
+    log_info "创建文件: $remote_dir/data_source_mixin.dart"
+    cat > "$remote_dir/data_source_mixin.dart" << EOF
+$(generate_header_comment)
+
+import '../client.dart';
+
+abstract class IAppRemoteDataSource {
+  // 认证相关
+  Future<dynamic> login(Map<String, dynamic> body);
+}
+
+mixin AppRemoteDataSourceMixin implements IAppRemoteDataSource {
+  late final ApiClient libRest;
+
+  // 认证相关
+  @override
+  Future<dynamic> login(Map<String, dynamic> body) {
+    return libRest.login(body);
+  }
+}
+EOF
+  else
+    log_info "文件已存在: $remote_dir/data_source_mixin.dart"
+  fi
+  
+  # 检查并创建 repository.dart 文件
+  if [[ ! -f "$sources_dir/repository.dart" ]]; then
+    log_info "创建文件: $sources_dir/repository.dart"
+    cat > "$sources_dir/repository.dart" << EOF
+$(generate_header_comment)
+
+import 'package:w_tools/w.dart';
+
+import 'remote/data_source.dart';
+import 'remote/data_source_mixin.dart';
+
+class AppRepository extends BaseRepository<Null, AppRemoteDataSource>
+    implements IAppRemoteDataSource {
+  AppRepository() : super(remoteDataSource: AppRemoteDataSource());
+
+  static AppRepository? _instance;
+
+  static AppRepository _getInstance() {
+    _instance ??= AppRepository();
+    return _instance!;
+  }
+
+  static AppRepository get instance => _getInstance();
+
+  static bool destroyInstance() {
+    if (_instance == null) {
+      return false;
+    }
+    _instance = null;
+    return true;
+  }
+
+  // 认证相关
+  @override
+  Future<dynamic> login(Map<String, dynamic> body) {
+    return remoteDataSource!.login(body);
+  }
+}
+EOF
+  else
+    log_info "文件已存在: $sources_dir/repository.dart"
+  fi
+  
+  log_info "✅ 目录结构初始化完成！"
 }
 
 # 解析参数
@@ -393,6 +577,20 @@ extract_existing_methods() {
   echo "$existing_methods"
 }
 
+# 生成自动生成文件的注释头部
+generate_header_comment() {
+  local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+  cat << EOF
+// **************************************************************************
+// Auto-generated file. Do not edit manually.
+// **************************************************************************
+// This file was generated by api_gen.sh on $timestamp
+// Changes will be overwritten the next time the script runs.
+// **************************************************************************
+
+EOF
+}
+
 # 生成 app_remote_data_source_mixin.dart
 generate_remote_datasource() {
   local api_methods=($@)
@@ -405,7 +603,10 @@ generate_remote_datasource() {
   # 生成动态模型导入
   extract_imports "../../models/" "${api_methods[@]}"
   
-  cat << 'EOF'
+  # 生成注释头部
+  generate_header_comment
+  
+  cat << EOF
 import '../client.dart';
 
 abstract class IAppRemoteDataSource {
@@ -452,7 +653,10 @@ EOF
 generate_repository() {
   local api_methods=($@)
   
-  cat << 'EOF'
+  # 生成注释头部
+  generate_header_comment
+  
+  cat << EOF
 import 'package:w_tools/w.dart';
 
 import 'remote/data_source.dart';
@@ -535,6 +739,88 @@ main() {
   
   # 添加运行开始分隔线
   printf "${GREEN}======================================================${NC}\n"
+  
+  # 检查并添加必要的依赖项
+  check_and_add_dependencies() {
+    local pubspec_file="pubspec.yaml"
+    
+    if [[ ! -f "$pubspec_file" ]]; then
+      log_error "文件不存在: $pubspec_file"
+      return 1
+    fi
+    
+    if ! command -v flutter &> /dev/null; then
+      log_error "Flutter 命令不可用，无法添加依赖项"
+      return 1
+    fi
+    
+    local updated=false
+    
+    # 检查并添加 dependencies 部分的依赖
+    if ! grep -q "retrofit:" "$pubspec_file"; then
+      log_info "添加 retrofit 依赖..."
+      flutter pub add retrofit
+      updated=true
+    fi
+    
+    # 检查并添加 dev_dependencies 部分的依赖
+    local dev_deps=(
+      "build_runner"
+      "json_serializable"
+      "retrofit_generator"
+    )
+    
+    for dep in "${dev_deps[@]}"; do
+      if ! grep -q "$dep:" "$pubspec_file"; then
+        log_info "添加 $dep 依赖..."
+        flutter pub add --dev $dep
+        updated=true
+      fi
+    done
+    
+    if [[ "$updated" = true ]]; then
+      log_info "依赖项添加完成"
+    else
+      log_info "所有必要的依赖项已存在"
+    fi
+  }
+
+  # 执行 build_runner build
+  run_build_runner() {
+    log_info "执行 build_runner build..."
+    if command -v dart &> /dev/null; then
+      dart pub run build_runner build
+      log_info "build_runner build 执行完成"
+    elif command -v flutter &> /dev/null; then
+      flutter pub run build_runner build
+      log_info "build_runner build 执行完成"
+    else
+      log_warn "Dart 和 Flutter 命令都不可用，跳过 build_runner build"
+    fi
+  }
+
+  # 处理初始化模式
+  if [[ "$INIT_MODE" = true ]]; then
+    printf "${GREEN}API 目录结构初始化开始${NC}\n"
+    printf "${GREEN}======================================================${NC}\n"
+    
+    log_info "检查并添加必要的依赖项..."
+    check_and_add_dependencies
+    
+    log_info "开始初始化目录结构..."
+    init_directory_structure
+    
+    # 执行 build_runner build
+    run_build_runner
+    
+    # 添加运行结束分隔线
+    printf "${GREEN}======================================================${NC}\n"
+    printf "${GREEN}API 目录结构初始化结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
+    printf "${GREEN}======================================================${NC}\n"
+    exit 0
+  fi
+  
+  # API 代码生成逻辑
   printf "${GREEN}API 代码生成脚本运行开始${NC}\n"
   printf "${GREEN}======================================================${NC}\n"
   

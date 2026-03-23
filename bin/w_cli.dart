@@ -7,8 +7,8 @@ Future<void> main(List<String> arguments) async {
   final parser = ArgParser()
     ..addCommand('create')
     ..addCommand('c') // 别名
-    ..addCommand('generate')
-    ..addCommand('g') // 别名
+    ..addCommand('api')
+    ..addCommand('a') // 别名
     ..addCommand('update')
     ..addCommand('u') // 别名
     ..addCommand('build')
@@ -50,7 +50,7 @@ Future<void> main(List<String> arguments) async {
         '  ww create|c project|p name       # Create a new Flutter project',
       );
       print(
-        '  ww generate|g api|a [options]    # Generate API code (default for generate)',
+        '  ww api|a generate|g [options]    # Generate API code',
       );
       print(
         '  ww update|u                      # Update w_cli to the latest version',
@@ -94,8 +94,8 @@ Future<void> main(List<String> arguments) async {
       print('');
       print('Default behaviors:');
       print('  ww create     -> ww create project');
-      print('  ww generate   -> ww generate api');
-      print('  ww g          -> ww g api');
+      print('  ww api        -> ww api generate');
+      print('  ww a          -> ww a generate');
       return;
     }
 
@@ -110,8 +110,8 @@ Future<void> main(List<String> arguments) async {
       case 'c':
         await w.handleCreateCommand(command.arguments);
         break;
-      case 'generate':
-      case 'g':
+      case 'api':
+      case 'a':
         await w.handleGenerateCommand(command.arguments);
         break;
       case 'update':
