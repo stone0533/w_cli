@@ -550,13 +550,14 @@ EOF
 # - lib/app/data/models：存放数据模型
 # - lib/app/data/sources：存放数据源
 # - lib/app/data/sources/remote：存放远程数据源
+# - lib/app/data/w_json：存放 JSON 相关文件
 # - test：存放测试文件
 # - .github/workflows：存放 CI/CD 配置
 create_directory_structure() {
   log_message "创建目录结构..."
   # 合并为一个命令，减少进程创建
   local project_path="$PROJECT_NAME"
-  run_command "mkdir -p \"$project_path\"/assets/{fonts,images} \"$project_path\"/lib/app/{components,utils,services} \"$project_path\"/lib/app/data/{models,sources} \"$project_path\"/lib/app/data/sources/remote \"$project_path\"/test \"$project_path\"/.github/workflows"
+  run_command "mkdir -p \"$project_path\"/assets/{fonts,images} \"$project_path\"/lib/app/{components,utils,services} \"$project_path\"/lib/app/data/{models,sources,w_json} \"$project_path\"/lib/app/data/sources/remote \"$project_path\"/test \"$project_path\"/.github/workflows"
   log_message "${GREEN}目录结构创建完成${NC}"
 }
 
@@ -893,7 +894,26 @@ EOF
 initialize_git() {
   if [ -d "$PROJECT_NAME" ]; then
     log_message "初始化 Git 仓库..."
-    run_command "(cd \"$PROJECT_NAME\" && git init && git add . && git commit -m \"Initial commit\")"
+    run_command "(cd \"$PROJECT_NAME\" && git init)"
+    
+    # 将 w_build 目录添加到 .gitignore 文件
+    log_message "添加 w_build 目录到 .gitignore 文件..."
+    local gitignore_file="$PROJECT_NAME/.gitignore"
+    
+    # 检查 .gitignore 文件是否存在
+    if [ ! -f "$gitignore_file" ]; then
+      # 创建 .gitignore 文件
+      run_command "touch \"$gitignore_file\""
+    fi
+    
+    # 检查 w_build 是否已经在 .gitignore 文件中
+    if ! grep -q "w_build/" "$gitignore_file"; then
+      # 添加 w_build 到 .gitignore 文件
+      run_command "echo \"w_build/\" >> \"$gitignore_file\""
+    fi
+    
+    # 添加所有文件并提交
+    run_command "(cd \"$PROJECT_NAME\" && git add . && git commit -m \"Initial commit\")"
     log_message "${GREEN}Git 仓库初始化完成${NC}"
   fi
 }
