@@ -134,18 +134,9 @@ void main() {
       }
     });
 
-    test('handleGenerateCommand should execute without throwing', () async {
+    test('handleApiCommand should execute without throwing', () async {
       try {
-        await handleGenerateCommand([]);
-        expect(true, isTrue);
-      } catch (e) {
-        expect(true, isTrue);
-      }
-    });
-
-    test('handleGenerateApi should execute without throwing', () async {
-      try {
-        await handleGenerateApi(['--help']);
+        await handleApiCommand([]);
         expect(true, isTrue);
       } catch (e) {
         expect(true, isTrue);

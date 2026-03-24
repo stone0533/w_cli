@@ -285,23 +285,38 @@ Future<void> handleInitCommand() async {
   print('   Note: Init functionality is not yet implemented');
 }
 
-/// 处理 generate 命令
+/// 处理 API 代码生成命令
 /// [arguments] - 命令参数
-Future<void> handleGenerateCommand(List<String> arguments) async {
-  // 检查是否有 --init 参数
-  if (arguments.contains('--init')) {
-    // 直接执行 api 命令，传递所有参数
-    await handleGenerateApi(arguments);
-    return;
+Future<void> handleApiCommand(List<String> arguments) async {
+  print('\n🚀 Running API code generation');
+  try {
+    // 检查是否有 --init 参数
+    if (arguments.contains('--init')) {
+      // 直接执行 api 命令，传递所有参数
+      await executeScript(
+        'api.sh',
+        arguments,
+        'API code generation completed successfully!',
+        'API code generation failed',
+      );
+      return;
+    }
+
+    // 过滤掉 generate 或 g 子命令
+    final filteredArgs = arguments
+        .where((arg) => arg != 'generate' && arg != 'g')
+        .toList();
+
+    // 执行脚本并实时显示输出
+    await executeScript(
+      'api.sh',
+      filteredArgs,
+      'API code generation completed successfully!',
+      'API code generation failed',
+    );
+  } catch (e) {
+    handleError(e, 'API code generation');
   }
-
-  // 过滤掉 generate 或 g 子命令
-  final filteredArgs = arguments
-      .where((arg) => arg != 'generate' && arg != 'g')
-      .toList();
-
-  // 执行 api 命令，传递过滤后的参数
-  await handleGenerateApi(filteredArgs);
 }
 
 /// 处理本地化文件生成
@@ -387,23 +402,6 @@ Future<void> handleUpdateCommand() async {
   } catch (e) {
     handleError(e, 'update');
     print('   Please try again or check your internet connection.');
-  }
-}
-
-/// 处理 API 代码生成
-/// [arguments] - 命令参数
-Future<void> handleGenerateApi(List<String> arguments) async {
-  print('\n🚀 Running API code generation');
-  try {
-    // 执行脚本并实时显示输出
-    await executeScript(
-      'api.sh',
-      arguments,
-      'API code generation completed successfully!',
-      'API code generation failed',
-    );
-  } catch (e) {
-    handleError(e, 'API code generation');
   }
 }
 

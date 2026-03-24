@@ -1,3 +1,12 @@
+## 1.0.21
+
+- Updated version number to 1.0.21
+- Improved code structure and consistency
+- Fixed command parsing and parameter handling
+- Enhanced error messages and user feedback
+- Updated API command handling logic
+- Removed unused generate command references
+
 ## 1.0.20
 
 - Updated version number to 1.0.20
