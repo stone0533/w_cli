@@ -319,35 +319,31 @@ parse_params() {
   local params=()
   
   # 提取所有参数注解
-  local param_annotations=$(echo "$params_part" | grep -o "@[A-Za-z]*\([^)]*\)")
+  local param_annotations=$(echo "$params_part" | grep -oE "@[A-Za-z]+\([^)]*\)" || echo "")
   
   for annotation in $param_annotations; do
     if [[ "$annotation" == *"@Path"* ]]; then
-      # 提取 @Path 参数名
-      if [[ "$annotation" == *"@Path('"* ]]; then
-        local param_name=$(echo "$annotation" | grep -o "'[^']*'" | cut -d"'" -f2)
-        params+=($param_name)
-      elif [[ "$annotation" == *"@Path("* ]]; then
-        local param_name=$(echo "$annotation" | grep -o "@Path([^)]*)" | cut -d'(' -f2 | cut -d')' -f1 | awk '{print $2}')
-        params+=($param_name)
+      # 提取 @Path 参数名 - 从 params_part 中提取
+      local param_name=$(echo "$params_part" | grep -o "@Path()[[:space:]]*[A-Za-z]+[[:space:]]+[A-Za-z]+" | grep -o "[A-Za-z]*$" | tail -1)
+      if [[ -z "$param_name" ]]; then
+        param_name="identifier"
       fi
+      params+=($param_name)
     elif [[ "$annotation" == *"@Body"* ]]; then
       # 提取 @Body 参数名
-      local param_name=$(echo "$params_part" | grep -o "@Body([^)]*)\s*\w+\s+\w+" | grep -o "\w+" | tail -1)
+      local param_name=$(echo "$params_part" | grep -o "@Body()[[:space:]]*[A-Za-z]+[[:space:]]+[A-Za-z]+" | grep -o "[A-Za-z]*$" | tail -1)
       if [[ -z "$param_name" ]]; then
         # 如果没有找到参数名，使用 body 作为默认值
         param_name="body"
       fi
       params+=($param_name)
-    elif [[ "$annotation" == *"@Query"* ]]; then
-      # 提取 @Query 参数名
-      if [[ "$annotation" == *"@Query('"* ]]; then
-        local param_name=$(echo "$annotation" | grep -o "'[^']*'" | cut -d"'" -f2)
-        params+=($param_name)
-      elif [[ "$annotation" == *"@Query("* ]]; then
-        local param_name=$(echo "$annotation" | grep -o "@Query([^)]*)" | cut -d'(' -f2 | cut -d')' -f1 | awk '{print $2}')
-        params+=($param_name)
+    elif [[ "$annotation" == *"@Query"* ]] || [[ "$annotation" == *"@Queries"* ]]; then
+      # 提取 @Query 或 @Queries 参数名
+      local param_name=$(echo "$params_part" | grep -o "@[Qq]ueries()[[:space:]]*[A-Za-z]+[[:space:]]+[A-Za-z]+" | grep -o "[A-Za-z]*$" | tail -1)
+      if [[ -z "$param_name" ]]; then
+        param_name="queries"
       fi
+      params+=($param_name)
     elif [[ "$annotation" == *"@Header"* ]]; then
       # 提取 @Header 参数名
       if [[ "$annotation" == *"@Header('"* ]]; then
@@ -370,8 +366,12 @@ parse_params() {
   done
   
   # 合并参数为逗号分隔的字符串
-  local params_str=$(IFS=,; echo "${params[*]}")
-  echo "$params_str"
+  if [[ ${#params[@]} -eq 0 ]]; then
+    echo ""
+  else
+    local params_str=$(IFS=,; echo "${params[*]}")
+    echo "$params_str"
+  fi
 }
 
 # 处理返回类型
@@ -498,6 +498,8 @@ generate_method_definition() {
     for param in "${param_array[@]}"; do
       if [[ "$param" == "body" ]]; then
         echo "    Map<String, dynamic> $param,"
+      elif [[ "$param" == "queries" ]]; then
+        echo "    Map<String, dynamic> $param,"
       else
         echo "    String $param,"
       fi
@@ -509,7 +511,11 @@ generate_method_definition() {
     $return_statement
   }"
   else
-    echo "  );"
+    if [[ -n "$params" ]]; then
+      echo "  );"
+    else
+      echo "  );"
+    fi
   fi
   
   echo ""
@@ -521,6 +527,7 @@ parse_client() {
   local in_class=false
   local current_comment=""
   local current_http_method=""
+  local method_buffer=""
   
   if [[ ! -f "$CLIENT_FILE" ]]; then
     log_error "文件不存在: $CLIENT_FILE"
@@ -549,12 +556,6 @@ parse_client() {
       continue
     fi
     
-    # 收集注释
-    if [[ "$line" == *"// "* ]]; then
-      current_comment=$(echo "$line" | sed 's/.*\/\/ *//')
-      continue
-    fi
-    
     # 提取 HTTP 方法注解
     if [[ "$line" == *"@GET"* ]]; then
       current_http_method="GET"
@@ -570,32 +571,47 @@ parse_client() {
       continue
     fi
     
-    # 匹配方法定义: Future<Type> methodName(@Path() Type param);
+    # 跳过注释行和空行
+    if [[ "$line" =~ ^[[:space:]]*// ]] || [[ -z "$line" ]]; then
+      continue
+    fi
+    
+    # 收集方法定义行（处理跨多行的方法）
     if [[ "$line" == *"Future<"* ]]; then
+      method_buffer="$line"
+    elif [[ -n "$method_buffer" ]]; then
+      method_buffer="$method_buffer $line"
+    fi
+    
+    # 检查方法定义是否完成（包含分号）
+    if [[ -n "$method_buffer" && "$method_buffer" == *");"* ]]; then
       # 提取返回类型
-      local return_type=$(echo "$line" | grep -o 'Future<[^>]*>' | cut -d'<' -f2 | cut -d'>' -f1)
+      local return_type=$(echo "$method_buffer" | grep -o 'Future<[^>]*>' | cut -d'<' -f2 | cut -d'>' -f1)
       
       if [[ -z "$return_type" ]]; then
+        method_buffer=""
         continue
       fi
       
       # 提取方法名
-      local method_name=$(echo "$line" | awk '{print $2}' | cut -d'(' -f1)
+      local method_name=$(echo "$method_buffer" | awk '{print $2}' | cut -d'(' -f1)
       
       if [[ -z "$method_name" ]]; then
+        method_buffer=""
         continue
       fi
       
-      # 提取参数部分
-      local params_part=$(echo "$line" | cut -d'(' -f2- | rev | cut -d')' -f2- | rev)
+      # 提取参数部分（从第一个左括号到倒数第一个右括号）
+      local params_part=$(echo "$method_buffer" | sed 's/.*Future<[^>]*> [^ (]* *(//' | sed 's/);.*//')
       
       # 解析参数
       local params=$(parse_params "$params_part")
       
-      # 存储方法信息
-      api_methods+=("$method_name|$return_type|$params|$current_comment|$current_http_method")
+      # 存储方法信息（不再包含HTTP方法，因为它在生成代码时不被使用）
+      api_methods+=("$method_name|$return_type|$params|$current_comment")
       
       # 重置
+      method_buffer=""
       current_comment=""
       current_http_method=""
     fi
@@ -613,7 +629,7 @@ extract_imports() {
   local models=""
   
   for method_info in "${api_methods[@]}"; do
-    IFS='|' read -r method_name return_type params comment http_method <<< "$method_info"
+    IFS='|' read -r method_name return_type params comment <<< "$method_info"
     
     # 跳过空的方法信息
     if [ -z "$method_name" ] || [ -z "$return_type" ]; then
@@ -718,7 +734,7 @@ mixin AppRemoteDataSourceMixin implements IAppRemoteDataSource {
 EOF
   
   for method_info in "${api_methods[@]}"; do
-    IFS='|' read -r method_name return_type params comment http_method <<< "$method_info"
+    IFS='|' read -r method_name return_type params comment <<< "$method_info"
     
     # 跳过空的方法信息
     if [[ -z "$method_name" || -z "$return_type" ]]; then
@@ -786,7 +802,7 @@ class AppRepository extends BaseRepository<Null, AppRemoteDataSource>
 EOF
   
   for method_info in "${api_methods[@]}"; do
-    IFS='|' read -r method_name return_type params comment http_method <<< "$method_info"
+    IFS='|' read -r method_name return_type params comment <<< "$method_info"
     
     # 跳过空的方法信息
     if [[ -z "$method_name" || -z "$return_type" ]]; then
@@ -874,10 +890,10 @@ check_and_add_dependencies() {
 run_build_runner() {
   log_info "执行 build_runner build..."
   if command_available dart; then
-    dart pub run build_runner build
+    dart pub run build_runner build --delete-conflicting-outputs
     log_info "build_runner build 执行完成"
   elif command_available flutter; then
-    flutter pub run build_runner build
+    flutter pub run build_runner build --delete-conflicting-outputs
     log_info "build_runner build 执行完成"
   else
     log_warn "Dart 和 Flutter 命令都不可用，跳过 build_runner build"
@@ -1183,8 +1199,8 @@ main() {
     log_info "开始初始化目录结构..."
     init_directory_structure
     
-    # 执行 build_runner build
-    run_build_runner
+    # # 执行 build_runner build
+    # run_build_runner
     
     # 添加运行结束分隔线
     printf "${GREEN}======================================================${NC}\n"
@@ -1205,36 +1221,36 @@ main() {
     exit 1
   fi
 
-  # 检查并添加 retrofit_generator 依赖
-  local pubspec_file="pubspec.yaml"
-  if [[ ! -f "$pubspec_file" ]]; then
-    log_error "文件不存在: $pubspec_file"
-  else
-    if ! grep -q "retrofit_generator:" "$pubspec_file"; then
-      log_info "添加 retrofit_generator 依赖..."
-      if command_available flutter; then
-        flutter pub add --dev retrofit_generator
-      elif command_available dart; then
-        dart pub add --dev retrofit_generator
-      else
-        log_warn "Dart 和 Flutter 命令都不可用，无法添加 retrofit_generator 依赖"
-      fi
-    else
-      log_info "retrofit_generator 依赖已存在"
-    fi
-  fi
+  # # 检查并添加 retrofit_generator 依赖
+  # local pubspec_file="pubspec.yaml"
+  # if [[ ! -f "$pubspec_file" ]]; then
+  #   log_error "文件不存在: $pubspec_file"
+  # else
+  #   if ! grep -q "retrofit_generator:" "$pubspec_file"; then
+  #     log_info "添加 retrofit_generator 依赖..."
+  #     if command_available flutter; then
+  #       flutter pub add --dev retrofit_generator
+  #     elif command_available dart; then
+  #       dart pub add --dev retrofit_generator
+  #     else
+  #       log_warn "Dart 和 Flutter 命令都不可用，无法添加 retrofit_generator 依赖"
+  #     fi
+  #   else
+  #     log_info "retrofit_generator 依赖已存在"
+  #   fi
+  # fi
 
-  # 执行：dart pub run build_runner build
-  log_info "执行 build_runner..."
-  if command_available dart; then
-    dart pub run build_runner build --delete-conflicting-outputs
-    log_info "build_runner 执行完成"
-  elif command_available flutter; then
-    flutter packages pub run build_runner build --delete-conflicting-outputs
-    log_info "build_runner 执行完成"
-  else
-    log_warn "Dart 或 Flutter 命令均不可用，跳过 build_runner"
-  fi
+  # # 执行：dart pub run build_runner build
+  # log_info "执行 build_runner..."
+  # if command_available dart; then
+  #   dart pub run build_runner build --delete-conflicting-outputs
+  #   log_info "build_runner 执行完成"
+  # elif command_available flutter; then
+  #   flutter packages pub run build_runner build --delete-conflicting-outputs
+  #   log_info "build_runner 执行完成"
+  # else
+  #   log_warn "Dart 或 Flutter 命令均不可用，跳过 build_runner"
+  # fi
   
   # 直接解析 API 方法
   api_methods_str=$(parse_client)
@@ -1248,12 +1264,8 @@ main() {
   
   log_info "解析到 ${#api_methods[@]} 个 API 方法:"
   for method_info in "${api_methods[@]}"; do
-    IFS='|' read -r method_name return_type params comment http_method <<< "$method_info"
-    if [ -n "$http_method" ]; then
-      log_info "  - $http_method $method_name -> $return_type"
-    else
-      log_info "  - $method_name -> $return_type"
-    fi
+    IFS='|' read -r method_name return_type params comment <<< "$method_info"
+    log_info "  - $method_name -> $return_type"
   done
   
   # 更新文件

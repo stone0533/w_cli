@@ -1,3 +1,11 @@
+## 1.0.22
+
+- Updated version number to 1.0.22
+- Added common.sh script with drbb function
+- drbb function executes: dart run build_runner build --delete-conflicting-outputs
+- Updated resources in pubspec.yaml to include common.sh
+- Added clean.sh to resources
+
 ## 1.0.21
 
 - Updated version number to 1.0.21

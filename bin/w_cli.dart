@@ -18,6 +18,8 @@ Future<void> main(List<String> arguments) async {
     ..addCommand('p') // 别名
     ..addCommand('open')
     ..addCommand('o') // 别名
+    ..addCommand('common')
+    ..addCommand('co') // 别名
     ..addFlag('version', abbr: 'v', negatable: false)
     ..addFlag('help', abbr: 'h', negatable: false);
 
@@ -28,7 +30,7 @@ Future<void> main(List<String> arguments) async {
       ..addFlag('init', negatable: false)
       ..addFlag('models', negatable: false);
   }
-  
+
   // 为 a 命令（api 的别名）添加选项
   final aCommand = parser.commands['a'];
   if (aCommand != null) {
@@ -36,7 +38,7 @@ Future<void> main(List<String> arguments) async {
       ..addFlag('init', negatable: false)
       ..addFlag('models', negatable: false);
   }
-  
+
   // 为 build 命令添加选项
   final buildCommand = parser.commands['build'];
   if (buildCommand != null) {
@@ -45,7 +47,7 @@ Future<void> main(List<String> arguments) async {
       ..addFlag('clean', abbr: 'c', negatable: false)
       ..addFlag('open', abbr: 'o', negatable: false);
   }
-  
+
   // 为 b 命令（build 的别名）添加选项
   final bCommand = parser.commands['b'];
   if (bCommand != null) {
@@ -54,19 +56,17 @@ Future<void> main(List<String> arguments) async {
       ..addFlag('clean', abbr: 'c', negatable: false)
       ..addFlag('open', abbr: 'o', negatable: false);
   }
-  
+
   // 为 project 命令添加选项
   final projectCommand = parser.commands['project'];
   if (projectCommand != null) {
-    projectCommand
-      .addFlag('update', negatable: false);
+    projectCommand.addFlag('update', negatable: false);
   }
-  
+
   // 为 p 命令（project 的别名）添加选项
   final pCommand = parser.commands['p'];
   if (pCommand != null) {
-    pCommand
-      .addFlag('update', negatable: false);
+    pCommand.addFlag('update', negatable: false);
   }
 
   try {
@@ -137,6 +137,10 @@ Future<void> main(List<String> arguments) async {
       case 'o':
         await w.handleOpenCommand(command.arguments);
         break;
+      case 'common':
+      case 'co':
+        await w.handleCommonCommand(command.arguments);
+        break;
       default:
         print('Error: Unknown command: ${command.name}');
     }
@@ -153,14 +157,27 @@ void showHelp() {
   print('ww - A command-line tool for Flutter projects');
   print('');
   print('Usage:');
-  print('  ww create|c project|p name           # Create a new Flutter project');
+  print(
+    '  ww create|c project|p name           # Create a new Flutter project',
+  );
   print('  ww api|a [options]                   # Generate API code');
-  print('  ww api|a --init                      # Initialize API directory structure');
-  print('  ww api|a --models                    # Generate model files from JSON');
-  print('  ww update|u                          # Update w_cli to the latest version');
+  print(
+    '  ww api|a --init                      # Initialize API directory structure',
+  );
+  print(
+    '  ww api|a --models                    # Generate model files from JSON',
+  );
+  print(
+    '  ww update|u                          # Update w_cli to the latest version',
+  );
   print('  ww build|b [apk|aab|ios] [options]   # Build Flutter app');
-  print('  ww project|p --update                # Update Flutter project dependencies and configuration');
-  print('  ww open|o [ios|i|android|a|build|b|root|r]  # Open project directories');
+  print(
+    '  ww project|p --update                # Update Flutter project dependencies and configuration',
+  );
+  print(
+    '  ww open|o [ios|i|android|a|build|b|root|r]  # Open project directories',
+  );
+  print('  ww common|co [drbb] [options]        # Run common commands');
   print('  ww -v, --version                     # Show version information');
   print('  ww -h, --help                        # Show this help message');
   print('');
@@ -183,19 +200,35 @@ void showHelp() {
   print('  ww build apk                # Build APK in production mode');
   print('  ww build apk aab            # Build APK and AAB in production mode');
   print('  ww build apk --uat          # Build APK in UAT mode');
-  print('  ww build apk aab ios --uat --clean  # Build all platforms in UAT mode');
-  print('  ww b apk -u -o              # Build APK in UAT mode and open output');
-  print('  ww b apk aab -c -o          # Build APK and AAB with clean and open');
+  print(
+    '  ww build apk aab ios --uat --clean  # Build all platforms in UAT mode',
+  );
+  print(
+    '  ww b apk -u -o              # Build APK in UAT mode and open output',
+  );
+  print(
+    '  ww b apk aab -c -o          # Build APK and AAB with clean and open',
+  );
   print('');
   print('  # Project management');
-  print('  ww project --update         # Update project dependencies and configuration');
-  print('  ww p --update               # Update project dependencies and configuration');
+  print(
+    '  ww project --update         # Update project dependencies and configuration',
+  );
+  print(
+    '  ww p --update               # Update project dependencies and configuration',
+  );
   print('');
   print('  # Open commands');
   print('  ww open ios                 # Open iOS project in Xcode');
-  print('  ww open android             # Open Android project in Android Studio');
+  print(
+    '  ww open android             # Open Android project in Android Studio',
+  );
   print('  ww o i                      # Open iOS project (using alias)');
   print('  ww o a                      # Open Android project (using alias)');
+  print('');
+  print('  # Common commands');
+  print('  ww common drbb              # Run build_runner build');
+  print('  ww co drbb --debug          # Run with debug mode');
   print('');
   print('Aliases:');
   print('  create    -> c');
@@ -204,6 +237,7 @@ void showHelp() {
   print('  project   -> p');
   print('  open      -> o');
   print('  api       -> a');
+  print('  common    -> co');
   print('  ios       -> i');
   print('  android   -> a');
   print('  build     -> b');

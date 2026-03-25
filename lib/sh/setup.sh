@@ -19,18 +19,18 @@ set -e  # 遇到错误立即退出
 # ======================================================
 
 # 使用方法：
-#   bash setup.sh [选项]
+#   bash setup.sh [项目名称] [选项]
 #
 # 选项：
 #   --help            显示帮助信息
-#   --name            指定项目名称
+#   --version         显示脚本版本信息
 #
 # 示例：
 #   # 基本使用
 #   bash setup.sh
 #
 #   # 自定义项目名称
-#   bash setup.sh --name my_app
+#   bash setup.sh my_app
 
 # 常量定义
 readonly DEFAULT_PROJECT_NAME="my_flutter_app"
@@ -50,7 +50,7 @@ PROJECT_NAME=""
 API_BASE_URL="$DEFAULT_API_BASE_URL"
 W_TOOLS_PATH="$DEFAULT_W_TOOLS_PATH"
 OS=""
-TOTAL_STEPS=14
+TOTAL_STEPS=15
 CURRENT_STEP=0
 
 # 错误处理函数
@@ -64,7 +64,7 @@ handle_error() {
   # 记录错误到日志文件
   local log_file="$(pwd)/setup_error.log"
   echo "[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: $error_message" >> "$log_file"
-  log_message "错误已记录到: $log_file"
+  log_error "错误已记录到: $log_file"
   
   cleanup
   exit "$error_code"
@@ -102,11 +102,6 @@ log_error() {
   printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
 }
 
-# 日志记录函数
-log_message() {
-  echo -e "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
-}
-
 # 显示进度
 show_progress() {
   local current="$1"
@@ -123,7 +118,7 @@ show_progress() {
 
 # 执行命令
 run_command() {
-  log_message "执行命令: $1"
+  log_info "执行命令: $1"
   if ! eval "$1"; then
     handle_error "命令执行失败: $1"
   fi
@@ -134,7 +129,7 @@ run_command_with_timeout() {
   local command="$1"
   local timeout="${2:-300}"  # 默认5分钟超时
   
-  log_message "执行命令（超时: ${timeout}s）: $command"
+  log_info "执行命令（超时: ${timeout}s）: $command"
   
   # 使用 timeout 命令执行
   if command -v timeout &> /dev/null; then
@@ -158,7 +153,7 @@ detect_os() {
     msys*) OS="windows" ;;
     *) OS="unknown" ;;
   esac
-  log_message "检测到操作系统: $OS"
+  log_info "检测到操作系统: $OS"
 }
 
 # 跨平台路径处理
@@ -187,14 +182,14 @@ run_cross_platform_command() {
   case "$OS" in
     windows)
       # Windows 特定处理
-      log_message "在 Windows 上执行: $command"
+      log_info "在 Windows 上执行: $command"
       ;;
     macos|linux)
       # Unix-like 系统处理
-      log_message "在 $OS 上执行: $command"
+      log_info "在 $OS 上执行: $command"
       ;;
     *)
-      log_message "在未知系统上执行: $command"
+      log_info "在未知系统上执行: $command"
       ;;
   esac
   
@@ -203,7 +198,7 @@ run_cross_platform_command() {
 
 # 加载配置文件
 load_config() {
-  log_message "跳过配置文件加载"
+  log_info "跳过配置文件加载"
 }
 
 # 显示版本信息
@@ -225,18 +220,17 @@ show_version() {
 
 # 显示帮助信息
 show_help() {
-  echo "使用方法: $0 [选项]"
+  echo "使用方法: $0 [项目名称] [选项]"
   echo "选项:"
   echo "  --help            显示帮助信息"
   echo "  --version         显示脚本版本信息"
-  echo "  --name            指定项目名称"
   echo ""
   echo "示例:"
   echo "  # 基本使用"
   echo "  bash setup.sh"
   echo ""
   echo "  # 自定义项目名称"
-  echo "  bash setup.sh --name my_app"
+  echo "  bash setup.sh my_app"
   exit 0
 }
 
@@ -259,13 +253,14 @@ parse_args() {
       --version)
         show_version
         ;;
-      --name)
-        PROJECT_NAME="$2"
-        shift
-        ;;
       *)
-        log_error "未知选项: $1"
-        show_help
+        # 直接将第一个位置参数作为项目名称
+        if [ -z "$PROJECT_NAME" ]; then
+          PROJECT_NAME="$1"
+        else
+          log_error "未知选项: $1"
+          show_help
+        fi
         ;;
     esac
     shift
@@ -375,26 +370,26 @@ validate_project_name() {
 
 # 检查 flutter 命令是否存在
 check_flutter() {
-  log_message "检查 Flutter 是否已安装..."
+  log_info "检查 Flutter 是否已安装..."
   if ! command -v flutter &> /dev/null; then
     handle_error "Flutter 未安装或未添加到 PATH"
   fi
-  log_message "${GREEN}Flutter 已安装${NC}"
+  log_info "Flutter 已安装"
   
   # 检查 Flutter 版本
   flutter_version=$(flutter --version | head -n 1 | cut -d ' ' -f 2)
-  log_message "Flutter 版本: $flutter_version"
+  log_info "Flutter 版本: $flutter_version"
 }
 
 # 检查项目目录是否适合创建
 check_directory_suitable() {
-  log_message "检查项目目录..."
+  log_info "检查项目目录..."
   if [ -d "$PROJECT_NAME" ]; then
     # 直接删除已存在的目录
-    log_message "删除已存在的项目目录: $PROJECT_NAME"
+    log_info "删除已存在的项目目录: $PROJECT_NAME"
     run_command "rm -rf \"$PROJECT_NAME\""
   fi
-  log_message "${GREEN}项目目录检查通过${NC}"
+  log_info "项目目录检查通过"
 }
 
 # 检查权限
@@ -403,7 +398,7 @@ check_directory_suitable() {
 # 1. 当前目录写入权限
 # 2. Flutter 命令执行权限
 check_permissions() {
-  log_message "检查权限..."
+  log_info "检查权限..."
   
   # 检查当前目录写入权限
   if [ ! -w "$(pwd)" ]; then
@@ -415,9 +410,7 @@ check_permissions() {
     handle_error "Flutter 未安装或未添加到 PATH"
   fi
   
-
-  
-  log_message "${GREEN}权限检查通过${NC}"
+  log_info "权限检查通过"
 }
 
 # 询问项目名
@@ -426,7 +419,7 @@ ask_project_name() {
     read -p "请输入项目名称: " PROJECT_NAME
     if [ -z "$PROJECT_NAME" ]; then
       PROJECT_NAME="$DEFAULT_PROJECT_NAME"
-      log_message "使用默认项目名称: $PROJECT_NAME"
+      log_info "使用默认项目名称: $PROJECT_NAME"
     fi
   fi
   validate_project_name
@@ -434,9 +427,9 @@ ask_project_name() {
 
 # 创建项目
 create_project() {
-  log_message "使用 flutter create 创建项目..."
+  log_info "使用 flutter create 创建项目..."
   run_command_with_timeout "flutter create --org com.sampras -i swift -a kotlin $PROJECT_NAME"
-  log_message "${GREEN}项目创建完成${NC}"
+  log_info "项目创建完成"
 }
 
 # 安装项目依赖包
@@ -447,7 +440,7 @@ create_project() {
 # 3. 安装核心依赖包
 # 4. 安装开发依赖包
 install_dependencies() {
-  log_message "安装项目依赖包..."
+  log_info "安装项目依赖包..."
   # 确保 pubspec.yaml 存在
   if [ ! -f "$PROJECT_NAME/pubspec.yaml" ]; then
     handle_error "pubspec.yaml 文件不存在，请先创建项目"
@@ -457,10 +450,10 @@ install_dependencies() {
   run_command_with_timeout "(cd \"$PROJECT_NAME\" && flutter pub add get dio flutter_screenutil flutter_form_builder form_builder_validators retrofit $DEFAULT_W_TOOLS)"
   # 安装开发依赖
   run_command_with_timeout "(cd \"$PROJECT_NAME\" && flutter pub add build_runner json_serializable retrofit_generator analyzer --dev)"
-  log_message "${GREEN}依赖包安装完成${NC}"
+  log_info "依赖包安装完成"
   
   # 手动创建首页文件，避免使用 get_cli 导致的崩溃
-  log_message "创建首页..."
+  log_info "创建首页..."
   
   # 创建目录结构
   mkdir -p "$PROJECT_NAME/lib/app/modules/home/controllers"
@@ -585,7 +578,7 @@ void main() {
 }
 EOF
   
-  log_message "${GREEN}首页创建完成${NC}"
+  log_info "首页创建完成"
 }
 
 # 创建必要的目录结构
@@ -601,16 +594,16 @@ EOF
 # - test：存放测试文件
 # - .github/workflows：存放 CI/CD 配置
 create_directory_structure() {
-  log_message "创建目录结构..."
+  log_info "创建目录结构..."
   # 合并为一个命令，减少进程创建
   local project_path="$PROJECT_NAME"
   run_command "mkdir -p \"$project_path\"/assets/{fonts,images} \"$project_path\"/lib/app/{components,utils,services} \"$project_path\"/lib/app/data/{models,sources} \"$project_path\"/lib/app/data/sources/remote \"$project_path\"/test \"$project_path\"/.github/workflows \"$project_path\"/w_json"
-  log_message "${GREEN}目录结构创建完成${NC}"
+  log_info "目录结构创建完成"
 }
 
 # 修改 pubspec.yaml 添加依赖
 add_w_tools_dependency() {
-  log_message "配置项目依赖..."
+  log_info "配置项目依赖..."
   # 确保 pubspec.yaml 存在
   if [ ! -f "$PROJECT_NAME/pubspec.yaml" ]; then
     handle_error "pubspec.yaml 文件不存在，请先创建项目"
@@ -658,8 +651,8 @@ add_w_tools_dependency() {
   fi
   
   # 添加 assets 配置（无论 w_tools 是否存在，都执行）
-  log_message "检查是否已存在 assets 配置"
-  log_message "检查文件: $pubspec_file"
+  log_info "检查是否已存在 assets 配置"
+  log_info "检查文件: $pubspec_file"
   
   # 更简单直接的方法：在 flutter 部分添加或替换 assets 配置
   # 创建临时文件，用于重写 pubspec.yaml
@@ -743,11 +736,11 @@ EOF
   # 用临时文件替换原文件
   mv "$pubspec_file.tmp" "$pubspec_file"
   
-  log_message "已添加 assets 配置"
+  log_info "已添加 assets 配置"
   
-  log_message "assets 配置检查完成"
+  log_info "assets 配置检查完成"
   
-  log_message "${GREEN}项目依赖配置完成${NC}"
+  log_info "项目依赖配置完成"
 }
 
 # 创建核心文件
@@ -758,7 +751,7 @@ EOF
 # - data_source.dart：远程数据源实现
 # - repository.dart：仓库模式实现
 create_core_files() {
-  log_message "创建核心文件..."
+  log_info "创建核心文件..."
   
   local project_dir="$PROJECT_NAME"
   local api_url="$API_BASE_URL"
@@ -768,7 +761,7 @@ create_core_files() {
   
   # 创建 .env 文件
   # 环境配置文件
-  log_message "创建环境配置文件..."
+  log_info "创建环境配置文件..."
   cat > "$project_dir/.env" << EOF
 # API 基础 URL
 API_BASE_URL=$API_BASE_URL
@@ -776,11 +769,11 @@ API_BASE_URL=$API_BASE_URL
 # 其他配置
 DEBUG=true
 EOF
-  log_message "已创建 .env 文件"
+  log_info "已创建 .env 文件"
   
   # 创建 paths.dart
   # 定义 API 路径常量
-  log_message "创建 API 路径文件..."
+  log_info "创建 API 路径文件..."
   cat > "$project_dir/lib/app/data/sources/paths.dart" << EOF
 class ApiPath {
   static const String baseUrl = '$api_url';
@@ -792,7 +785,7 @@ EOF
   
   # 创建 client.dart
   # 使用 Retrofit 定义 API 客户端接口
-  log_message "创建 API 客户端文件..."
+  log_info "创建 API 客户端文件..."
   cat > "$project_dir/lib/app/data/sources/client.dart" << 'EOF'
 import 'package:retrofit/retrofit.dart';
 import 'package:dio/dio.dart';
@@ -812,7 +805,7 @@ EOF
   
   # 创建 data_source_mixin.dart
   # 实现远程数据源混入类，处理网络请求
-  log_message "创建远程数据源混入文件..."
+  log_info "创建远程数据源混入文件..."
   cat > "$project_dir/lib/app/data/sources/remote/data_source_mixin.dart" << 'EOF'
 import '../client.dart';
 
@@ -825,7 +818,7 @@ EOF
 
   # 创建 data_source.dart
   # 实现远程数据源，处理网络请求
-  log_message "创建远程数据源文件..."
+  log_info "创建远程数据源文件..."
   cat > "$project_dir/lib/app/data/sources/remote/data_source.dart" << 'EOF'
 import 'package:w_tools/w.dart';
 import '../client.dart';
@@ -846,7 +839,7 @@ EOF
   
   # 创建 repository.dart
   # 实现仓库模式，提供数据访问接口
-  log_message "创建仓库文件..."
+  log_info "创建仓库文件..."
   cat > "$project_dir/lib/app/data/sources/repository.dart" << 'EOF'
 import 'package:w_tools/w.dart';
 
@@ -869,7 +862,7 @@ EOF
   
   # 创建 main.dart
   # 应用入口文件
-  log_message "创建应用入口文件..."
+  log_info "创建应用入口文件..."
   cat > "$project_dir/lib/main.dart" << 'EOF'
 import 'package:flutter/material.dart';
 import 'package:w_tools/w.dart';
@@ -899,32 +892,61 @@ void main() async {
 }
 EOF
    
-  log_message "${GREEN}核心文件创建完成${NC}"
+  log_info "核心文件创建完成"
 }
 
 # 生成代码
 generate_code() {
-  log_message "生成代码..."
+  log_info "生成代码..."
   # 再次执行 flutter pub get 确保所有依赖都已正确安装
   run_command_with_timeout "(cd \"$PROJECT_NAME\" && flutter pub get)"
   # 执行代码生成
   if ! run_command_with_timeout "(cd \"$PROJECT_NAME\" && dart pub run build_runner build)"; then
-    log_message "${YELLOW}代码生成失败，尝试使用 --delete-conflicting-outputs 选项${NC}"
+    log_warn "代码生成失败，尝试使用 --delete-conflicting-outputs 选项"
     run_command_with_timeout "(cd \"$PROJECT_NAME\" && dart pub run build_runner build --delete-conflicting-outputs)"
   fi
-  log_message "${GREEN}代码生成完成${NC}"
+  log_info "代码生成完成"
 }
 
 # 格式化代码
 format_code() {
-  log_message "格式化代码..."
+  log_info "格式化代码..."
   run_command "(cd \"$PROJECT_NAME\" && dart format .)"
-  log_message "${GREEN}代码格式化完成${NC}"
+  log_info "代码格式化完成"
+}
+
+# 修改 analysis_options.yaml 文件，添加 analyzer 配置
+update_analysis_options() {
+  log_info "更新 analysis_options.yaml 文件..."
+  local analysis_file="$PROJECT_NAME/analysis_options.yaml"
+  
+  # 检查文件是否存在
+  if [ -f "$analysis_file" ]; then
+    # 检查是否已经包含 analyzer 配置
+    if ! grep -q "analyzer:" "$analysis_file"; then
+      # 使用 awk 命令在 include 语句后添加 analyzer 配置
+      awk '{
+        print $0
+        if ($0 == "include: package:flutter_lints/flutter.yaml") {
+          print ""
+          print "analyzer:"
+          print "  exclude:"
+          print "    - \"lib/app/routes/app_routes.dart\"  # Exclude auto-generated routes file to avoid naming convention warnings"
+        }
+      }' "$analysis_file" > "$analysis_file.tmp"
+      mv "$analysis_file.tmp" "$analysis_file"
+      log_info "已添加 analyzer 配置到 analysis_options.yaml"
+    else
+      log_warn "analyzer 配置已存在，跳过"
+    fi
+  else
+    log_error "analysis_options.yaml 文件不存在"
+  fi
 }
 
 # 初始化测试
 initialize_tests() {
-  log_message "初始化测试..."
+  log_info "初始化测试..."
   cat > "$PROJECT_NAME/test/widget_test.dart" << 'EOF'
 import 'package:flutter_test/flutter_test.dart';
 
@@ -934,17 +956,17 @@ void main() {
   });
 }
 EOF
-  log_message "${GREEN}测试文件初始化完成${NC}"
+  log_info "测试文件初始化完成"
 }
 
 # 初始化 Git 仓库
 initialize_git() {
   if [ -d "$PROJECT_NAME" ]; then
-    log_message "初始化 Git 仓库..."
+    log_info "初始化 Git 仓库..."
     run_command "(cd \"$PROJECT_NAME\" && git init)"
     
     # 将 w_build 目录添加到 .gitignore 文件
-    log_message "添加 w_build 目录到 .gitignore 文件..."
+    log_info "添加 w_build 目录到 .gitignore 文件..."
     local gitignore_file="$PROJECT_NAME/.gitignore"
     
     # 检查 .gitignore 文件是否存在
@@ -961,13 +983,13 @@ initialize_git() {
     
     # 添加所有文件并提交
     run_command "(cd \"$PROJECT_NAME\" && git add . && git commit -m \"Initial commit\")"
-    log_message "${GREEN}Git 仓库初始化完成${NC}"
+    log_info "Git 仓库初始化完成"
   fi
 }
 
 # 创建 CI/CD 配置
 create_ci_cd_config() {
-  log_message "创建 CI/CD 配置..."
+  log_info "创建 CI/CD 配置..."
   # 创建 GitHub Actions 配置
   cat > "$PROJECT_NAME/.github/workflows/ci.yml" << 'EOF'
 name: CI
@@ -999,33 +1021,33 @@ jobs:
     - name: Build app
       run: flutter build apk
 EOF
-  log_message "${GREEN}CI/CD 配置创建完成${NC}"
+  log_info "CI/CD 配置创建完成"
 }
 
 # 项目健康检查
 health_check() {
-  log_message "执行项目健康检查..."
+  log_info "执行项目健康检查..."
   
   # 确保 PROJECT_NAME 不为空
   if [ -z "$PROJECT_NAME" ]; then
-    log_message "${YELLOW}项目名称为空，跳过健康检查${NC}"
+    log_warn "项目名称为空，跳过健康检查"
     return
   fi
   
   # 检查 pubspec.yaml
   if [ -f "$PROJECT_NAME/pubspec.yaml" ]; then
-    log_message "${GREEN}✓ pubspec.yaml 存在${NC}"
+    log_info "✓ pubspec.yaml 存在"
   else
-    log_message "${RED}✗ pubspec.yaml 不存在${NC}"
+    log_error "✗ pubspec.yaml 不存在"
   fi
   
   # 检查核心文件
   core_files=("lib/app/data/sources/paths.dart" "lib/app/data/sources/client.dart" "lib/app/data/sources/remote/data_source.dart" "lib/app/data/sources/repository.dart")
   for file in "${core_files[@]}"; do
     if [ -f "$PROJECT_NAME/$file" ]; then
-      log_message "${GREEN}✓ $file 存在${NC}"
+      log_info "✓ $file 存在"
     else
-      log_message "${RED}✗ $file 不存在${NC}"
+      log_error "✗ $file 不存在"
     fi
   done
   
@@ -1033,88 +1055,88 @@ health_check() {
   directories=("assets/fonts" "assets/images" "lib/app/components" "lib/app/utils" "lib/app/services" "lib/app/data/models" "lib/app/data/sources" "lib/app/data/sources/remote" "test")
   for dir in "${directories[@]}"; do
     if [ -d "$PROJECT_NAME/$dir" ]; then
-      log_message "${GREEN}✓ $dir 目录存在${NC}"
+      log_info "✓ $dir 目录存在"
     else
-      log_message "${RED}✗ $dir 目录不存在${NC}"
+      log_error "✗ $dir 目录不存在"
     fi
   done
   
-  log_message "${GREEN}项目健康检查完成${NC}"
+  log_info "项目健康检查完成"
 }
 
 # 打开项目
 # 功能：使用不同的IDE打开项目
 # 支持：trae、Android Studio
 open_project() {
-  echo "正在打开项目..."
+  log_info "正在打开项目..."
   # 确保 PROJECT_NAME 不为空
   if [ -z "$PROJECT_NAME" ]; then
-    log_message "${YELLOW}项目名称为空，跳过打开项目${NC}"
+    log_warn "项目名称为空，跳过打开项目"
     return
   fi
   
   # 确保项目目录存在
   if [ ! -d "$PROJECT_NAME" ]; then
-    log_message "${YELLOW}项目目录不存在，跳过打开项目${NC}"
+    log_warn "项目目录不存在，跳过打开项目"
     return
   fi
   
   # 使用 trae 打开项目
   if command -v trae &> /dev/null; then
-    log_message "使用 trae 打开项目"
-    run_command "trae $PROJECT_NAME"
+    log_info "使用 trae 打开项目"
+    trae "$PROJECT_NAME"
   else
-    log_message "${YELLOW}trae 命令未找到，跳过${NC}"
+    log_warn "trae 命令未找到，跳过"
   fi
   
   # 使用 Android Studio 打开项目
   if command -v studio &> /dev/null; then
-    log_message "使用 Android Studio 打开项目"
-    run_command "studio $PROJECT_NAME"
+    log_info "使用 Android Studio 打开项目"
+    studio "$PROJECT_NAME"
   elif [ -d "/Applications/Android Studio.app" ]; then
-    log_message "使用 macOS 打开 Android Studio"
-    run_command "open -a 'Android Studio' $PROJECT_NAME"
+    log_info "使用 macOS 打开 Android Studio"
+    open -a 'Android Studio' "$PROJECT_NAME"
   elif [ "$OS" = "windows" ] && [ -d "C:/Program Files/Android/Android Studio/bin" ]; then
     local studio_path="C:/Program Files/Android/Android Studio/bin/studio64.exe"
     local normalized_path=$(normalize_path "$studio_path")
-    log_message "使用 Windows 打开 Android Studio"
-    run_command "\"$normalized_path\" \"$PROJECT_NAME\""
+    log_info "使用 Windows 打开 Android Studio"
+    "$normalized_path" "$PROJECT_NAME"
   else
-    log_message "${YELLOW}Android Studio 未找到，跳过${NC}"
+    log_warn "Android Studio 未找到，跳过"
   fi
   
   # # 使用 Xcode 打开项目（iOS）
   # if [ "$OS" = "macos" ] && [ -d "$PROJECT_NAME/ios" ]; then
   #   if command -v xcodebuild &> /dev/null; then
-  #     log_message "使用 Xcode 打开项目"
+  #     log_info "使用 Xcode 打开项目"
   #     run_command "open -a Xcode $PROJECT_NAME/ios"
   #   else
-  #     log_message "${YELLOW}Xcode 未找到，跳过${NC}"
+  #     log_warn "Xcode 未找到，跳过"
   #   fi
   # fi
   
   # # 使用 VS Code 打开项目（备选方案）
   # if command -v code &> /dev/null; then
-  #   log_message "使用 VS Code 打开项目"
+  #   log_info "使用 VS Code 打开项目"
   #   run_command "code $PROJECT_NAME"
   # else
-  #   log_message "${YELLOW}VS Code 未找到，跳过${NC}"
+  #   log_warn "VS Code 未找到，跳过"
   # fi
 }
 
 # 脚本测试
 test_script() {
-  log_message "运行脚本测试..."
+  log_info "运行脚本测试..."
   
   # 测试命令行参数解析
   test_args() {
-    log_message "测试命令行参数解析..."
+    log_info "测试命令行参数解析..."
     # 测试代码
   }
   
   # 测试错误处理
   test_error_handling() {
-    log_message "测试错误处理..."
+    log_info "测试错误处理..."
     # 测试代码
   }
   
@@ -1122,7 +1144,7 @@ test_script() {
   test_args
   test_error_handling
   
-  log_message "${GREEN}脚本测试完成${NC}"
+  log_info "脚本测试完成"
 }
 
 # 主函数
@@ -1133,7 +1155,10 @@ main() {
   # 首先解析命令行参数，这样 --help 可以立即生效
   parse_args "$@"
   
-  echo -e "${GREEN}=== 开始初始化项目 ===${NC}"
+  # 添加运行开始分隔线
+  printf "${GREEN}======================================================${NC}\n"
+  printf "${GREEN}Flutter 项目初始化脚本运行开始${NC}\n"
+  printf "${GREEN}======================================================${NC}\n"
   
   # 检测操作系统
   detect_os
@@ -1185,38 +1210,46 @@ main() {
   
   CURRENT_STEP=12
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  initialize_tests
+  update_analysis_options
   
   CURRENT_STEP=13
+  show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
+  initialize_tests
+  
+  CURRENT_STEP=14
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   initialize_git
   create_ci_cd_config
   
-  CURRENT_STEP=14
+  CURRENT_STEP=15
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   health_check
   
-  echo -e "${GREEN}=== 项目初始化完成 ===${NC}"
-  echo "项目已成功初始化，包含以下内容："
-  echo "1. 使用 flutter create 创建了 Flutter 项目"
-  echo "2. 安装了必要的依赖包"
-  echo "3. 创建了完整的目录结构"
-  echo "4. 添加了 w_tools 本地依赖"
-  echo "5. 创建了核心数据层文件"
-  echo "6. 生成了 Retrofit 代码"
-  echo "7. 格式化了代码"
-  echo "8. 初始化了测试文件"
-  echo "9. 初始化了 Git 仓库"
-  echo "10. 创建了 CI/CD 配置"
-  echo "11. 执行了项目健康检查"
-  echo ""
-  echo "接下来需要："
-  echo "1. 根据实际需求修改 API 路径和接口"
-  echo "2. 实现具体的业务逻辑"
-  echo "3. 编写测试用例"
-  echo "4. 配置 CI/CD 流程"
-  echo "5. 部署项目"
-  echo ""
+  # 添加运行结束分隔线
+  printf "${GREEN}======================================================${NC}\n"
+  printf "${GREEN}Flutter 项目初始化脚本运行结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
+  printf "${GREEN}======================================================${NC}\n"
+  
+  log_info "项目已成功初始化，包含以下内容："
+  log_info "1. 使用 flutter create 创建了 Flutter 项目"
+  log_info "2. 安装了必要的依赖包"
+  log_info "3. 创建了完整的目录结构"
+  log_info "4. 添加了 w_tools 本地依赖"
+  log_info "5. 创建了核心数据层文件"
+  log_info "6. 生成了 Retrofit 代码"
+  log_info "7. 格式化了代码"
+  log_info "8. 初始化了测试文件"
+  log_info "9. 初始化了 Git 仓库"
+  log_info "10. 创建了 CI/CD 配置"
+  log_info "11. 执行了项目健康检查"
+  log_info ""
+  log_info "接下来需要："
+  log_info "1. 根据实际需求修改 API 路径和接口"
+  log_info "2. 实现具体的业务逻辑"
+  log_info "3. 编写测试用例"
+  log_info "4. 配置 CI/CD 流程"
+  log_info "5. 部署项目"
+  log_info ""
   
   # 打开项目
   open_project

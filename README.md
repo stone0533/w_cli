@@ -8,6 +8,8 @@ A comprehensive command-line tool for Flutter projects, providing API code gener
 - **Flutter App Building**: Build Flutter apps for Android (APK/AAB) and iOS (IPA)
 - **Project Creation**: Create Flutter projects with custom structure
 - **Project Opening**: Open Flutter project in IDEs and file managers
+- **Project Management**: Update Flutter project dependencies and configuration
+- **Build Runner Execution**: Run `build_runner` with a simple command
 - **Command Aliases**: Short aliases for all commands for faster usage
 - **Default Behaviors**: Intelligent defaults for common commands
 - **Cross-Platform**: Works on macOS, Linux, and Windows
@@ -188,6 +190,29 @@ ww open build
 
 # Open root directory in file manager
 ww open root
+```
+
+### Build Runner Execution
+
+```bash
+# Run build_runner build with delete-conflicting-outputs
+ww common drbb
+
+# Run with debug mode
+ww common drbb --debug
+
+# Using full path (if needed)
+./lib/sh/common.sh drbb
+```
+
+### Project Management
+
+```bash
+# Update Flutter project dependencies and configuration
+ww project --update
+
+# Using alias
+ww p --update
 ```
 
 ## Contributing

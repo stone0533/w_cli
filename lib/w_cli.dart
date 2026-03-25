@@ -205,7 +205,7 @@ Future<void> handleCreateProject(String projectName) async {
     // 执行脚本并实时显示输出
     await executeScript(
       'setup.sh',
-      ['--name', projectName],
+      [projectName],
       'Project created successfully!',
       'Project creation failed',
     );
@@ -507,6 +507,23 @@ Future<bool> scriptExists(String scriptName) async {
     return true;
   } catch (e) {
     return false;
+  }
+}
+
+/// 处理 common 命令
+/// [arguments] - 命令参数
+Future<void> handleCommonCommand(List<String> arguments) async {
+  print('\n🚀 Running common commands');
+  try {
+    // 执行脚本并实时显示输出
+    await executeScript(
+      'common.sh',
+      arguments,
+      'Common command completed successfully!',
+      'Common command failed',
+    );
+  } catch (e) {
+    handleError(e, 'common command');
   }
 }
 

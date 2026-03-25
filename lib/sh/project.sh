@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 
 # 日志函数
 log_info() {
-  printf "${BLUE}[INFO]${NC} %s\n" "$1"
+  printf "${GREEN}[INFO]${NC} %s\n" "$1"
 }
 
 log_success() {
