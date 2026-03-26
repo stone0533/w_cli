@@ -527,6 +527,23 @@ Future<void> handleCommonCommand(List<String> arguments) async {
   }
 }
 
+/// 处理 clean 命令
+/// [arguments] - 命令参数
+Future<void> handleCleanCommand(List<String> arguments) async {
+  print('\n🚀 Running Flutter clean');
+  try {
+    // 执行脚本并实时显示输出
+    await executeScript(
+      'clean.sh',
+      arguments,
+      'Clean completed successfully!',
+      'Clean failed',
+    );
+  } catch (e) {
+    handleError(e, 'clean');
+  }
+}
+
 /// 单元测试辅助函数
 /// 验证项目名称是否有效
 /// [projectName] - 项目名称

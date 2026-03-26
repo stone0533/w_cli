@@ -9,6 +9,7 @@ A comprehensive command-line tool for Flutter projects, providing API code gener
 - **Project Creation**: Create Flutter projects with custom structure
 - **Project Opening**: Open Flutter project in IDEs and file managers
 - **Project Management**: Update Flutter project dependencies and configuration
+- **Project Cleaning**: Clean Flutter project build files and update dependencies
 - **Build Runner Execution**: Run `build_runner` with a simple command
 - **Command Aliases**: Short aliases for all commands for faster usage
 - **Default Behaviors**: Intelligent defaults for common commands
@@ -73,6 +74,11 @@ ww open ios
 ww open android
 ww open build
 ww open root
+
+# Clean Flutter project
+ww clean
+ww clean android
+ww clean ios
 ```
 
 ### Command Aliases
@@ -85,6 +91,7 @@ ww update   → ww u
 ww build    → ww b
 ww project  → ww p
 ww open     → ww o
+ww clean    → ww cl
 
 # Subcommands
 ww create project → ww create p
@@ -119,6 +126,10 @@ ww o r  # Open root directory
 
 # Update project using alias
 ww p --update  # Update Flutter project dependencies and configuration
+
+# Clean project using alias
+ww cl          # Clean all platforms
+ww cl ios      # Clean iOS platform
 ```
 
 ### API Code Generation
@@ -213,6 +224,28 @@ ww project --update
 
 # Using alias
 ww p --update
+```
+
+### Project Cleaning
+
+```bash
+# Clean all platforms
+ww clean
+
+# Clean specific platform
+ww clean android    # Clean Android build files
+ww clean ios        # Clean iOS build files
+
+# Clean with lock files
+ww clean --lock     # Clean build files and lock files
+
+# Clean iOS with Pods
+ww clean ios --pod  # Clean iOS build files and reinstall Pods
+
+# Using aliases
+ww cl              # Clean all platforms
+ww cl ios          # Clean iOS platform
+ww cl --lock       # Clean with lock files
 ```
 
 ## Contributing

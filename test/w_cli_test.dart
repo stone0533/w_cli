@@ -181,23 +181,32 @@ void main() {
   });
 
   group('Error handling', () {
-    test('handleError should execute without throwing for FileSystemException', () {
-      try {
-        handleError(FileSystemException('File not found', 'test.txt'), 'file operation');
-        expect(true, isTrue);
-      } catch (e) {
-        expect(true, isTrue);
-      }
-    });
+    test(
+      'handleError should execute without throwing for FileSystemException',
+      () {
+        try {
+          handleError(
+            FileSystemException('File not found', 'test.txt'),
+            'file operation',
+          );
+          expect(true, isTrue);
+        } catch (e) {
+          expect(true, isTrue);
+        }
+      },
+    );
 
-    test('handleError should execute without throwing for ProcessException', () {
-      try {
-        handleError(ProcessException('ls', ['-la']), 'process operation');
-        expect(true, isTrue);
-      } catch (e) {
-        expect(true, isTrue);
-      }
-    });
+    test(
+      'handleError should execute without throwing for ProcessException',
+      () {
+        try {
+          handleError(ProcessException('ls', ['-la']), 'process operation');
+          expect(true, isTrue);
+        } catch (e) {
+          expect(true, isTrue);
+        }
+      },
+    );
 
     test('handleError should execute without throwing for FormatException', () {
       try {
@@ -232,20 +241,29 @@ void main() {
       expect(validateProjectName(''), isFalse);
     });
 
-    test('validateProjectName should return false for project name starting with number', () {
-      expect(validateProjectName('123project'), isFalse);
-    });
+    test(
+      'validateProjectName should return false for project name starting with number',
+      () {
+        expect(validateProjectName('123project'), isFalse);
+      },
+    );
 
-    test('validateProjectName should return false for project name with special characters', () {
-      expect(validateProjectName('project-name'), isFalse);
-      expect(validateProjectName('project@name'), isFalse);
-      expect(validateProjectName('project#name'), isFalse);
-    });
+    test(
+      'validateProjectName should return false for project name with special characters',
+      () {
+        expect(validateProjectName('project-name'), isFalse);
+        expect(validateProjectName('project@name'), isFalse);
+        expect(validateProjectName('project#name'), isFalse);
+      },
+    );
 
-    test('validateProjectName should return false for project name with uppercase letters', () {
-      expect(validateProjectName('ProjectName'), isFalse);
-      expect(validateProjectName('projectName'), isFalse);
-    });
+    test(
+      'validateProjectName should return false for project name with uppercase letters',
+      () {
+        expect(validateProjectName('ProjectName'), isFalse);
+        expect(validateProjectName('projectName'), isFalse);
+      },
+    );
 
     test('isValidVersion should return false for invalid version formats', () {
       expect(isValidVersion('1.0'), isFalse);

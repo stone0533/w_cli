@@ -912,6 +912,21 @@ generate_models() {
     return 1
   fi
   
+  # 检查 json_annotation 依赖
+  if ! grep -q "json_annotation:" "$pubspec_file"; then
+    log_info "添加 json_annotation 依赖..."
+    if command_available flutter; then
+      flutter pub add json_annotation
+    elif command_available dart; then
+      dart pub add json_annotation
+    else
+      log_error "Dart 和 Flutter 命令都不可用，无法添加依赖项"
+      return 1
+    fi
+  else
+    log_info "json_annotation 依赖已存在"
+  fi
+  
   # 检查 json_serializable 依赖
   if ! grep -q "json_serializable:" "$pubspec_file"; then
     log_info "添加 json_serializable 依赖..."
@@ -1024,8 +1039,8 @@ generate_models() {
     
     # 处理所有字段
     for field in $all_fields; do
-      # 转换字段名（下划线转驼峰）
-      local camel_field=$(echo "$field" | sed -E 's/(_)([a-z])/\U\2/g')
+      # 转换字段名（下划线转驼峰，并确保首字母小写）
+      local camel_field=$(echo "$field" | perl -pe 's/_([a-z])/\U$1/g' | awk '{print tolower(substr($0,1,1)) substr($0,2)}')
       
       # 提取字段值
       local value=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); print(data.get('$field'))" 2>/dev/null || echo "")
@@ -1124,7 +1139,9 @@ generate_models() {
   log_info "开始转换 json 文件为 dart 文件..."
   for json_file in "${json_files[@]}"; do
     local json_name=$(basename "$json_file" .json)
-    local dart_file="$models_dir/${json_name}.dart"
+    # 转换文件名为小写字母和下划线格式
+    local dart_file_name=$(echo "$json_name" | awk '{for(i=1;i<=length;i++) {c=substr($0,i,1); if(c~/[A-Z]/ && i>1) printf "_" tolower(c); else printf tolower(c)}}')
+    local dart_file="$models_dir/${dart_file_name}.dart"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local class_name=$(echo "$json_name" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
     
@@ -1138,7 +1155,7 @@ generate_models() {
     file_content+="\n"
     file_content+="import 'package:json_annotation/json_annotation.dart';\n"
     file_content+="\n"
-    file_content+="part '${json_name}.g.dart';\n"
+    file_content+="part '${dart_file_name}.g.dart';\n"
     file_content+="\n"
     
     # 使用 generate_model_class 函数生成主类和嵌套类

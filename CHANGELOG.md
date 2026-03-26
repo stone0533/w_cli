@@ -1,3 +1,12 @@
+## 1.0.23
+
+- Updated version number to 1.0.23
+- Added `ww clean` command for Flutter project cleaning
+- Enhanced setup.sh script with improved project initialization
+- Updated common.sh script with better error handling
+- Improved code structure and consistency
+- Updated documentation with common and clean command usage
+
 ## 1.0.22
 
 - Updated version number to 1.0.22

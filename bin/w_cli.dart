@@ -20,6 +20,8 @@ Future<void> main(List<String> arguments) async {
     ..addCommand('o') // 别名
     ..addCommand('common')
     ..addCommand('co') // 别名
+    ..addCommand('clean')
+    ..addCommand('cl') // 别名
     ..addFlag('version', abbr: 'v', negatable: false)
     ..addFlag('help', abbr: 'h', negatable: false);
 
@@ -141,6 +143,10 @@ Future<void> main(List<String> arguments) async {
       case 'co':
         await w.handleCommonCommand(command.arguments);
         break;
+      case 'clean':
+      case 'cl':
+        await w.handleCleanCommand(command.arguments);
+        break;
       default:
         print('Error: Unknown command: ${command.name}');
     }
@@ -178,6 +184,7 @@ void showHelp() {
     '  ww open|o [ios|i|android|a|build|b|root|r]  # Open project directories',
   );
   print('  ww common|co [drbb] [options]        # Run common commands');
+  print('  ww clean|cl [options] [platform]     # Clean Flutter project');
   print('  ww -v, --version                     # Show version information');
   print('  ww -h, --help                        # Show this help message');
   print('');
@@ -230,6 +237,14 @@ void showHelp() {
   print('  ww common drbb              # Run build_runner build');
   print('  ww co drbb --debug          # Run with debug mode');
   print('');
+  print('  # Clean commands');
+  print('  ww clean                    # Clean all platforms');
+  print('  ww clean android            # Clean Android build files');
+  print('  ww clean ios                # Clean iOS build files');
+  print('  ww clean --lock             # Clean with lock files');
+  print('  ww clean ios --pod          # Clean iOS with Pods');
+  print('  ww cl                       # Clean all platforms (using alias)');
+  print('');
   print('Aliases:');
   print('  create    -> c');
   print('  update    -> u');
@@ -238,6 +253,7 @@ void showHelp() {
   print('  open      -> o');
   print('  api       -> a');
   print('  common    -> co');
+  print('  clean     -> cl');
   print('  ios       -> i');
   print('  android   -> a');
   print('  build     -> b');
