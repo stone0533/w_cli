@@ -1,3 +1,11 @@
+## 1.0.24
+
+- Updated version number to 1.0.24
+- Improved documentation for all scripts
+- Updated common.sh script with enhanced functionality
+- Updated setup.sh script with improved project initialization
+- Enhanced overall code structure and consistency
+
 ## 1.0.23
 
 - Updated version number to 1.0.23

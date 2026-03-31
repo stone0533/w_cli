@@ -502,8 +502,8 @@ build_ios() {
   # 记录开始时间
   local start_time=$(date +%s)
   
-  log_info "执行: flutter build ios --release --no-codesign"
-  if ! flutter build ios --release --no-codesign | sed 's/\x1B\[[0-9;]*[mK]//g'; then
+  log_info "执行: flutter build ios --release"
+  if ! flutter build ios --release | sed 's/\x1B\[[0-9;]*[mK]//g'; then
     log_error "构建 iOS 失败"
     log_error "请检查 Flutter 环境、Xcode 配置和项目设置"
     log_error "确保已安装 Xcode 并配置了正确的开发者证书"
