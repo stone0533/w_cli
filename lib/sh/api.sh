@@ -318,20 +318,24 @@ parse_params() {
   local params_part="$1"
   local params=()
   
+  # 提取所有参数注解，但排除注释中的注解
+  # 首先移除注释部分（// 后面的内容）
+  local params_without_comments=$(echo "$params_part" | sed 's|//.*||g')
+  
   # 提取所有参数注解
-  local param_annotations=$(echo "$params_part" | grep -oE "@[A-Za-z]+\([^)]*\)" || echo "")
+  local param_annotations=$(echo "$params_without_comments" | grep -oE "@[A-Za-z]+\([^)]*\)" || echo "")
   
   for annotation in $param_annotations; do
     if [[ "$annotation" == *"@Path"* ]]; then
       # 提取 @Path 参数名 - 从 params_part 中提取
-      local param_name=$(echo "$params_part" | grep -o "@Path()[[:space:]]*[A-Za-z]+[[:space:]]+[A-Za-z]+" | grep -o "[A-Za-z]*$" | tail -1)
+      local param_name=$(echo "$params_without_comments" | grep -o "@Path()[[:space:]]*[A-Za-z]+[[:space:]]+[A-Za-z]+" | grep -o "[A-Za-z]*$" | tail -1)
       if [[ -z "$param_name" ]]; then
         param_name="identifier"
       fi
       params+=($param_name)
     elif [[ "$annotation" == *"@Body"* ]]; then
       # 提取 @Body 参数名
-      local param_name=$(echo "$params_part" | grep -o "@Body()[[:space:]]*[A-Za-z]+[[:space:]]+[A-Za-z]+" | grep -o "[A-Za-z]*$" | tail -1)
+      local param_name=$(echo "$params_without_comments" | grep -o "@Body()[[:space:]]*[A-Za-z]+[[:space:]]+[A-Za-z]+" | grep -o "[A-Za-z]*$" | tail -1)
       if [[ -z "$param_name" ]]; then
         # 如果没有找到参数名，使用 body 作为默认值
         param_name="body"
@@ -339,7 +343,7 @@ parse_params() {
       params+=($param_name)
     elif [[ "$annotation" == *"@Query"* ]] || [[ "$annotation" == *"@Queries"* ]]; then
       # 提取 @Query 或 @Queries 参数名
-      local param_name=$(echo "$params_part" | grep -o "@[Qq]ueries()[[:space:]]*[A-Za-z]+[[:space:]]+[A-Za-z]+" | grep -o "[A-Za-z]*$" | tail -1)
+      local param_name=$(echo "$params_without_comments" | grep -o "@[Qq]ueries()[[:space:]]*[A-Za-z]+[[:space:]]+[A-Za-z]+" | grep -o "[A-Za-z]*$" | tail -1)
       if [[ -z "$param_name" ]]; then
         param_name="queries"
       fi
@@ -527,6 +531,7 @@ parse_client() {
   local in_class=false
   local current_comment=""
   local current_http_method=""
+  local current_custom_annotation=""
   local method_buffer=""
   
   if [[ ! -f "$CLIENT_FILE" ]]; then
@@ -553,6 +558,16 @@ parse_client() {
     
     # 跳过工厂方法
     if [[ "$line" == *"factory ApiClient"* ]]; then
+      continue
+    fi
+    
+    # 检查自定义注解 (例如 @ApiClientId('libRest2'))
+    if [[ "$line" == *@ApiClientId* ]]; then
+      # 提取注解中的名称
+      local annotation_part=$(echo "$line" | grep -o "@ApiClientId([^\)]*)")
+      if [[ -n "$annotation_part" ]]; then
+        current_custom_annotation=$(echo "$annotation_part" | sed "s/@ApiClientId(['\"]//" | sed "s/['\"])//")
+      fi
       continue
     fi
     
@@ -607,13 +622,14 @@ parse_client() {
       # 解析参数
       local params=$(parse_params "$params_part")
       
-      # 存储方法信息（不再包含HTTP方法，因为它在生成代码时不被使用）
-      api_methods+=("$method_name|$return_type|$params|$current_comment")
+      # 存储方法信息（包含自定义注解信息）
+      api_methods+=("$method_name|$return_type|$params|$current_comment|$current_custom_annotation")
       
       # 重置
       method_buffer=""
       current_comment=""
       current_http_method=""
+      current_custom_annotation=""
     fi
   done < "$CLIENT_FILE"
   
@@ -722,19 +738,43 @@ abstract class IAppRemoteDataSource {
 EOF
   
   for method_info in "${api_methods[@]}"; do
-    generate_method_definition "$method_info" false ""
+    # 分割方法信息，包括自定义注解
+    IFS='|' read -r method_name return_type params comment custom_annotation <<< "$method_info"
+    generate_method_definition "$method_name|$return_type|$params|$comment" false ""
   done
   
   cat << 'EOF'
 }
 
 mixin AppRemoteDataSourceMixin implements IAppRemoteDataSource {
-  late final ApiClient libRest;
-
 EOF
+
+  # 收集所有需要的 ApiClient 实例
+  local client_instances="libRest "  # 总是包含默认的 libRest
   
   for method_info in "${api_methods[@]}"; do
-    IFS='|' read -r method_name return_type params comment <<< "$method_info"
+    IFS='|' read -r method_name return_type params comment custom_annotation <<< "$method_info"
+    
+    # 如果有自定义注解，添加到实例列表中（避免重复）
+    if [[ -n "$custom_annotation" ]]; then
+      # 检查是否已存在
+      if [[ ! " $client_instances " =~ " $custom_annotation " ]]; then
+        client_instances="$client_instances$custom_annotation "
+      fi
+    fi
+  done
+  
+  # 生成所有 ApiClient 实例声明
+  for instance_name in $client_instances; do
+    if [[ -n "$instance_name" ]]; then
+      echo "  late final ApiClient $instance_name;"
+    fi
+  done
+
+  echo ""
+
+  for method_info in "${api_methods[@]}"; do
+    IFS='|' read -r method_name return_type params comment custom_annotation <<< "$method_info"
     
     # 跳过空的方法信息
     if [[ -z "$method_name" || -z "$return_type" ]]; then
@@ -748,7 +788,13 @@ EOF
       continue
     fi
     
-    generate_method_definition "$method_info" true "return libRest.$method_name($params);"
+    # 确定使用哪个 ApiClient 实例
+    local client_instance="libRest"
+    if [[ -n "$custom_annotation" ]]; then
+      client_instance="$custom_annotation"
+    fi
+    
+    generate_method_definition "$method_name|$return_type|$params|$comment" true "return $client_instance.$method_name($params);"
   done
   
   cat << 'EOF'
@@ -972,7 +1018,14 @@ generate_models() {
   fi
   
   # 读取 json 文件
-  local json_files=($json_dir/*.json)
+  local json_files=()
+  # 使用 glob 检查是否存在匹配的文件
+  for file in "$json_dir"/*.json; do
+    if [[ -f "$file" ]]; then
+      json_files+=("$file")
+    fi
+  done
+  
   if [[ ${#json_files[@]} -eq 0 ]]; then
     log_error "未找到 json 文件: $json_dir"
     return 1
@@ -988,10 +1041,21 @@ generate_models() {
     local value="$1"
     local field="$2"
     local class_name="$3"
+    local json_content="$4"
     
     # 移除首尾空格
     value=$(echo "$value" | tr -d ' ')
     
+    # 检查原始JSON中该字段是否为字符串类型
+    local is_string=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); print(isinstance(data.get('$field'), str))" 2>/dev/null || echo "false")
+    
+    # 如果是字符串类型，直接返回String
+    if [[ "$is_string" == "True" ]]; then
+      echo "String"
+      return
+    fi
+    
+    # 否则根据值推断类型
     if [[ "$value" == "null" || "$value" == "None" ]]; then
       echo "String"
     elif [[ "$value" == "true" || "$value" == "false" || "$value" == "True" || "$value" == "False" ]]; then
@@ -1099,7 +1163,7 @@ generate_models() {
       # 处理基本类型
       else
         # 推断类型
-        local field_type=$(infer_type "$value" "$field" "$class_name")
+        local field_type=$(infer_type "$value" "$field" "$class_name" "$json_content")
         
         # 生成字段声明（添加 @JsonKey 注解和空安全）
         field_declarations+="\n"$(generate_field_declaration "$field" "$field_type" "$camel_field")

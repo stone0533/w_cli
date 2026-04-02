@@ -3,28 +3,22 @@
 # ======================================================
 # clean.sh - Flutter 应用清理脚本
 # Version: 1.0.0
-# Last Updated: 2026-03-21
+# Last Updated: 2026-04-02
 # Author: Stone
 # Description: 清理 Flutter 应用的构建文件并执行 flutter pub get
 # ======================================================
 
+set -euo pipefail  # Exit on error, undefined vars, and pipe failures
+
 # 配置选项 - 可以通过环境变量覆盖
 MAX_RETRIES=30         # 最大重试次数
 
-# 颜色定义 - 仅在支持的终端中使用
-if [[ -t 1 ]]; then
-  GREEN='\033[0;32m'
-  YELLOW='\033[1;33m'
-  RED='\033[0;31m'
-  BLUE='\033[0;34m'
-  NC='\033[0m' # No Color
-else
-  GREEN=''
-  YELLOW=''
-  RED=''
-  BLUE=''
-  NC=''
-fi
+# 颜色定义
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 
 # 项目根目录
 PROJECT_ROOT="$(pwd)"
@@ -39,21 +33,28 @@ case "$OS_TYPE" in
   *)       OS="unknown" ;;
 esac
 
+# 辅助函数：检查命令是否可用
+command_available() {
+  command -v "$1" &> /dev/null
+}
+
 # 日志函数
 log_info() {
-  printf "${GREEN}[INFO]${NC} $(date '+%Y-%m-%d %H:%M:%S') %s\n" "$1"
+  printf "${GREEN}[INFO]${NC} %s\n" "$1"
 }
 
 log_warn() {
-  printf "${YELLOW}[WARN]${NC} $(date '+%Y-%m-%d %H:%M:%S') %s\n" "$1"
+  printf "${YELLOW}[WARN]${NC} %s\n" "$1"
 }
 
 log_error() {
-  printf "${RED}[ERROR]${NC} $(date '+%Y-%m-%d %H:%M:%S') %s\n" "$1" >&2
+  printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
 }
 
 log_debug() {
-  printf "${BLUE}[DEBUG]${NC} $(date '+%Y-%m-%d %H:%M:%S') %s\n" "$1"
+  if [[ "$DEBUG" = true ]]; then
+    printf "${BLUE}[DEBUG]${NC} %s\n" "$1"
+  fi
 }
 
 # 检查命令是否可用
@@ -61,7 +62,7 @@ check_command() {
   local cmd="$1"
   local required="$2"
   
-  if ! command -v "$cmd" &> /dev/null; then
+  if ! command_available "$cmd"; then
     if [[ "$required" == "true" ]]; then
       log_error "$cmd 命令不可用，请确保已正确安装"
       return 1
@@ -76,7 +77,7 @@ check_command() {
 # 显示版本信息
 show_version() {
   echo "clean.sh version: 1.0.0"
-  echo "Last updated: 2026-03-21"
+  echo "Last updated: 2026-04-02"
   echo "Description: 清理 Flutter 应用的构建文件并执行 flutter pub get"
   exit 0
 }
@@ -91,10 +92,14 @@ show_help() {
   echo "选项:"
   echo "  --help     显示此帮助信息"
   echo "  --version  显示脚本版本信息"
+  echo "  --debug    启用调试模式"
   echo "  --lock     清理锁文件（pubspec.lock 或 Podfile.lock）"
   echo "  --pod      清理 iOS Pods（仅适用于 iOS 平台）"
   exit 0
 }
+
+# 配置选项
+DEBUG=false
 
 # 解析命令行参数
 parse_args() {
@@ -111,6 +116,10 @@ parse_args() {
         ;;
       --version)
         show_version
+        ;;
+      --debug)
+        DEBUG=true
+        shift
         ;;
       --lock)
         LOCK=true
@@ -311,7 +320,7 @@ main() {
   if ! clean_build_files; then
     # 添加运行结束分隔线
     printf "${GREEN}======================================================${NC}\n"
-    printf "${GREEN}Flutter 应用清理脚本运行结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
+    printf "${GREEN}Flutter 应用清理脚本运行结束${NC}\n"
     printf "${GREEN}======================================================${NC}\n"
     exit 1
   fi
@@ -320,7 +329,7 @@ main() {
   if ! update_dependencies; then
     # 添加运行结束分隔线
     printf "${GREEN}======================================================${NC}\n"
-    printf "${GREEN}Flutter 应用清理脚本运行结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
+    printf "${GREEN}Flutter 应用清理脚本运行结束${NC}\n"
     printf "${GREEN}======================================================${NC}\n"
     exit 1
   fi
@@ -330,7 +339,7 @@ main() {
     if ! run_pod_update; then
       # 添加运行结束分隔线
       printf "${GREEN}======================================================${NC}\n"
-      printf "${GREEN}Flutter 应用清理脚本运行结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
+      printf "${GREEN}Flutter 应用清理脚本运行结束${NC}\n"
       printf "${GREEN}======================================================${NC}\n"
       exit 1
     fi
@@ -340,7 +349,7 @@ main() {
   
   # 添加运行结束分隔线
   printf "${GREEN}======================================================${NC}\n"
-  printf "${GREEN}Flutter 应用清理脚本运行结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
+  printf "${GREEN}Flutter 应用清理脚本运行结束${NC}\n"
   printf "${GREEN}======================================================${NC}\n"
 }
 

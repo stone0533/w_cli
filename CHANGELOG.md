@@ -1,3 +1,12 @@
+## 1.0.26
+
+- Updated version number to 1.0.26
+
+## 1.0.25
+
+- Updated version number to 1.0.25
+- Comprehensive pre-publishing checklist completed
+
 ## 1.0.24
 
 - Updated version number to 1.0.24
