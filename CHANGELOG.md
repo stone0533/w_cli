@@ -1,3 +1,7 @@
+## 1.0.27
+
+- Updated version number to 1.0.27
+
 ## 1.0.26
 
 - Updated version number to 1.0.26

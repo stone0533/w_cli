@@ -13,10 +13,14 @@
 
 - **自动代码生成**: 根据 `client.dart` 中的 API 接口定义，自动生成相应的数据源和仓库代码
 - **目录结构初始化**: 可自动创建完整的 API 相关目录结构和基础文件
-- **模型文件生成**: 支持从 JSON 文件生成 Dart 模型类
-- **依赖管理**: 自动检查和添加必要的依赖项
+- **模型文件生成**: 支持从 JSON 文件生成 Dart 模型类，包括嵌套对象和数组类型
+- **依赖管理**: 自动检查和添加必要的依赖项（retrofit、json_serializable、build_runner等）
 - **代码格式化**: 自动格式化生成的代码，确保代码风格一致
 - **调试模式**: 提供调试模式，显示详细的执行过程
+- **自定义ApiClient实例**: 支持使用 `@ApiClientId` 注解定义多个ApiClient实例
+- **自动模型导入**: 自动检测和导入API方法返回类型所需的模型文件
+- **空安全支持**: 生成的代码完全支持Dart空安全特性
+- **智能方法跳过**: 自动跳过已经在AppRemoteDataSource中手动实现的方法
 
 ## 3. 安装和设置
 
@@ -149,8 +153,18 @@ abstract class ApiClient {
   // 其他 API 接口
   @GET(ApiPath.users)
   Future<List<User>> getUsers();
+  
+  // 使用自定义ApiClient实例
+  @ApiClientId('libRest2')
+  @GET(ApiPath.otherApi)
+  Future<OtherData> getOtherData();
 }
 ```
+
+**自定义ApiClient实例说明：**
+- 使用 `@ApiClientId('customName')` 注解可以为特定API方法指定使用不同的ApiClient实例
+- 在 `data_source.dart` 中需要相应地初始化多个ApiClient实例
+- 生成的代码会自动为每个自定义实例生成对应的声明和方法调用
 
 ## 8. 常见问题和解决方案
 
@@ -182,22 +196,20 @@ abstract class ApiClient {
 API 代码生成脚本运行开始
 ======================================================
 [INFO] 开始 API 代码生成...
-[INFO] retrofit_generator 依赖已存在
-[INFO] 执行 build_runner...
-[INFO] build_runner 执行完成
-[INFO] 解析到 2 个 API 方法:
-[INFO]   - POST login -> dynamic
-[INFO]   - GET getUsers -> List<User>
-[INFO] 
+[INFO] 解析到 3 个 API 方法:
+[INFO]   - login -> dynamic
+[INFO]   - getUsers -> List<User>
+[INFO]   - getOtherData -> OtherData
+
 [INFO] 开始更新文件...
 [INFO] 开始格式化代码...
 [INFO] 代码格式化完成
 [INFO] 已更新: lib/app/data/sources/remote/data_source_mixin.dart
 [INFO] 已更新: lib/app/data/sources/repository.dart
-[INFO] 
+
 [INFO] ✅ API 代码生成完成！
 ======================================================
-API 代码生成脚本运行结束 2026-03-23 10:00:00
+API 代码生成脚本运行结束 2026-04-02 14:30:00
 ======================================================
 ```
 
