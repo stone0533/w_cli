@@ -1,6 +1,11 @@
-## 1.0.27
+## 1.0.28
 
-- Updated version number to 1.0.27
+- Updated version number to 1.0.28
+- Enhanced api.sh with incremental model generation mode
+- Added --full flag for force full regeneration of models
+- Updated documentation for api.sh with new features
+- Added --full parameter support in command line parser
+- Updated script version information
 
 ## 1.0.26
 

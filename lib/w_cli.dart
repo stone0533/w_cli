@@ -41,9 +41,9 @@ Future<void> executeScript(
   try {
     // 获取脚本路径（从资源文件提取）
     final scriptPath = await getScriptPath(scriptName);
-    print(
-      'Executing script: $scriptPath with arguments: ${arguments.join(' ')}',
-    );
+    // print(
+    //   'Executing script: $scriptPath with arguments: ${arguments.join(' ')}',
+    // );
 
     Process process;
     if (Platform.isWindows) {

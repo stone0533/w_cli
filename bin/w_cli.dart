@@ -30,7 +30,8 @@ Future<void> main(List<String> arguments) async {
   if (apiCommand != null) {
     apiCommand
       ..addFlag('init', negatable: false)
-      ..addFlag('models', negatable: false);
+      ..addFlag('models', negatable: false)
+      ..addFlag('full', negatable: false);
   }
 
   // 为 a 命令（api 的别名）添加选项
@@ -38,7 +39,8 @@ Future<void> main(List<String> arguments) async {
   if (aCommand != null) {
     aCommand
       ..addFlag('init', negatable: false)
-      ..addFlag('models', negatable: false);
+      ..addFlag('models', negatable: false)
+      ..addFlag('full', negatable: false);
   }
 
   // 为 build 命令添加选项
@@ -113,26 +115,22 @@ Future<void> main(List<String> arguments) async {
         break;
       case 'build':
       case 'b':
-        // 构建参数列表，包括平台和选项
-        final buildArgs = List<String>.from(command.arguments);
-        if (command['uat'] as bool) {
-          buildArgs.add('--uat');
-        }
-        if (command['clean'] as bool) {
-          buildArgs.add('--clean');
-        }
-        if (command['open'] as bool) {
-          buildArgs.add('--open');
-        }
+        // 构建参数列表：从 rest 参数中提取平台类型，再添加 flags
+        final buildArgs = <String>[
+          ...command.rest.where((arg) => arg == 'apk' || arg == 'aab' || arg == 'ios'),
+          if (command['uat'] as bool) '--uat',
+          if (command['clean'] as bool) '--clean',
+          if (command['open'] as bool) '--open',
+        ];
         await w.handleBuildCommand(buildArgs);
         break;
       case 'project':
       case 'p':
-        // 构建参数列表，包括选项
-        final projectArgs = List<String>.from(command.arguments);
-        if (command['update'] as bool) {
-          projectArgs.add('--update');
-        }
+        // 构建参数列表：从 rest 参数提取位置参数，再添加 flags
+        final projectArgs = <String>[
+          ...command.rest,
+          if (command['update'] as bool) '--update',
+        ];
         await w.handleProjectCommand(projectArgs);
         break;
       case 'open':
@@ -172,6 +170,9 @@ void showHelp() {
   );
   print(
     '  ww api|a --models                    # Generate model files from JSON',
+  );
+  print(
+    '  ww api|a --models --full             # Force full regeneration of models',
   );
   print(
     '  ww update|u                          # Update w_cli to the latest version',

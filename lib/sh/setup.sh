@@ -830,7 +830,7 @@ class AppRemoteDataSource extends BaseRemoteDataSource with AppRemoteDataSourceM
     libRest = ApiClient(
       DioUtil.instance(
         ApiPath.baseUrl,
-        interceptors: [WTokenInterceptor(), WLogInterceptor(), WErrorInterceptor()],
+        interceptors: [WTokenInterceptor(), WLogInterceptor()],
       ).dio,
     );
   }
