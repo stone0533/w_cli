@@ -954,10 +954,10 @@ check_and_add_dependencies() {
 run_build_runner() {
   log_info "执行 build_runner build..."
   if command_available dart; then
-    dart pub run build_runner build --delete-conflicting-outputs
+    dart run build_runner build --delete-conflicting-outputs
     log_info "build_runner build 执行完成"
   elif command_available flutter; then
-    flutter pub run build_runner build --delete-conflicting-outputs
+    flutter run build_runner build --delete-conflicting-outputs
     log_info "build_runner build 执行完成"
   else
     log_warn "Dart 和 Flutter 命令都不可用，跳过 build_runner build"

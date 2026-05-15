@@ -408,7 +408,7 @@ Future<void> handleUpdateCommand() async {
 /// 处理构建命令
 /// [arguments] - 命令参数
 Future<void> handleBuildCommand(List<String> arguments) async {
-  print('\n🚀 Running Flutter build');
+  // print('\n🚀 Running Flutter build');
   try {
     // 执行脚本并实时显示输出
     await executeScript(

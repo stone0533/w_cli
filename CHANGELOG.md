@@ -1,3 +1,11 @@
+## 1.0.29
+
+- Updated version number to 1.0.29
+- Fixed Flutter version compatibility issues
+- Replaced deprecated `dart pub run` and `flutter pub run` commands with `dart run`
+- Enhanced script compatibility for Flutter 3.10+
+- Improved cross-version compatibility for build_runner execution
+
 ## 1.0.28
 
 - Updated version number to 1.0.28

@@ -901,9 +901,9 @@ generate_code() {
   # 再次执行 flutter pub get 确保所有依赖都已正确安装
   run_command_with_timeout "(cd \"$PROJECT_NAME\" && flutter pub get)"
   # 执行代码生成
-  if ! run_command_with_timeout "(cd \"$PROJECT_NAME\" && dart pub run build_runner build)"; then
+  if ! run_command_with_timeout "(cd \"$PROJECT_NAME\" && dart run build_runner build)"; then
     log_warn "代码生成失败，尝试使用 --delete-conflicting-outputs 选项"
-    run_command_with_timeout "(cd \"$PROJECT_NAME\" && dart pub run build_runner build --delete-conflicting-outputs)"
+    run_command_with_timeout "(cd \"$PROJECT_NAME\" && dart run build_runner build --delete-conflicting-outputs)"
   fi
   log_info "代码生成完成"
 }

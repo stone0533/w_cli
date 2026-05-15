@@ -100,7 +100,7 @@ drbb() {
     dart run build_runner build --delete-conflicting-outputs
   elif command_available flutter; then
     log_debug "使用 flutter 命令"
-    flutter pub run build_runner build --delete-conflicting-outputs
+    flutter run build_runner build --delete-conflicting-outputs
   else
     log_error "Dart 和 Flutter 命令都不可用"
     return 1
