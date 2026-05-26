@@ -1,3 +1,12 @@
+## 1.0.30
+
+- Updated version number to 1.0.30
+- Updated build.sh script to version 1.0.2 with enhanced features
+- Added `-name` parameter support for custom output file naming
+- Added `-export-options` parameter for iOS build configuration
+- Updated documentation to include new parameters and usage examples
+- Enhanced script logging and debugging capabilities
+
 ## 1.0.29
 
 - Updated version number to 1.0.29

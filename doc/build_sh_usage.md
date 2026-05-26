@@ -5,8 +5,8 @@
 `build.sh` 是一个用于 Flutter 应用的多平台打包脚本，支持 Android APK、AAB 和 iOS IPA 打包，提供生产模式和 UAT 模式，以及详细的日志和错误处理。
 
 ### 版本信息
-- **版本**: 1.0.1
-- **最后更新**: 2026-04-02
+- **版本**: 1.0.2
+- **最后更新**: 2026-05-21
 - **作者**: Stone
 
 ## 2. 功能特点
@@ -57,8 +57,11 @@
 | `--uat` | 以 UAT 模式构建，添加时间戳 |
 | `--clean` | 构建前清空构建目录 |
 | `--open` | 构建后打开输出目录 |
+| `--debug` | 启用调试模式，显示详细日志 |
 | `--version` | 显示脚本版本信息 |
 | `--help` | 显示帮助信息 |
+| `-name:<name>` | 指定输出文件名中的应用名称 |
+| `-export-options:<file>` | 指定 iOS 导出配置文件路径 |
 
 ## 6. 环境变量
 
@@ -131,6 +134,32 @@
 ```bash
 PARALLEL_BUILD=true ./build.sh apk aab
 ```
+
+### 7.7 指定应用名称
+
+**功能**: 通过 `-name` 参数指定输出文件名中的应用名称
+
+**命令**: 
+```bash
+./build.sh apk -name:myapp
+```
+
+**输出文件名**:
+- 生产模式: `myapp_live_1.0.0.apk`
+- UAT 模式: `myapp_uat_2026_0525_100000.apk`
+
+### 7.8 iOS 构建指定导出配置
+
+**功能**: 通过 `-export-options` 参数指定自定义的 iOS 导出配置文件
+
+**命令**: 
+```bash
+./build.sh ios -export-options:uat.plist
+```
+
+**说明**:
+- 默认会在 `w_build/` 目录下查找 `ios.plist` 文件
+- 支持指定多个配置文件，如 `uat.plist`、`dev.plist` 等
 
 
 
