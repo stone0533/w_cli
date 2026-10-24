@@ -37,10 +37,9 @@ show_version() {
 
 # 显示帮助信息
 show_help() {
-  echo "使用方法: $0 <init|models> [选项]"
+  echo "使用方法: $0 models [选项]"
   echo ""
   echo "子命令:"
-  echo "  init           初始化 lib/app/data 目录与模板文件"
   echo "  models         从 w_json/*.json 生成模型文件（默认增量模式）"
   echo ""
   echo "选项:"
@@ -50,16 +49,15 @@ show_help() {
   echo "  --help         显示帮助信息"
   echo ""
   echo "说明:"
-  echo "  client.dart 的代码生成（ww api generate）是纯 Dart 实现，见 docs/adr/0001"
-  echo "  本脚本只负责 init 与 models 这两个需要操作文件系统的子命令。"
+  echo "  生成文本（generate / init）由 ww api 的 Dart 实现负责，见 docs/adr/0001、0002"
+  echo "  本脚本只负责 models 这一条链路（JSON -> Dart）。"
   echo ""
   echo "示例:"
-  echo "  $0 init                 # 初始化目录结构"
   echo "  $0 models               # 生成模型文件（增量模式）"
   echo "  $0 models --force       # 强制全量重新生成模型"
 }
 
-# 解析命令行参数：子命令只有 init / models，修饰符只有 --force 与 --debug
+# 解析命令行参数：子命令只有 models，修饰符只有 --force 与 --debug
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -79,7 +77,7 @@ parse_args() {
         FORCE=true
         shift
         ;;
-      init|models)
+      models)
         if [[ -n "$SUBCOMMAND" ]]; then
           log_error "子命令只能给一个，收到: $SUBCOMMAND 和 $1"
           show_help >&2
@@ -92,10 +90,10 @@ parse_args() {
         log_error "$1 已改成子命令，请改用：$(_legacy_hint "$1")"
         exit 2
         ;;
-      generate|g)
-        # 这一半已经是纯 Dart 实现（lib/src/api/），api.sh 里没有对应代码
-        log_error "generate 由 ww api 直接实现（Dart），api.sh 只有 init 与 models"
-        log_info "请改用：ww api generate"
+      init|generate|g)
+        # 生成文本这一半已经是纯 Dart 实现（lib/src/api/），api.sh 里没有对应代码
+        log_error "$1 由 ww api 直接实现（Dart），api.sh 只有 models"
+        log_info "请改用：ww api $1"
         exit 2
         ;;
       *)
@@ -116,224 +114,12 @@ parse_args() {
 # 旧参数 -> 新写法的一行指路
 _legacy_hint() {
   case "$1" in
-    --init) printf '%s' "api.sh init" ;;
+    --init) printf '%s' "ww api init" ;;
     --models) printf '%s' "api.sh models" ;;
     --full) printf '%s' "api.sh models --force" ;;
     *) printf '%s' "api.sh --help" ;;
   esac
 }
-
-# 初始化目录结构
-init_directory_structure() {
-  local base_dir="lib/app/data"
-  local sources_dir="$base_dir/sources"
-  local remote_dir="$sources_dir/remote"
-  
-  # 检查并创建目录
-  if [[ ! -d "$base_dir" ]]; then
-    log_info "创建目录: $base_dir"
-    mkdir -p "$base_dir"
-  else
-    log_info "目录已存在: $base_dir"
-  fi
-  
-  if [[ ! -d "$sources_dir" ]]; then
-    log_info "创建目录: $sources_dir"
-    mkdir -p "$sources_dir"
-  else
-    log_info "目录已存在: $sources_dir"
-  fi
-  
-  if [[ ! -d "$remote_dir" ]]; then
-    log_info "创建目录: $remote_dir"
-    mkdir -p "$remote_dir"
-  else
-    log_info "目录已存在: $remote_dir"
-  fi
-  
-  # 检查并创建 models 目录
-  local models_dir="$base_dir/models"
-  if [[ ! -d "$models_dir" ]]; then
-    log_info "创建目录: $models_dir"
-    mkdir -p "$models_dir"
-  else
-    log_info "目录已存在: $models_dir"
-  fi
-  
-  # 检查并创建 w_json 目录
-  local json_dir="w_json"
-  if [[ ! -d "$json_dir" ]]; then
-    log_info "创建目录: $json_dir"
-    mkdir -p "$json_dir"
-  else
-    log_info "目录已存在: $json_dir"
-  fi
-  
-  # 检查并创建必要的文件
-  if [[ ! -f "$sources_dir/client.dart" ]]; then
-    log_info "创建文件: $sources_dir/client.dart"
-    cat > "$sources_dir/client.dart" << 'EOF'
-import 'package:retrofit/retrofit.dart';
-import 'package:dio/dio.dart';
-import 'paths.dart';
-
-part 'client.g.dart';
-
-@RestApi()
-abstract class ApiClient {
-  factory ApiClient(Dio dio, {String baseUrl}) = _ApiClient;
-
-  // 认证相关
-  @POST(ApiPath.login)
-  Future<dynamic> login(@Body() Map<String, dynamic> data);
-
-  // 这里新增需要的 API，然后执行 ww api generate 来自动生成对应的代码
-}
-EOF
-  else
-    log_info "文件已存在: $sources_dir/client.dart"
-  fi
-  
-  if [[ ! -f "$sources_dir/paths.dart" ]]; then
-    log_info "创建文件: $sources_dir/paths.dart"
-    cat > "$sources_dir/paths.dart" << 'EOF'
-class ApiPath {
-  static const String baseUrl = 'https://api.example.com';
-
-  // 认证相关
-  static const String login = '/auth/login';
-}
-EOF
-  else
-    log_info "文件已存在: $sources_dir/paths.dart"
-  fi
-  
-  if [[ ! -f "$remote_dir/data_source.dart" ]]; then
-    log_info "创建文件: $remote_dir/data_source.dart"
-    cat > "$remote_dir/data_source.dart" << 'EOF'
-// <<<GENERATED w_tools import
-__W_TOOLS_IMPORT__
-// GENERATED>>>
-import '../client.dart';
-import '../paths.dart';
-import 'data_source_mixin.dart';
-
-class AppRemoteDataSource extends BaseRemoteDataSource
-    with AppRemoteDataSourceMixin {
-  AppRemoteDataSource() {
-    libRest = ApiClient(
-      DioUtil.instance(
-        ApiPath.baseUrl,
-        interceptors: [
-          WTokenInterceptor(),
-          WLogInterceptor(),
-          WErrorInterceptor(),
-        ],
-      ).dio,
-    );
-  }
-}
-
-EOF
-  else
-    log_info "文件已存在: $remote_dir/data_source.dart"
-  fi
-
-  # 导入行由 marker 段维护：新文件填占位符，老文件（有 marker）同步成本项目写法
-  sync_or_hint "$remote_dir/data_source.dart" "$(resolve_w_tools_import ".")" || return 1
-
-  # 占位符绝不能落盘：同步失败（或 python3 缺失）时上面已报错，这里再兜一层
-  if grep -q "__W_TOOLS_IMPORT__" "$remote_dir/data_source.dart"; then
-    log_error "data_source.dart 仍含占位符 __W_TOOLS_IMPORT__，请手工替换后再继续"
-    return 1
-  fi
-  
-  # 检查并创建 data_source_mixin.dart 文件
-  if [[ ! -f "$remote_dir/data_source_mixin.dart" ]]; then
-    log_info "创建文件: $remote_dir/data_source_mixin.dart"
-    cat > "$remote_dir/data_source_mixin.dart" << EOF
-$(generate_header_comment)
-import '../client.dart';
-
-abstract class IAppRemoteDataSource {
-  // 认证相关
-  Future<dynamic> login(Map<String, dynamic> body);
-}
-
-mixin AppRemoteDataSourceMixin implements IAppRemoteDataSource {
-  late final ApiClient libRest;
-
-  // 认证相关
-  @override
-  Future<dynamic> login(Map<String, dynamic> body) {
-    return libRest.login(body);
-  }
-}
-EOF
-  else
-    log_info "文件已存在: $remote_dir/data_source_mixin.dart"
-  fi
-  
-  # 检查并创建 repository.dart 文件
-  if [[ ! -f "$sources_dir/repository.dart" ]]; then
-    log_info "创建文件: $sources_dir/repository.dart"
-    cat > "$sources_dir/repository.dart" << EOF
-// 由 api.sh 首次创建；之后的内容由 ww api 依据 client.dart 整份重写。
-// 直接在这里加方法会让 ww api 拒绝覆盖（它会提示用手写扩展或 --force）。
-import '$(resolve_w_tools_import ".")';
-
-import 'remote/data_source.dart';
-import 'remote/data_source_mixin.dart';
-
-class AppRepository extends BaseRepository<Null, AppRemoteDataSource>
-    implements IAppRemoteDataSource {
-  AppRepository() : super(remoteDataSource: AppRemoteDataSource());
-
-  static AppRepository? _instance;
-
-  static AppRepository _getInstance() {
-    _instance ??= AppRepository();
-    return _instance!;
-  }
-
-  static AppRepository get instance => _getInstance();
-
-  static bool destroyInstance() {
-    if (_instance == null) {
-      return false;
-    }
-    _instance = null;
-    return true;
-  }
-
-  // 认证相关
-  @override
-  Future<dynamic> login(Map<String, dynamic> body) {
-    return remoteDataSource!.login(body);
-  }
-}
-EOF
-  else
-    log_info "文件已存在: $sources_dir/repository.dart"
-  fi
-
-  
-  log_info "✅ 目录结构初始化完成！"
-}
-
-# 生成自动生成文件的注释头部
-# 生成文件的头部注释。
-#
-# 只保留「自动生成、勿手改」的警示，**不写时间戳**：
-# 时间戳会让每次生成都改动所有文件（git 全是噪音 diff，看不出真正的业务改动）。
-generate_header_comment() {
-  cat << 'EOF'
-// **************************************************************************
-// Auto-generated file. Do not edit manually.
-// **************************************************************************
-EOF
-}
-
 # ── w_tools 导入：探测本项目的聚合入口，避免写死 meta 包 ─────────────────
 
 # 本项目聚合入口（相对项目根）；存在时优先用它
@@ -342,119 +128,6 @@ W_TOOLS_BARREL="${W_TOOLS_BARREL:-lib/app/w/toolkit.dart}"
 # marker：生成器只维护这两个标记之间的内容，其余手写部分永不覆盖
 W_TOOLS_IMPORT_BEGIN='// <<<GENERATED w_tools import'
 W_TOOLS_IMPORT_END='// GENERATED>>>'
-
-# 解析本项目该用的 w_tools 导入 URI
-#   1) 聚合入口存在 → package:<pubspec.name>/app/w/toolkit.dart
-#   2) 否则          → package:w_tools/w.dart（meta 包）+ 告警
-resolve_w_tools_import() {
-  local project_root="${1:-.}"
-  local barrel="$project_root/$W_TOOLS_BARREL"
-
-  if [[ -f "$barrel" ]]; then
-    local pkg=""
-    pkg="$(awk '/^name:[[:space:]]*/{print $2; exit}' "$project_root/pubspec.yaml" 2>/dev/null)"
-    if [[ -n "$pkg" ]]; then
-      printf 'package:%s/%s' "$pkg" "${W_TOOLS_BARREL#lib/}"
-      return 0
-    fi
-  fi
-
-  log_warn "未找到 ${W_TOOLS_BARREL}，回退到 meta 包 package:w_tools/w.dart（建议先用 w_tools 的 init 生成聚合入口）" >&2
-  printf 'package:w_tools/w.dart'
-}
-
-# 把文件 marker 段里的导入同步成本项目的写法。
-# 返回：0 = 已同步或无需变化；3 = 文件存在但没有 marker（视为手写文件，跳过）
-sync_w_tools_import() {
-  local file="$1"
-  local uri="$2"
-
-  [[ -f "$file" ]] || return 0
-
-  python3 - "$file" "$uri" "$W_TOOLS_IMPORT_BEGIN" "$W_TOOLS_IMPORT_END" <<'PY'
-import pathlib
-import sys
-
-path, uri, begin, end = sys.argv[1:5]
-p = pathlib.Path(path)
-text = p.read_text()
-
-if begin not in text or end not in text:
-    sys.exit(3)
-
-head, rest = text.split(begin, 1)
-_, tail = rest.split(end, 1)
-block = f"{begin}（工具只维护下一行导入；本文件其余部分手写，不会被覆盖）\nimport '{uri}';\n{end}"
-new = head + block + tail
-
-if new != text:
-    p.write_text(new)
-PY
-}
-
-# 对已存在/刚创建的骨架同步导入；没有 marker 的老文件只提示、不改
-sync_or_hint() {
-  local file="$1"
-  local uri="$2"
-  local rc=0
-  sync_w_tools_import "$file" "$uri" || rc=$?
-
-  case "$rc" in
-    0) ;;
-    3) log_info "  ↳ 未接管导入行（无 marker，视为手写文件）: $file" ;;
-    *)
-      log_error "同步 w_tools 导入失败: $file（python3 退出码 $rc）"
-      return 1
-      ;;
-  esac
-  return 0
-}
-
-# 检查并添加必要的依赖项
-check_and_add_dependencies() {
-  local pubspec_file="pubspec.yaml"
-  
-  if [[ ! -f "$pubspec_file" ]]; then
-    log_error "文件不存在: $pubspec_file"
-    return 1
-  fi
-  
-  if ! command_available flutter; then
-    log_error "Flutter 命令不可用，无法添加依赖项"
-    return 1
-  fi
-  
-  local updated=false
-  
-  # 检查并添加 dependencies 部分的依赖
-  if ! grep -q "retrofit:" "$pubspec_file"; then
-    log_info "添加 retrofit 依赖..."
-    flutter pub add retrofit
-    updated=true
-  fi
-  
-  # 检查并添加 dev_dependencies 部分的依赖
-  local dev_deps=(
-    "build_runner"
-    "json_serializable"
-    "retrofit_generator"
-  )
-  
-  for dep in "${dev_deps[@]}"; do
-    if ! grep -q "$dep:" "$pubspec_file"; then
-      log_info "添加 $dep 依赖..."
-      flutter pub add --dev "$dep"
-      updated=true
-    fi
-  done
-  
-  if [[ "$updated" = true ]]; then
-    log_info "依赖项添加完成"
-  else
-    log_info "所有必要的依赖项已存在"
-  fi
-}
-
 # 执行 build_runner build
 run_build_runner() {
   log_info "执行 build_runner build..."
@@ -543,7 +216,6 @@ RESERVED = {
     "sync", "required", "late",
 }
 
-
 def dart_field(raw):
     """JSON 键 -> 合法 Dart 字段名（原始键名由 @JsonKey 保留）"""
     name = raw.replace("-", "_")
@@ -557,10 +229,8 @@ def dart_field(raw):
         name += "_"
     return name
 
-
 def cap(name):
     return name[0].upper() + name[1:] if name else name
-
 
 def scalar_type(value):
     if isinstance(value, bool):
@@ -571,10 +241,8 @@ def scalar_type(value):
         return "double"
     return "String"
 
-
 def escape(text):
     return text.replace("\\", "\\\\").replace("'", "\\'")
-
 
 def load_standalones(spec):
     """w_json.config 里声明的独立类：类名 -> 键集合"""
@@ -599,14 +267,12 @@ def load_standalones(spec):
             items.append((name, tuple(sorted(data.keys()))))
     return items
 
-
 def match_standalone(obj, standalones):
     keys = tuple(sorted(obj.keys()))
     for name, candidate in standalones:
         if candidate == keys:
             return name
     return None
-
 
 def render(name, obj, standalones):
     fields = []
@@ -667,7 +333,6 @@ def render(name, obj, standalones):
         blocks.extend(render(child_name, child_obj, standalones))
     return blocks
 
-
 def main():
     class_name = sys.argv[1]
     data = json.loads(sys.stdin.read())
@@ -677,7 +342,6 @@ def main():
         data = {}
     standalones = load_standalones(os.environ.get("W_STANDALONE", ""))
     sys.stdout.write("\n\n".join(render(class_name, data, standalones)) + "\n")
-
 
 main()
 PY
@@ -1133,29 +797,13 @@ main() {
 
   printf "${GREEN}======================================================${NC}\n"
 
-  if [[ "$SUBCOMMAND" = "models" ]]; then
-    printf "${GREEN}模型文件生成开始${NC}\n"
-    printf "${GREEN}======================================================${NC}\n"
-
-    generate_models || exit 1
-
-    printf "${GREEN}======================================================${NC}\n"
-    printf "${GREEN}模型文件生成结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
-    printf "${GREEN}======================================================${NC}\n"
-    exit 0
-  fi
-
-  printf "${GREEN}API 目录结构初始化开始${NC}\n"
+  printf "${GREEN}模型文件生成开始${NC}\n"
   printf "${GREEN}======================================================${NC}\n"
 
-  log_info "检查并添加必要的依赖项..."
-  check_and_add_dependencies || exit 1
-
-  log_info "开始初始化目录结构..."
-  init_directory_structure
+  generate_models || exit 1
 
   printf "${GREEN}======================================================${NC}\n"
-  printf "${GREEN}API 目录结构初始化结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
+  printf "${GREEN}模型文件生成结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
   printf "${GREEN}======================================================${NC}\n"
   exit 0
 }

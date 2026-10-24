@@ -6,6 +6,7 @@ import 'src/api/api_cli.dart';
 
 export 'src/api/api_cli.dart';
 import 'src/api/api_generator.dart';
+import 'src/api/scaffolder.dart';
 
 /// 获取当前版本号
 /// 从自动生成的版本文件中读取版本号
@@ -334,6 +335,16 @@ Future<int> handleApiCommand(List<String> arguments, {bool debug = false}) async
 
   print('\n🚀 Running API code generation');
 
+  // 目录初始化（ADR-0002 Phase 1：不再走 api.sh）
+  if (invocation.mode == ApiMode.init) {
+    try {
+      return ApiScaffolder().run();
+    } catch (e) {
+      handleError(e, 'API directory initialization');
+      return 1;
+    }
+  }
+
   // client.dart -> mixin / repository 走 Dart 侧（见 docs/adr/0001）
   if (invocation.mode == ApiMode.generate) {
     try {
@@ -344,9 +355,9 @@ Future<int> handleApiCommand(List<String> arguments, {bool debug = false}) async
     }
   }
 
-  // init / models 仍是 api.sh 负责的那一半
+  // models 仍是 api.sh 负责的那一半（JSON 渲染）
   final scriptArgs = <String>[
-    invocation.mode == ApiMode.init ? 'init' : 'models',
+    'models',
     if (invocation.force) '--force',
     if (debug) '--debug',
   ];

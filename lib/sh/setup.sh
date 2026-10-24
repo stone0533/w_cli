@@ -790,7 +790,9 @@ EOF
   # 实现远程数据源，处理网络请求
   log_info "创建远程数据源文件..."
   cat > "$project_dir/lib/app/data/sources/remote/data_source.dart" << 'EOF'
+// <<<GENERATED w_tools import（工具只维护下一行导入；本文件其余部分手写，不会被覆盖）
 import 'package:w_tools/w.dart';
+// GENERATED>>>
 import '../client.dart';
 import '../paths.dart';
 import 'data_source_mixin.dart';
