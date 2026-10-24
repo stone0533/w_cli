@@ -120,20 +120,14 @@ class Resources {
       if (!sharedFile.existsSync()) {
         final sharedData = await readResource('lib/sh/$shared');
         await sharedFile.writeAsBytes(sharedData);
-        if (!Platform.isWindows) {
-          await Process.run('chmod', ['+x', sharedPath]);
-        }
       }
     }
 
     final data = await readResource(resourcePath);
     final tempFile = File(path.join(root.path, fileName));
     await tempFile.writeAsBytes(data);
-
-    // 设置执行权限（非Windows系统）
-    if (!Platform.isWindows) {
-      await Process.run('chmod', ['+x', tempFile.path]);
-    }
+    // 不设可执行位：脚本一律通过 `bash <script>` 调用（直接执行要慢两个数量级），
+    // 省掉两次 chmod 子进程
 
     // 缓存结果
     _scriptPathCache[fileName] = tempFile.path;

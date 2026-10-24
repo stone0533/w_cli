@@ -205,6 +205,36 @@ JSON
   rm -rf "$e2e"
 fi
 
+# 批量落盘：N 个模型只起一次 dart format（性能回归）
+if command -v dart > /dev/null 2>&1; then
+  batch="$(mktemp -d)"
+  mkdir -p "$batch/w_json" "$batch/lib/app/data/models" "$batch/bin"
+  printf 'name: demo\ndependencies:\n  json_annotation: ^4.9.0\ndev_dependencies:\n  json_serializable: ^6.8.0\n  build_runner: ^2.4.0\n' > "$batch/pubspec.yaml"
+  for i in 1 2 3; do printf '{"id":%s}\n' "$i" > "$batch/w_json/m$i.json"; done
+  cat > "$batch/bin/dart" << EOF
+#!/bin/bash
+echo "\$1" >> "$batch/dart-calls.log"
+if [ "\$1" = "format" ]; then exec "$(command -v dart)" "\$@"; fi
+exit 0
+EOF
+  chmod +x "$batch/bin/dart"
+  ( cd "$batch" && PATH="$batch/bin:$PATH" bash -c ". '$SH/api.sh'; run_build_runner() { :; }; generate_models" > /dev/null 2>&1 )
+  assert_eq "3 个模型只调一次 dart format" 1 "$(grep -c '^format$' "$batch/dart-calls.log" 2>/dev/null || echo 0)"
+  assert_eq "批量落盘产出 3 个文件" 3 "$(ls "$batch/lib/app/data/models" | wc -l | tr -d ' ')"
+
+  # 其中一个模型生成的 Dart 非法时，整批都不落盘（不留下生成了一半的目录）
+  bad="$(mktemp -d)"
+  mkdir -p "$bad/w_json" "$bad/lib/app/data/models"
+  printf 'name: demo\ndependencies:\n  json_annotation: ^4.9.0\ndev_dependencies:\n  json_serializable: ^6.8.0\n  build_runner: ^2.4.0\n' > "$bad/pubspec.yaml"
+  printf '{"id":1}\n' > "$bad/w_json/ok1.json"
+  printf '{"id":2}\n' > "$bad/w_json/1bad.json"
+  ( cd "$bad" && bash -c ". '$SH/api.sh'; run_build_runner() { :; }; generate_models" > /dev/null 2>&1 )
+  bad_exit=$?
+  assert_eq "模型非法时退出非零" 1 "$bad_exit"
+  assert_eq "非法批次不留下任何产物" 0 "$(ls "$bad/lib/app/data/models" | wc -l | tr -d ' ')"
+  rm -rf "$batch" "$bad"
+fi
+
 # 独立类之间互相引用：两种声明顺序都要补 import
 for order in customer-first order-first; do
   e2e="$(mktemp -d)"

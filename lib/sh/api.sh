@@ -20,6 +20,11 @@ CONFIG_REFERENCED_JSON_FILES=""
 # 全局变量：独立类规格（类名 / JSON 文件 / 节点路径），传给 python 渲染器做结构匹配
 STANDALONE_SPEC_LINES=()
 
+# 待落盘的模型文件（临时路径 / 目标路径成对）。生成阶段只写临时文件，
+# 全部写完再一次性 format 校验、一次性 mv：N 个模型只起 1 次 dart 进程。
+PENDING_MODEL_TEMPS=()
+PENDING_MODEL_TARGETS=()
+
 # 配置选项（DEBUG 由 lib.sh 提供）
 INIT_MODE=false
 MODELS_MODE=false
@@ -290,16 +295,6 @@ generate_header_comment() {
 // **************************************************************************
 
 EOF
-}
-
-# 校验生成物：必须是合法 Dart。校验通过会顺手格式化（原地），失败返回非零
-dart_format_check() {
-  local file="$1"
-  if ! command_available dart; then
-    log_warn "未找到 dart，跳过生成代码的合法性校验"
-    return 0
-  fi
-  dart format "$file" > /dev/null 2>&1
 }
 
 # 检查并添加必要的依赖项
@@ -687,12 +682,38 @@ generate_model_file() {
     rm -f "$tmp_dart"
     return 1
   fi
-  if ! dart_format_check "$tmp_dart"; then
-    log_error "生成的模型不是合法 Dart，已放弃写入: $dart_file"
-    rm -f "$tmp_dart"
-    return 1
+  PENDING_MODEL_TEMPS+=("$tmp_dart")
+  PENDING_MODEL_TARGETS+=("$dart_file")
+}
+
+# 一次性校验并落盘：所有临时文件都合法才 mv，任何一个不合法就整批放弃，
+# 不会留下"生成了一半"的目录。
+flush_generated_models() {
+  if [[ ${#PENDING_MODEL_TEMPS[@]} -eq 0 ]]; then
+    return 0
   fi
-  mv -- "$tmp_dart" "$dart_file"
+
+  if command_available dart; then
+    log_info "校验生成的代码..."
+    if ! dart format "${PENDING_MODEL_TEMPS[@]}" > /dev/null 2>&1; then
+      log_error "生成的模型不是合法 Dart，已放弃写入（原有文件未改动）"
+      rm -f "${PENDING_MODEL_TEMPS[@]}"
+      PENDING_MODEL_TEMPS=()
+      PENDING_MODEL_TARGETS=()
+      return 1
+    fi
+  else
+    log_warn "未找到 dart，跳过生成代码的合法性校验"
+  fi
+
+  local index=0
+  while [[ $index -lt ${#PENDING_MODEL_TEMPS[@]} ]]; do
+    mv -- "${PENDING_MODEL_TEMPS[$index]}" "${PENDING_MODEL_TARGETS[$index]}"
+    index=$((index + 1))
+  done
+
+  PENDING_MODEL_TEMPS=()
+  PENDING_MODEL_TARGETS=()
 }
 
 # 生成模型文件
@@ -831,6 +852,9 @@ generate_models() {
       generate_model_file "$standalone_class" "$standalone_content" "$standalone_dart_file" "$standalone_dart_name" || return 1
       log_info "  ~ ${standalone_dart_name}.dart (生成/更新)"
     done
+
+    # 独立类先落盘：后面的增量检查要靠磁盘上的 mtime 判断主模型是否需要生成
+    flush_generated_models || return 1
   fi
   
   # 检查文件是否需要更新
@@ -917,18 +941,11 @@ generate_models() {
     generate_model_file "$main_class_name" "$json_content" "$dart_file" "$dart_file_name" || return 1
   done
 
+  flush_generated_models || return 1
+
   # 执行 build_runner build
   run_build_runner
-  
-  # 格式化模型目录
-  log_info "格式化模型目录..."
-  if command_available dart; then
-    dart format lib/app/data/models/
-    log_info "模型目录格式化完成"
-  else
-    log_warn "Dart 命令不可用，跳过格式化"
-  fi
-  
+
   log_info "✅ 模型文件生成完成！"
 }
 
