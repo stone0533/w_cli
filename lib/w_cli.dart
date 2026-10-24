@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'src/version.dart';
 import 'src/resources.dart';
+import 'src/api/api_generator.dart';
 
 /// 获取当前版本号
 /// 从自动生成的版本文件中读取版本号
@@ -308,31 +309,28 @@ Future<void> handleInitCommand() async {
 /// 处理 API 代码生成命令
 /// [arguments] - 命令参数
 Future<int> handleApiCommand(List<String> arguments) async {
-  print('\n🚀 Running API code generation');
-  try {
-    // 检查是否有 --init 参数
-    if (arguments.contains('--init')) {
-      // 直接执行 api 命令，传递所有参数
+  // --init / --models 仍是 JSON 那一半，继续交给 api.sh
+  if (arguments.contains('--init') || arguments.contains('--models')) {
+    print('\n🚀 Running API code generation');
+    try {
+      final filteredArgs =
+          arguments.where((arg) => arg != 'generate' && arg != 'g').toList();
       return await executeScript(
         'api.sh',
-        arguments,
+        filteredArgs,
         'API code generation completed successfully!',
         'API code generation failed',
       );
+    } catch (e) {
+      handleError(e, 'API code generation');
+      return 1;
     }
+  }
 
-    // 过滤掉 generate 或 g 子命令
-    final filteredArgs = arguments
-        .where((arg) => arg != 'generate' && arg != 'g')
-        .toList();
-
-    // 执行脚本并实时显示输出
-    return await executeScript(
-      'api.sh',
-      filteredArgs,
-      'API code generation completed successfully!',
-      'API code generation failed',
-    );
+  // client.dart -> mixin / repository 走 Dart 侧（见 docs/adr/0001）
+  print('\n🚀 Running API code generation');
+  try {
+    return await ApiGenerator().generate();
   } catch (e) {
     handleError(e, 'API code generation');
     return 1;
