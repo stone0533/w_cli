@@ -26,6 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # shell 测试里有几条断言要用真的 dart 校验生成物，装上再跑
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
       - name: 语法检查
         run: |
           for f in lib/sh/*.sh test/shell/run.sh test/shell/stubs/*; do

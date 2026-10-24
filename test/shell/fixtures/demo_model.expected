@@ -10,4 +10,3 @@ class Demo extends Object {
   factory Demo.fromJson(Map<String, dynamic> srcJson) => _$DemoFromJson(srcJson);
   Map<String, dynamic> toJson() => _$DemoToJson(this);
 }
-
