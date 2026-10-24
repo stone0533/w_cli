@@ -157,12 +157,71 @@ assert_eq "to_snake_case 驼峰转蛇形" "user_name_result.dart" "$snake"
 generated="$(mktemp)"
 bash -c ". '$SH/api.sh'; generate_model_class \"\$(cat '$FIXTURES/demo.json')\" Demo" \
   > "$generated" 2>/dev/null
+# 比较的是格式化后的产物：磁盘上留下的就是格式化的样子
+if command -v dart > /dev/null 2>&1; then
+  dart format "$generated" > /dev/null 2>&1
+fi
 if diff -u "$FIXTURES/demo_model.expected" "$generated" > /dev/null 2>&1; then
   pass "generate_model_class 与黄金文件一致"
 else
-  fail "generate_model_class 与黄金文件一致" "$(diff -u "$FIXTURES/demo_model.expected" "$generated" | head -5)"
+  fail "generate_model_class 与黄金文件一致" "$(diff -u "$FIXTURES/demo_model.expected" "$generated" | head -8)"
 fi
 rm -f "$generated"
+
+# 键含单引号：不能把 python -c 打崩、也不能丢字段，生成的 Dart 必须合法
+quote_out="$(bash -c ". '$SH/api.sh'; generate_model_class \"{\\\"it's\\\":1,\\\"ok\\\":2}\" Quoted" 2>/dev/null)"
+assert_eq "键含单引号时字段不丢（2 个）" 2 "$(printf '%s' "$quote_out" | grep -c '@JsonKey(name:')"
+if command -v dart > /dev/null 2>&1; then
+  quote_file="$(mktemp)"
+  printf '%s\n' "$quote_out" > "$quote_file"
+  if dart format "$quote_file" > /dev/null 2>&1; then
+    pass "键含单引号时生成物合法"
+  else
+    fail "键含单引号时生成物合法" "$(dart format "$quote_file" 2>&1 | head -2)"
+  fi
+  rm -f "$quote_file"
+fi
+
+# 键含空格：一个键不能被拆成两个字段
+space_out="$(bash -c ". '$SH/api.sh'; generate_model_class \"{\\\"user name\\\":\\\"x\\\",\\\"ok\\\":1}\" Spaced" 2>/dev/null)"
+assert_eq "键含空格时字段数不变（2 个）" 2 "$(printf '%s' "$space_out" | grep -c '@JsonKey(name:')"
+assert_contains "键含空格时保留原始键名" "user name" "$space_out"
+
+# 嵌套对象与对象数组
+nested_out="$(bash -c ". '$SH/api.sh'; generate_model_class \"{\\\"profile\\\":{\\\"a\\\":1},\\\"roles\\\":[{\\\"code\\\":\\\"a\\\"}]}\" Foo" 2>/dev/null)"
+assert_contains "嵌套对象生成子类" "class FooProfile" "$nested_out"
+assert_contains "对象数组生成 List 子类" "List<FooRoles>" "$nested_out"
+
+# 端到端：--models 的文件装配（头部 + import + part）也要是合法 Dart
+if command -v dart > /dev/null 2>&1; then
+  e2e="$(mktemp -d)"
+  mkdir -p "$e2e/w_json" "$e2e/lib/app/data/models"
+  printf 'name: demo\ndependencies:\n  json_annotation: ^4.9.0\ndev_dependencies:\n  json_serializable: ^6.8.0\n  build_runner: ^2.4.0\n' > "$e2e/pubspec.yaml"
+  cat > "$e2e/w_json/tricky.json" << 'JSON'
+{"it's": true, "user name": "x", "ok": 2}
+JSON
+  ( cd "$e2e" && bash -c ". '$SH/api.sh'; run_build_runner() { :; }; generate_models" > /dev/null 2>&1 )
+  tricky_file="$e2e/lib/app/data/models/tricky.dart"
+  if [ -f "$tricky_file" ] && dart format --output=none "$tricky_file" > /dev/null 2>&1; then
+    pass "--models 产出的文件是合法 Dart"
+  else
+    fail "--models 产出的文件是合法 Dart" "$(cd "$e2e" && dart format --output=none "$tricky_file" 2>&1 | head -3)"
+  fi
+  assert_eq "--models 保留三个字段" 3 "$(grep -c '@JsonKey(name:' "$tricky_file" 2>/dev/null || echo 0)"
+  rm -rf "$e2e"
+fi
+
+# 每个模型只起一次 python3（性能票的验收）
+py_dir="$(mktemp -d)"
+cat > "$py_dir/python3" << EOF
+#!/bin/bash
+echo x >> "$py_dir/calls.log"
+exec "$(command -v python3)" "\$@"
+EOF
+chmod +x "$py_dir/python3"
+PATH="$py_dir:$PATH" bash -c ". '$SH/api.sh'; generate_model_class \"{\\\"a\\\":1,\\\"b\\\":2,\\\"c\\\":3,\\\"d\\\":{\\\"e\\\":4}}\" Perf" > /dev/null 2>&1
+assert_eq "每个模型只起一次 python3" 1 "$(wc -l < "$py_dir/calls.log" | tr -d ' ')"
+rm -rf "$py_dir"
 
 echo
 echo "== 6. clean.sh 参数校验 =="

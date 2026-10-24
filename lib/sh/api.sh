@@ -17,14 +17,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # 全局变量：存储已定义的独立类名（使用字符串格式存储："类名:文件路径|节点路径"）
 STANDALONE_CLASSES=""
 
-# 全局变量：存储当前文件使用的独立类（用于生成 import 语句）
-USED_STANDALONE_CLASSES=""
-
 # 全局变量：存储已生成的独立类名（用于避免重复生成）
 GENERATED_STANDALONE_CLASSES=""
 
 # 全局变量：存储配置文件中引用的 JSON 文件名（用于增量检查）
 CONFIG_REFERENCED_JSON_FILES=""
+
+# 全局变量：独立类规格（类名 / JSON 文件 / 节点路径），传给 python 渲染器做结构匹配
+STANDALONE_SPEC_LINES=()
 
 # 配置选项（DEBUG 由 lib.sh 提供）
 INIT_MODE=false
@@ -1072,6 +1072,9 @@ parse_config_file() {
       if [[ -z "${CONFIG_REFERENCED_JSON_FILES:-}" || ! " $CONFIG_REFERENCED_JSON_FILES " =~ " $json_file " ]]; then
         CONFIG_REFERENCED_JSON_FILES="$CONFIG_REFERENCED_JSON_FILES $json_file"
       fi
+
+      # 传给渲染器做结构匹配：类名 / JSON 文件 / 节点路径，TAB 分隔
+      STANDALONE_SPEC_LINES+=("${current_class}	${full_json_path}	${node_path}")
       
       # 提取 JSON 节点内容
       local node_content=$(extract_json_node "$full_json_path" "$node_path")
@@ -1120,322 +1123,206 @@ parse_config_file() {
   done < "$config_file"
 }
 
-# 提取 JSON 节点内容
+# 一次 python 调用完成「JSON → Dart 模型类」的类型推导与渲染。
+# 以前每个字段都要起一次 python3，并且把字段名拼进 python 源码——既慢，
+# 又会被键里的引号/空格打崩。现在数据只走 stdin 与 argv。
+MODEL_RENDERER_PY=$(cat <<'PY'
+import json
+import os
+import re
+import sys
+
+RESERVED = {
+    "assert", "break", "case", "catch", "class", "const", "continue",
+    "default", "do", "else", "enum", "extends", "false", "final", "finally",
+    "for", "if", "in", "is", "new", "null", "rethrow", "return", "super",
+    "switch", "this", "throw", "true", "try", "var", "void", "while", "with",
+    "implements", "import", "library", "mixin", "part", "typedef", "abstract",
+    "covariant", "deferred", "dynamic", "export", "extension", "external",
+    "factory", "get", "set", "operator", "static", "async", "await", "yield",
+    "sync", "required", "late",
+}
+
+
+def dart_field(raw):
+    """JSON 键 -> 合法 Dart 字段名（原始键名由 @JsonKey 保留）"""
+    name = raw.replace("-", "_")
+    name = re.sub(r"[^0-9A-Za-z_]", "_", name)
+    name = re.sub(r"_([A-Za-z])", lambda m: m.group(1).upper(), name)
+    if name:
+        name = name[0].lower() + name[1:]
+    if name and name[0].isdigit():
+        name = "f_" + name
+    if name in RESERVED:
+        name += "_"
+    return name
+
+
+def cap(name):
+    return name[0].upper() + name[1:] if name else name
+
+
+def scalar_type(value):
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        return "int"
+    if isinstance(value, float):
+        return "double"
+    return "String"
+
+
+def escape(text):
+    return text.replace("\\", "\\\\").replace("'", "\\'")
+
+
+def load_standalones(spec):
+    """w_json.config 里声明的独立类：类名 -> 键集合"""
+    items = []
+    for line in spec.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 3:
+            continue
+        name, path, node = parts
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        except Exception:
+            continue
+        for part in node.split("."):
+            if isinstance(data, dict) and part in data:
+                data = data[part]
+            else:
+                data = None
+                break
+        if isinstance(data, dict):
+            items.append((name, tuple(sorted(data.keys()))))
+    return items
+
+
+def match_standalone(obj, standalones):
+    keys = tuple(sorted(obj.keys()))
+    for name, candidate in standalones:
+        if candidate == keys:
+            return name
+    return None
+
+
+def render(name, obj, standalones):
+    fields = []
+    nested = []
+    used_names = set()
+
+    for key, value in obj.items():
+        fname = dart_field(key)
+        while fname in used_names:
+            fname += "_"
+        used_names.add(fname)
+
+        if isinstance(value, dict):
+            matched = match_standalone(value, standalones)
+            if matched:
+                ftype = matched
+            else:
+                child = name + cap(fname)
+                ftype = child
+                nested.append((child, value))
+        elif isinstance(value, list):
+            first = value[0] if value else None
+            if isinstance(first, dict):
+                matched = match_standalone(first, standalones)
+                if matched:
+                    ftype = "List<%s>" % matched
+                else:
+                    child = name + cap(fname)
+                    ftype = "List<%s>" % child
+                    nested.append((child, first))
+            elif first is None or isinstance(first, list):
+                ftype = "List<dynamic>"
+            else:
+                ftype = "List<%s>" % scalar_type(first)
+        else:
+            ftype = scalar_type(value)
+
+        fields.append((key, ftype, fname))
+
+    lines = ["@JsonSerializable()", "class %s extends Object {" % name]
+    if fields:
+        lines.append("")
+    for key, ftype, fname in fields:
+        lines.append("  @JsonKey(name: '%s')" % escape(key))
+        lines.append("  %s? %s;" % (ftype, fname))
+    params = ", ".join("this.%s" % fname for _, _, fname in fields)
+    lines.append("  %s(%s);" % (name, params))
+    lines.append("")
+    lines.append(
+        "  factory %s.fromJson(Map<String, dynamic> srcJson) => _$%sFromJson(srcJson);"
+        % (name, name)
+    )
+    lines.append("  Map<String, dynamic> toJson() => _$%sToJson(this);" % name)
+    lines.append("}")
+
+    blocks = ["\n".join(lines)]
+    for child_name, child_obj in nested:
+        blocks.extend(render(child_name, child_obj, standalones))
+    return blocks
+
+
+def main():
+    class_name = sys.argv[1]
+    data = json.loads(sys.stdin.read())
+    if isinstance(data, list):
+        data = data[0] if data else {}
+    if not isinstance(data, dict):
+        data = {}
+    standalones = load_standalones(os.environ.get("W_STANDALONE", ""))
+    sys.stdout.write("\n\n".join(render(class_name, data, standalones)) + "\n")
+
+
+main()
+PY
+)
+
+# 提取 JSON 节点内容（路径走 argv，不再拼进 python 源码）
 extract_json_node() {
   local json_file="$1"
   local node_path="$2"
-  
-  log_debug "extract_json_node called with json_file='$json_file', node_path='$node_path'"
-  
-  # 使用 Python 提取指定路径的节点
-  python3 <<EOF
+
+  python3 - "$json_file" "$node_path" <<'PY'
 import json
 import sys
 
-with open('$json_file', 'r') as f:
-    data = json.load(f)
+path, node_path = sys.argv[1], sys.argv[2]
 
-# 解析节点路径
-path_parts = '$node_path'.split('.')
+with open(path, "r", encoding="utf-8") as handle:
+    data = json.load(handle)
+
 current = data
-
-for part in path_parts:
+for part in node_path.split("."):
     if isinstance(current, dict) and part in current:
         current = current[part]
     else:
-        print('')
         sys.exit(1)
 
 print(json.dumps(current, ensure_ascii=False))
-EOF
+PY
 }
 
-# 类型推断函数
-infer_type() {
-  local value="$1"
-  local field="$2"
-  local class_name="$3"
-  local json_content="$4"
-  
-  # 移除首尾空格
-  value=$(echo "$value" | tr -d ' ')
-  
-  # 检查原始JSON中该字段是否为字符串类型
-  local is_string=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); print(isinstance(data.get('$field'), str))" 2>/dev/null || echo "false")
-  
-  # 如果是字符串类型，直接返回String
-  if [[ "$is_string" == "True" ]]; then
-    echo "String"
-    return
-  fi
-  
-  # 否则根据值推断类型
-  if [[ "$value" == "null" || "$value" == "None" ]]; then
-    echo "String"
-  elif [[ "$value" == "true" || "$value" == "false" || "$value" == "True" || "$value" == "False" ]]; then
-    echo "bool"
-  elif [[ "$value" =~ ^[0-9]+$ ]]; then
-    echo "int"
-  elif [[ "$value" =~ ^[0-9]+\.[0-9]+$ ]]; then
-    echo "double"
-  elif [[ "$value" == "["* ]]; then
-    echo "List"
-  else
-    # 对于字符串，Python 输出不带引号，所以我们假设非数字、非布尔、非 null 的值都是字符串
-    echo "String"
-  fi
-}
-
-# Dart 关键字不能直接作字段名：加下划线后缀（@JsonKey(name: ...) 里保留原名）
-dart_safe_field_name() {
-  local name="$1"
-
-  # 数字开头不是合法标识符
-  case "$name" in
-    [0-9]*) name="f_$name" ;;
-  esac
-
-  case "$name" in
-    assert|break|case|catch|class|const|continue|default|do|else|enum|extends|false|final|finally|for|if|in|is|new|null|rethrow|return|super|switch|this|throw|true|try|var|void|while|with|implements|import|library|mixin|part|typedef|abstract|covariant|deferred|dynamic|export|extension|external|factory|get|set|operator|static|async|await|yield|sync|required|late)
-      printf '%s_' "$name"
-      ;;
-    *)
-      printf '%s' "$name"
-      ;;
-  esac
-}
-
-# 生成字段声明函数
-generate_field_declaration() {
-  local field="$1"
-  local field_type="$2"
-  local camel_field="$3"
-  
-  local declaration=""
-  declaration+="  @JsonKey(name: '$field')\n"
-  if [[ "$field_type" == *"?" ]]; then
-    declaration+="  $field_type $camel_field;\n"
-  else
-    declaration+="  $field_type? $camel_field;\n"
-  fi
-  echo -e "$declaration"
-}
-
-# 生成模型类函数
-# $4: is_top_level - 是否是顶层调用（默认为 true），只有顶层调用才输出 USED_STANDALONE_CLASSES 标记
+# 生成模型类：整棵 JSON 交给一次 python 调用，bash 只负责取输出
 generate_model_class() {
   local json_content="$1"
   local class_name="$2"
-  local file_path="$3"
-  local is_top_level="${4:-true}"
-  
-  # 检查是否是数组，如果是数组则取第一个元素
-  local is_array=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); print('true' if isinstance(data, list) else 'false')" 2>/dev/null || echo "false")
-  
-  if [[ "$is_array" == "true" ]]; then
-    # 从数组中提取第一个元素作为类结构
-    json_content=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); print(json.dumps(data[0]) if data else '{}')" 2>/dev/null || echo "{}")
+  # $3 file_path / $4 is_top_level 保留兼容，渲染已经不需要它们
+
+  local spec=""
+  if [[ ${#STANDALONE_SPEC_LINES[@]} -gt 0 ]]; then
+    spec="$(printf '%s\n' "${STANDALONE_SPEC_LINES[@]}")"
   fi
-  
-  # 使用Python提取所有第一层字段
-  local all_fields=$(echo "$json_content" | python3 -c "import json, sys; print(' '.join(json.load(sys.stdin).keys()))" 2>/dev/null || echo "")
-  
-  log_debug "generate_model_class called with class_name=$class_name, fields=$all_fields"
-  
-  local field_declarations=""
-  local constructor_params=""
-  local nested_classes=""
-  
-  # 处理所有字段
-  for field in $all_fields; do
-    # 转换字段名（下划线转驼峰，并确保首字母小写）
-    local camel_field=$(echo "$field" | sed 's/-/_/g' | perl -pe 's/_([a-zA-Z])/\U$1/g' | awk '{print tolower(substr($0,1,1)) substr($0,2)}')
-    camel_field="$(dart_safe_field_name "$camel_field")"
-    
-    # 提取字段值
-    local value=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); print(data.get('$field'))" 2>/dev/null || echo "")
-    
-    #echo "DEBUG: 字段: $field, 值长度: ${#value}, 开头: ${value:0:20}" >&2
-    
-    # 处理嵌套对象
-    if [[ "$value" == "{"* ]]; then
-      # 提取嵌套对象内容
-      local nested_content=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); print(json.dumps(data.get('$field')))" 2>/dev/null || echo "{}")
-      
-      # 首先检查是否有匹配的独立类
-      local matched_class=""
-      
-      log_debug "处理对象字段: $field (类: $class_name)"
-      log_debug "STANDALONE_CLASSES 值: '${STANDALONE_CLASSES:-}'"
-      
-      if [[ -n "${STANDALONE_CLASSES:-}" ]]; then
-        #echo "DEBUG: 正在检查独立类匹配..." >&2
-        IFS='@@@' read -ra class_entries <<< "$STANDALONE_CLASSES"
-        for class_entry in "${class_entries[@]}"; do
-          log_debug "class_entry='$class_entry'"
-          # 使用 cut 命令提取各部分
-          local standalone_class=$(echo "$class_entry" | cut -d'|' -f1)
-          local class_info=$(echo "$class_entry" | cut -d'|' -f4-)
-          log_debug "standalone_class='$standalone_class', class_info='$class_info'"
-          local class_json_file=$(echo "$class_info" | cut -d'&' -f1)
-          local class_node_path=$(echo "$class_info" | cut -d'&' -f4-)
-          log_debug "class_json_file='$class_json_file', class_node_path='$class_node_path'"
-          # 验证文件路径不为空
-          if [[ -z "$class_json_file" ]]; then
-            log_debug "跳过无效的独立类配置: class_entry='$class_entry'"
-            continue
-          fi
-          local class_content=$(extract_json_node "$class_json_file" "$class_node_path")
-          
-          # 比较结构是否匹配
-          local nested_keys=$(echo "$nested_content" | python3 -c "import json, sys; print(' '.join(sorted(json.load(sys.stdin).keys())))" 2>/dev/null)
-          local class_keys=$(echo "$class_content" | python3 -c "import json, sys; print(' '.join(sorted(json.load(sys.stdin).keys())))" 2>/dev/null)
-          
-          #echo "DEBUG: 比较字段 $field: nested_keys=$nested_keys" >&2
-          #echo "DEBUG: 比较字段 $field: class_keys=$class_keys" >&2
-          
-          if [[ "$nested_keys" == "$class_keys" ]]; then
-            matched_class="$standalone_class"
-            log_debug "匹配成功！使用独立类 $matched_class"
-            break
-          else
-            log_debug "键不匹配，继续检查..."
-          fi
-        done
-      fi
-      
-      if [[ -n "$matched_class" ]]; then
-        # 使用已定义的独立类
-        local field_type="$matched_class"
-        log_debug "  对象字段 $field 引用独立类: $matched_class"
-        
-        # 记录需要导入的独立类（通过函数返回值传递）
-        if [[ -n "${USED_STANDALONE_CLASSES:-}" ]]; then
-          USED_STANDALONE_CLASSES="$USED_STANDALONE_CLASSES $matched_class"
-        else
-          USED_STANDALONE_CLASSES="$matched_class"
-        fi
-      else
-        # 生成嵌套类
-        local nested_class_name="${class_name}$(echo "$camel_field" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
-        local field_type="$nested_class_name"
-        
-        # 生成嵌套类（递归调用，非顶层）
-        nested_classes+="\n"$(generate_model_class "$nested_content" "$nested_class_name" "$file_path" "false")
-      fi
-      
-      # 生成字段声明（添加 @JsonKey 注解和空安全）
-      field_declarations+="\n"$(generate_field_declaration "$field" "$field_type" "$camel_field")
-      
-      # 生成构造函数参数
-      constructor_params+="this.$camel_field, "
-    # 处理数组类型
-    elif [[ "$value" == "["* ]]; then
-      # 检查数组元素类型
-      local array_content=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); arr=data.get('$field', []); print(json.dumps(arr[0]) if arr else '[]')" 2>/dev/null || echo "[]")
-      
-      if [[ "$array_content" == "{"* ]]; then
-        # 数组元素是对象
-        # 首先检查是否有匹配的独立类
-        local matched_class=""
-        
-        if [[ -n "${STANDALONE_CLASSES:-}" ]]; then
-          IFS='@@@' read -ra class_entries <<< "$STANDALONE_CLASSES"
-          for class_entry in "${class_entries[@]}"; do
-            local standalone_class=$(echo "$class_entry" | cut -d'|' -f1)
-            local class_info=$(echo "$class_entry" | cut -d'|' -f4-)
-            local class_json_file=$(echo "$class_info" | cut -d'&' -f1)
-            local class_node_path=$(echo "$class_info" | cut -d'&' -f4-)
-            # 验证文件路径不为空
-          if [[ -z "$class_json_file" ]]; then
-            log_debug "跳过无效的独立类配置: class_entry='$class_entry'"
-            continue
-          fi
-          local class_content=$(extract_json_node "$class_json_file" "$class_node_path")
-            
-            # 比较结构是否匹配
-            local array_keys=$(echo "$array_content" | python3 -c "import json, sys; print(' '.join(sorted(json.load(sys.stdin).keys())))" 2>/dev/null)
-            local class_keys=$(echo "$class_content" | python3 -c "import json, sys; print(' '.join(sorted(json.load(sys.stdin).keys())))" 2>/dev/null)
-            
-            if [[ "$array_keys" == "$class_keys" ]]; then
-              matched_class="$standalone_class"
-              #echo "DEBUG: 数组字段 $field 匹配独立类: $matched_class" >&2
-              break
-            fi
-          done
-        fi
-        
-        if [[ -n "$matched_class" ]]; then
-          # 使用已定义的独立类
-          field_type="List<$matched_class>"
-          #echo "DEBUG: 数组字段 $field 引用独立类: $matched_class" >&2
-        else
-          # 生成嵌套类
-          local nested_class_name="${class_name}$(echo "$camel_field" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
-          field_type="List<$nested_class_name>"
-          
-          # 生成嵌套类（递归调用，非顶层）
-          nested_classes+="\n"$(generate_model_class "$array_content" "$nested_class_name" "$file_path" "false")
-        fi
-      elif [[ "$array_content" == '"'* ]]; then
-        # 数组元素是字符串
-        field_type="List<String>"
-      elif [[ "$array_content" =~ ^[0-9]+$ ]]; then
-        # 数组元素是整数
-        field_type="List<int>"
-      elif [[ "$array_content" =~ ^[0-9]+\.[0-9]+$ ]]; then
-        # 数组元素是浮点数
-        field_type="List<double>"
-      elif [[ "$array_content" == "true" || "$array_content" == "false" ]]; then
-        # 数组元素是布尔值
-        field_type="List<bool>"
-      else
-        # 其他类型数组
-        field_type="List<dynamic>"
-      fi
-      
-      # 生成字段声明（添加 @JsonKey 注解和空安全）
-      field_declarations+="\n"$(generate_field_declaration "$field" "$field_type" "$camel_field")
-      
-      # 生成构造函数参数
-      constructor_params+="this.$camel_field, "
-    # 处理基本类型
-    else
-      # 推断类型
-      local field_type=$(infer_type "$value" "$field" "$class_name" "$json_content")
-      
-      # 生成字段声明（添加 @JsonKey 注解和空安全）
-      field_declarations+="\n"$(generate_field_declaration "$field" "$field_type" "$camel_field")
-      
-      # 生成构造函数参数
-      constructor_params+="this.$camel_field, "
-    fi
-  done
-  
-  # 移除最后一个逗号和空格
-  constructor_params=$(echo "$constructor_params" | sed 's/, $//')
-  
-  # 生成构造函数
-  local constructor="$class_name($constructor_params);"
-  
-  # 生成类内容
-  local class_content=""
-  class_content+="@JsonSerializable()\n"
-  class_content+="class $class_name extends Object {\n"
-  class_content+="$field_declarations"
-  
-  if [[ -n "$all_fields" ]]; then
-    class_content+="\n"
+
+  if ! printf '%s' "$json_content" | W_STANDALONE="$spec" python3 -c "$MODEL_RENDERER_PY" "$class_name"; then
+    log_error "生成模型失败: $class_name"
+    return 1
   fi
-  
-  class_content+="  $constructor\n"
-  class_content+="\n"
-  class_content+="  factory $class_name.fromJson(Map<String, dynamic> srcJson) => _\$${class_name}FromJson(srcJson);\n"
-  class_content+="  Map<String, dynamic> toJson() => _\$${class_name}ToJson(this);\n"
-  class_content+="}\n"
-  
-  # 返回类内容和嵌套类
-  echo -e "$class_content$nested_classes"
 }
 
 # 生成独立的模型文件
@@ -1469,7 +1356,7 @@ generate_standalone_model() {
   # 生成 dart 文件：同样是先写临时文件、校验通过才替换
   local tmp_dart=""
   tmp_dart="$(mktemp "${dart_file}.XXXXXX")" || { log_error "无法创建临时文件: $dart_file"; return 1; }
-  if ! printf "$file_content" > "$tmp_dart"; then
+  if ! printf '%s' "${file_content//\\n/$'\n'}" > "$tmp_dart"; then
     log_error "写入临时文件失败: $dart_file"
     rm -f "$tmp_dart"
     return 1
@@ -1703,7 +1590,9 @@ generate_models() {
     log_info "生成文件: $dart_file"
     local tmp_dart=""
     tmp_dart="$(mktemp "${dart_file}.XXXXXX")" || { log_error "无法创建临时文件: $dart_file"; return 1; }
-    if ! printf "$file_content" > "$tmp_dart"; then
+    # printf 的格式串不能是文件内容：内容里的 \' 会被当成转义吃掉。
+    # 这里只把装配时用的字面 \n 还原成换行，其余字符原样输出。
+    if ! printf '%s' "${file_content//\\n/$'\n'}" > "$tmp_dart"; then
       log_error "写入临时文件失败: $dart_file"
       rm -f "$tmp_dart"
       return 1
