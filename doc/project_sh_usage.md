@@ -5,8 +5,7 @@
 `project.sh` 是一个用于 Flutter 项目的管理脚本，用于更新 Flutter 项目的依赖和配置，包括升级 pub 依赖和 Gradle 版本。
 
 ### 版本信息
-- **版本**: 1.0.0
-- **最后更新**: 2026-04-02
+- **版本**: 随 w_cli 包版本（`ww --version`）
 - **作者**: Stone
 
 ## 2. 功能特点
@@ -23,10 +22,10 @@
 - 项目中已配置 `pubspec.yaml` 文件
 
 ### 安装步骤
-1. 将 `project.sh` 脚本复制到项目的 `lib/sh` 目录中
+1. 将 `project.sh` 与共享库 `lib.sh` 一起复制到项目的 `lib/sh` 目录中（脚本会 source 同目录下的 `lib.sh`，少了它无法运行）
 2. 赋予脚本执行权限：
    ```bash
-   chmod +x lib/sh/project.sh
+   chmod +x lib/sh/lib.sh lib/sh/project.sh
    ```
 
 ## 4. 目录结构

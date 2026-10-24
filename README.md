@@ -241,6 +241,20 @@ ww cl --lock       # Clean with lock files / 清理并清理锁文件
 Contributions are welcome! Please feel free to submit a Pull Request.
 欢迎贡献！请随时提交拉取请求。
 
+提交前请跑一遍本地校验（CI 用的是同一套命令）：
+
+```bash
+dart analyze                  # Dart 静态分析
+dart test                     # Dart 单元测试
+bash test/shell/run.sh        # shell 测试（退出码契约、目录保护、代码生成黄金文件）
+shellcheck --severity=warning lib/sh/*.sh test/shell/run.sh   # 需要先安装 shellcheck
+```
+
+- shell 脚本共用 `lib/sh/lib.sh`（日志、超时、版本号）。新增脚本要 source 它，
+  而不是再抄一份颜色和日志函数；手动复制脚本时，`lib.sh` 必须一起复制。
+- 脚本退出码约定：`0` 成功，`1` 运行失败，`2` 用法错误（未知参数、参数组合非法）。
+- `ww` 会把脚本的退出码原样返回，所以脚本里不要"报错但 exit 0"。
+
 ## License / 许可证
 
 MIT

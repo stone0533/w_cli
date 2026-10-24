@@ -1,0 +1,22 @@
+#!/bin/bash
+# 测试替身：setup.sh 的前置检查需要 flutter，但不该真的跑 flutter
+case "$1" in
+  --version)
+    echo "Flutter 3.24.0 • channel stable"
+    exit 0
+    ;;
+  create)
+    # 最后一个参数是项目名
+    target="${!#}"
+    mkdir -p "$target"
+    printf 'name: demo\nversion: 1.0.0\n\ndependencies:\n  flutter:\n    sdk: flutter\n' > "$target/pubspec.yaml"
+    exit 0
+    ;;
+  pub)
+    # 安装依赖故意失败：用来验证"失败时只清理本次创建的内容"
+    exit 1
+    ;;
+  *)
+    exit 0
+    ;;
+esac
