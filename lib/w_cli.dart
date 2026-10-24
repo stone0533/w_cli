@@ -69,7 +69,7 @@ Future<int> executeScript(
     // 实时显示标准输出
     // 用 Utf8Decoder 做流式解码：多字节字符（中文）跨 chunk 边界时不会被截断
     final stdoutDone = process.stdout
-        .transform(const Utf8Decoder())
+        .transform(const Utf8Decoder(allowMalformed: true))
         .forEach((chunk) {
           final output = chunk.trimRight();
           if (output.isNotEmpty) {
@@ -79,7 +79,7 @@ Future<int> executeScript(
 
     // 实时显示错误输出
     final stderrDone = process.stderr
-        .transform(const Utf8Decoder())
+        .transform(const Utf8Decoder(allowMalformed: true))
         .forEach((chunk) {
           final output = chunk.trimRight();
           if (output.isNotEmpty) {
@@ -397,14 +397,14 @@ Future<int> handleUpdateCommand() async {
 
     // 实时显示标准输出
     final stdoutDone = process.stdout
-        .transform(const Utf8Decoder())
+        .transform(const Utf8Decoder(allowMalformed: true))
         .forEach((chunk) {
           print(chunk.trimRight());
         });
 
     // 实时显示错误输出
     final stderrDone = process.stderr
-        .transform(const Utf8Decoder())
+        .transform(const Utf8Decoder(allowMalformed: true))
         .forEach((chunk) {
           print('Error: ${chunk.trimRight()}');
         });
