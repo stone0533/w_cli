@@ -48,7 +48,6 @@ show_help() {
   echo "  root       用 Finder 打开根目录"
   echo "  --help     显示此帮助信息"
   echo "  --version  显示脚本版本信息"
-  exit 0
 }
 
 # 打开 iOS 项目
@@ -203,6 +202,7 @@ main() {
   # 检查参数
   if [[ $# -ne 1 ]]; then
     show_help
+    exit 0
   fi
   
   case "$1" in
@@ -252,13 +252,15 @@ main() {
       ;;
     "--help")
       show_help
+      exit 0
       ;;
     "--version")
       show_version
       ;;
     *)
       log_error "未知参数: $1"
-      show_help
+      show_help >&2
+      exit 2
       ;;
   esac
   

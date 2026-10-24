@@ -68,7 +68,6 @@ show_help() {
   echo "  $0 drbb                # 执行 build_runner build 命令"
   echo "  $0 -d drbb             # 启用调试模式执行"
   echo "  $0 --debug drbb        # 启用调试模式执行"
-  exit 0
 }
 
 # 执行 build_runner build 命令
@@ -162,19 +161,20 @@ main() {
               result=$?
               ;;
             *)
-              show_help
-              result=0
+              log_error "未知参数: $1"
+              show_help >&2
+              exit 2
               ;;
           esac
         else
-          show_help
-          result=0
+          show_help >&2
+          exit 2
         fi
         ;;
       *)
         log_error "未知命令: $1"
-        show_help
-        result=1
+        show_help >&2
+        exit 2
         ;;
     esac
   fi

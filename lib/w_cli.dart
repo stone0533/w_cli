@@ -32,7 +32,8 @@ Future<String> getScriptPath(String scriptName) async {
 /// [arguments] - 传递给脚本的参数
 /// [successMessage] - 执行成功时显示的消息
 /// [failureMessage] - 执行失败时显示的消息
-Future<void> executeScript(
+/// 返回脚本的退出码（0 表示成功），由调用方决定是否向上传递
+Future<int> executeScript(
   String scriptName,
   List<String> arguments,
   String successMessage,
@@ -59,23 +60,32 @@ Future<void> executeScript(
     }
 
     // 实时显示标准输出
-    process.stdout.listen((List<int> data) {
-      final output = utf8.decode(data).trimRight();
-      if (output.isNotEmpty) {
-        print(output);
-      }
-    });
+    // 用 Utf8Decoder 做流式解码：多字节字符（中文）跨 chunk 边界时不会被截断
+    final stdoutDone = process.stdout
+        .transform(const Utf8Decoder())
+        .forEach((chunk) {
+          final output = chunk.trimRight();
+          if (output.isNotEmpty) {
+            print(output);
+          }
+        });
 
     // 实时显示错误输出
-    process.stderr.listen((List<int> data) {
-      final output = utf8.decode(data).trimRight();
-      if (output.isNotEmpty) {
-        print('Error: $output');
-      }
-    });
+    final stderrDone = process.stderr
+        .transform(const Utf8Decoder())
+        .forEach((chunk) {
+          final output = chunk.trimRight();
+          if (output.isNotEmpty) {
+            print('Error: $output');
+          }
+        });
 
     // 等待进程完成并获取退出码
     final exitCode = await process.exitCode;
+    // 等输出流排空，避免末尾提示与脚本输出交错
+    await stdoutDone;
+    await stderrDone;
+
     if (exitCode == 0) {
       if (successMessage.isNotEmpty) {
         print('\n✅ $successMessage');
@@ -83,8 +93,10 @@ Future<void> executeScript(
     } else {
       print('\n❌ $failureMessage with exit code: $exitCode');
     }
+    return exitCode;
   } catch (e) {
     print('\n❌ Error executing script: $e');
+    return 1;
   }
 }
 
@@ -165,7 +177,7 @@ bool validateProjectName(String projectName) {
 
 /// 处理 create 命令
 /// [arguments] - 命令参数
-Future<void> handleCreateCommand(List<String> arguments) async {
+Future<int> handleCreateCommand(List<String> arguments) async {
   String subcommand;
   List<String> subArgs;
 
@@ -182,28 +194,29 @@ Future<void> handleCreateCommand(List<String> arguments) async {
     if (subArgs.isEmpty) {
       print('❌ Error: Project name is required');
       print('   Usage: ww create|c project|p name');
-      return;
+      return 2;
     }
     final projectName = subArgs[0];
-    await handleCreateProject(projectName);
+    return await handleCreateProject(projectName);
   } else {
     print('❌ Error: Unknown create subcommand: $subcommand');
     print('   Usage: ww create|c project|p name');
+    return 2;
   }
 }
 
 /// 处理项目创建
 /// [projectName] - 项目名称
-Future<void> handleCreateProject(String projectName) async {
+Future<int> handleCreateProject(String projectName) async {
   // 验证项目名称
   if (!validateProjectName(projectName)) {
-    return;
+    return 2;
   }
 
   print('\n🚀 Creating Flutter project: $projectName');
   try {
     // 执行脚本并实时显示输出
-    await executeScript(
+    return await executeScript(
       'setup.sh',
       [projectName],
       'Project created successfully!',
@@ -211,6 +224,7 @@ Future<void> handleCreateProject(String projectName) async {
     );
   } catch (e) {
     handleError(e, 'project creation');
+    return 1;
   }
 }
 
@@ -287,19 +301,18 @@ Future<void> handleInitCommand() async {
 
 /// 处理 API 代码生成命令
 /// [arguments] - 命令参数
-Future<void> handleApiCommand(List<String> arguments) async {
+Future<int> handleApiCommand(List<String> arguments) async {
   print('\n🚀 Running API code generation');
   try {
     // 检查是否有 --init 参数
     if (arguments.contains('--init')) {
       // 直接执行 api 命令，传递所有参数
-      await executeScript(
+      return await executeScript(
         'api.sh',
         arguments,
         'API code generation completed successfully!',
         'API code generation failed',
       );
-      return;
     }
 
     // 过滤掉 generate 或 g 子命令
@@ -308,7 +321,7 @@ Future<void> handleApiCommand(List<String> arguments) async {
         .toList();
 
     // 执行脚本并实时显示输出
-    await executeScript(
+    return await executeScript(
       'api.sh',
       filteredArgs,
       'API code generation completed successfully!',
@@ -316,6 +329,7 @@ Future<void> handleApiCommand(List<String> arguments) async {
     );
   } catch (e) {
     handleError(e, 'API code generation');
+    return 1;
   }
 }
 
@@ -366,7 +380,7 @@ Future<void> handleRemoveCommand(List<String> arguments) async {
 }
 
 /// 处理更新命令
-Future<void> handleUpdateCommand() async {
+Future<int> handleUpdateCommand() async {
   print('\n🚀 Updating w_cli...');
   try {
     // 升级到最新版本
@@ -378,17 +392,24 @@ Future<void> handleUpdateCommand() async {
     ]);
 
     // 实时显示标准输出
-    process.stdout.listen((List<int> data) {
-      print(utf8.decode(data));
-    });
+    final stdoutDone = process.stdout
+        .transform(const Utf8Decoder())
+        .forEach((chunk) {
+          print(chunk.trimRight());
+        });
 
     // 实时显示错误输出
-    process.stderr.listen((List<int> data) {
-      print('Error: ${utf8.decode(data)}');
-    });
+    final stderrDone = process.stderr
+        .transform(const Utf8Decoder())
+        .forEach((chunk) {
+          print('Error: ${chunk.trimRight()}');
+        });
 
     // 等待进程完成并获取退出码
     final exitCode = await process.exitCode;
+    await stdoutDone;
+    await stderrDone;
+
     if (exitCode == 0) {
       print('\n✅ Update completed successfully!');
       print('   Current version: ${getVersionFromPubspec()}');
@@ -399,19 +420,21 @@ Future<void> handleUpdateCommand() async {
       print('\n❌ Update failed with exit code: $exitCode');
       print('   Please try again or check your internet connection.');
     }
+    return exitCode;
   } catch (e) {
     handleError(e, 'update');
     print('   Please try again or check your internet connection.');
+    return 1;
   }
 }
 
 /// 处理构建命令
 /// [arguments] - 命令参数
-Future<void> handleBuildCommand(List<String> arguments) async {
+Future<int> handleBuildCommand(List<String> arguments) async {
   // print('\n🚀 Running Flutter build');
   try {
     // 执行脚本并实时显示输出
-    await executeScript(
+    return await executeScript(
       'build.sh',
       arguments,
       'Build completed successfully!',
@@ -419,16 +442,17 @@ Future<void> handleBuildCommand(List<String> arguments) async {
     );
   } catch (e) {
     handleError(e, 'build');
+    return 1;
   }
 }
 
 /// 处理项目管理命令
 /// [arguments] - 命令参数
-Future<void> handleProjectCommand(List<String> arguments) async {
+Future<int> handleProjectCommand(List<String> arguments) async {
   print('\n🚀 Managing Flutter project');
   try {
     // 执行脚本并实时显示输出
-    await executeScript(
+    return await executeScript(
       'project.sh',
       arguments,
       'Project operation completed successfully!',
@@ -436,16 +460,17 @@ Future<void> handleProjectCommand(List<String> arguments) async {
     );
   } catch (e) {
     handleError(e, 'project');
+    return 1;
   }
 }
 
 /// 处理打开命令
 /// [arguments] - 命令参数
-Future<void> handleOpenCommand(List<String> arguments) async {
+Future<int> handleOpenCommand(List<String> arguments) async {
   if (arguments.isEmpty) {
     print('❌ Error: No subcommand specified for open');
     print('   Usage: ww open [ios|i|android|a|build|b|root|r]');
-    return;
+    return 2;
   }
 
   final subcommand = arguments[0];
@@ -472,13 +497,13 @@ Future<void> handleOpenCommand(List<String> arguments) async {
     default:
       print('❌ Error: Unknown open subcommand: $subcommand');
       print('   Usage: ww open [ios|i|android|a|build|b|root|r]');
-      return;
+      return 2;
   }
 
   print('\n🚀 Opening $target');
   try {
     // 执行脚本并实时显示输出
-    await executeScript(
+    return await executeScript(
       'open.sh',
       [target],
       'Opened $target successfully!',
@@ -486,6 +511,7 @@ Future<void> handleOpenCommand(List<String> arguments) async {
     );
   } catch (e) {
     handleError(e, 'open $target');
+    return 1;
   }
 }
 
@@ -512,11 +538,11 @@ Future<bool> scriptExists(String scriptName) async {
 
 /// 处理 common 命令
 /// [arguments] - 命令参数
-Future<void> handleCommonCommand(List<String> arguments) async {
+Future<int> handleCommonCommand(List<String> arguments) async {
   print('\n🚀 Running common commands');
   try {
     // 执行脚本并实时显示输出
-    await executeScript(
+    return await executeScript(
       'common.sh',
       arguments,
       'Common command completed successfully!',
@@ -524,16 +550,17 @@ Future<void> handleCommonCommand(List<String> arguments) async {
     );
   } catch (e) {
     handleError(e, 'common command');
+    return 1;
   }
 }
 
 /// 处理 clean 命令
 /// [arguments] - 命令参数
-Future<void> handleCleanCommand(List<String> arguments) async {
+Future<int> handleCleanCommand(List<String> arguments) async {
   print('\n🚀 Running Flutter clean');
   try {
     // 执行脚本并实时显示输出
-    await executeScript(
+    return await executeScript(
       'clean.sh',
       arguments,
       'Clean completed successfully!',
@@ -541,6 +568,7 @@ Future<void> handleCleanCommand(List<String> arguments) async {
     );
   } catch (e) {
     handleError(e, 'clean');
+    return 1;
   }
 }
 

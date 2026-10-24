@@ -52,6 +52,10 @@ W_TOOLS_PATH="$DEFAULT_W_TOOLS_PATH"
 OS=""
 TOTAL_STEPS=15
 CURRENT_STEP=0
+# --force：目标目录已存在时允许覆盖（默认拒绝，避免误删）
+FORCE=false
+# 本次运行是否创建了项目目录：只有自己创建的东西才允许清理时删除
+PROJECT_CREATED_BY_US=false
 
 # 错误处理函数
 handle_error() {
@@ -71,15 +75,15 @@ handle_error() {
 }
 
 # 清理函数
+# 只删除本次运行创建出来的东西；绝不按名字去猜、绝不碰用户已存在的目录。
 cleanup() {
-  echo "正在清理资源..."
-  
-  # 仅在项目目录存在且非空时删除
-  if [ -d "$PROJECT_NAME" ] && [ "$(ls -A "$PROJECT_NAME" 2>/dev/null)" ]; then
-    echo "删除项目目录: $PROJECT_NAME"
+  echo "正在清理本次运行的临时产物..."
+
+  if [ "$PROJECT_CREATED_BY_US" = true ] && [ -n "$PROJECT_NAME" ] && [ -d "$PROJECT_NAME" ]; then
+    echo "删除本次运行创建的项目目录: $PROJECT_NAME"
     rm -rf "$PROJECT_NAME"
   fi
-  
+
   # 清理临时文件
   if [ -n "$PROJECT_NAME" ]; then
     rm -f "$PROJECT_NAME/pubspec.yaml.tmp" 2>/dev/null
@@ -222,6 +226,7 @@ show_version() {
 show_help() {
   echo "使用方法: $0 [项目名称] [选项]"
   echo "选项:"
+  echo "  --force           目标目录已存在时覆盖它（默认拒绝）"
   echo "  --help            显示帮助信息"
   echo "  --version         显示脚本版本信息"
   echo ""
@@ -231,7 +236,9 @@ show_help() {
   echo ""
   echo "  # 自定义项目名称"
   echo "  bash setup.sh my_app"
-  exit 0
+  echo ""
+  echo "  # 覆盖已存在的同名目录"
+  echo "  bash setup.sh my_app --force"
 }
 
 # 检查执行权限
@@ -247,8 +254,12 @@ check_execution_permission() {
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case $1 in
+      --force)
+        FORCE=true
+        ;;
       --help)
         show_help
+        exit 0
         ;;
       --version)
         show_version
@@ -259,7 +270,8 @@ parse_args() {
           PROJECT_NAME="$1"
         else
           log_error "未知选项: $1"
-          show_help
+          show_help >&2
+          exit 2
         fi
         ;;
     esac
@@ -385,9 +397,14 @@ check_flutter() {
 check_directory_suitable() {
   log_info "检查项目目录..."
   if [ -d "$PROJECT_NAME" ]; then
-    # 直接删除已存在的目录
-    log_info "删除已存在的项目目录: $PROJECT_NAME"
-    run_command "rm -rf \"$PROJECT_NAME\""
+    if [ "$FORCE" = true ]; then
+      log_warn "目标目录已存在，--force 已启用，将覆盖: $PROJECT_NAME"
+      rm -rf "$PROJECT_NAME"
+    else
+      log_error "目标目录已存在: $PROJECT_NAME"
+      log_error "为避免误删，默认不覆盖；确认要覆盖请加 --force"
+      handle_error "目标目录已存在: ${PROJECT_NAME}（如需覆盖请加 --force）" 1
+    fi
   fi
   log_info "项目目录检查通过"
 }
@@ -428,6 +445,8 @@ ask_project_name() {
 # 创建项目
 create_project() {
   log_info "使用 flutter create 创建项目..."
+  # 从这里开始目录归本次运行所有：失败时 cleanup 才允许删除它
+  PROJECT_CREATED_BY_US=true
   run_command_with_timeout "flutter create --org com.sampras -i swift -a kotlin $PROJECT_NAME"
   log_info "项目创建完成"
 }

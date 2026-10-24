@@ -96,7 +96,6 @@ show_help() {
   echo "  $0 --debug      # 启用调试模式生成代码"
   echo "  $0 --models     # 生成模型文件（增量模式）"
   echo "  $0 --models --full  # 强制全量重新生成模型"
-  exit 0
 }
 
 # 解析命令行参数
@@ -127,10 +126,12 @@ parse_args() {
         ;;
       --help)
         show_help
+        exit 0
         ;;
       *)
         log_error "未知参数: $1"
-        show_help
+        show_help >&2
+        exit 2
         ;;
     esac
   done
