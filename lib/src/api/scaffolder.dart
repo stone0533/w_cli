@@ -7,9 +7,10 @@ import 'project_imports.dart';
 /// 取代 `api.sh init`：五个骨架文件的文本只在这里有一份，与 `api.sh`
 /// 原先的产物逐字节一致（`test/shell/fixtures/scaffold/` 是闸门）。
 class ApiScaffolder {
-  ApiScaffolder({this.root = '.'});
+  ApiScaffolder({this.root = '.', this.baseUrl = 'https://api.example.com'});
 
   final String root;
+  final String baseUrl;
 
   /// 返回进程退出码：0 成功，1 失败。
   int run() {
@@ -24,7 +25,7 @@ class ApiScaffolder {
     _ensureDependencies();
 
     _writeIfMissing('$sources/client.dart', clientTemplate);
-    _writeIfMissing('$sources/paths.dart', pathsTemplate);
+    _writeIfMissing('$sources/paths.dart', pathsTemplate(baseUrl));
     _writeIfMissing('$remote/data_source_mixin.dart', dataSourceMixinTemplate);
     _writeIfMissing('$sources/repository.dart', repositoryTemplate(uri));
     _syncDataSource(File('$remote/data_source.dart'), uri);
@@ -235,8 +236,8 @@ abstract class ApiClient {
   // 这里新增需要的 API，然后执行 ww api generate 来自动生成对应的代码
 }
 ''';
-const String pathsTemplate = r'''class ApiPath {
-  static const String baseUrl = 'https://api.example.com';
+String pathsTemplate(String baseUrl) => '''class ApiPath {
+  static const String baseUrl = '$baseUrl';
 
   // 认证相关
   static const String login = '/auth/login';

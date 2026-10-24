@@ -239,13 +239,21 @@ Future<int> handleCreateProject(String projectName) async {
 
   print('\n🚀 Creating Flutter project: $projectName');
   try {
-    // 执行脚本并实时显示输出
-    return await executeScript(
+    // 工程骨架（flutter create / 依赖 / 目录 / main.dart / git / CI）仍由脚本编排
+    final status = await executeScript(
       'setup.sh',
       [projectName],
       'Project created successfully!',
       'Project creation failed',
     );
+    if (status != 0) {
+      return status;
+    }
+
+    // API 层（client / paths / data_source / mixin / repository）由 Dart 生成，
+    // 与 `ww api init` 共用同一份模板（ADR-0002 Phase 2b）
+    print('\n🚀 Scaffolding API layer');
+    return ApiScaffolder(root: projectName).run();
   } catch (e) {
     handleError(e, 'project creation');
     return 1;

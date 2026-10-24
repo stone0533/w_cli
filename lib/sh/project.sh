@@ -12,13 +12,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 
 # 检查执行权限（放进函数：source 时不应该执行任何检查）
-check_execution_permission() {
-  if [ ! -x "$0" ]; then
-    log_error "Script does not have execution permission."
-    log_warn "Please run: chmod +x $0"
-    return 1
-  fi
-}
 
 # 显示帮助信息
 show_help() {
@@ -116,8 +109,6 @@ update_gradle() {
 
 # 主函数
 main() {
-  check_execution_permission || exit 1
-
   # 检查参数
   if [ $# -eq 0 ]; then
     show_help
