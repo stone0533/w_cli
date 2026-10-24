@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:test/test.dart';
 import 'package:w_cli/w_cli.dart';
+import 'package:w_cli/src/resources.dart';
 
 void main() {
   group('validateProjectName', () {
@@ -276,6 +277,34 @@ void main() {
     test('scriptExists should return false for non-existent scripts', () async {
       expect(await scriptExists('non_existent_script.sh'), isFalse);
       expect(await scriptExists(''), isFalse);
+    });
+  });
+
+  group('脚本解压', () {
+    tearDown(Resources.cleanupTempFiles);
+
+    test('脚本与共享库 lib.sh 解压到同一个目录', () async {
+      final scriptPath = await Resources.extractResourceToTempFile(
+        'lib/sh/clean.sh',
+        'clean.sh',
+      );
+      final dir = File(scriptPath).parent;
+
+      // 脚本会 source 同目录的 lib.sh，两者必须在一起
+      expect(File('${dir.path}/lib.sh').existsSync(), isTrue);
+      expect(File(scriptPath).existsSync(), isTrue);
+    });
+
+    test('cleanupTempFiles 会删掉整个临时目录', () async {
+      final scriptPath = await Resources.extractResourceToTempFile(
+        'lib/sh/open.sh',
+        'open.sh',
+      );
+      final dir = File(scriptPath).parent;
+      expect(dir.existsSync(), isTrue);
+
+      Resources.cleanupTempFiles();
+      expect(dir.existsSync(), isFalse);
     });
   });
 }

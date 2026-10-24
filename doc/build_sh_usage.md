@@ -5,8 +5,7 @@
 `build.sh` 是一个用于 Flutter 应用的多平台打包脚本，支持 Android APK、AAB 和 iOS IPA 打包，提供生产模式和 UAT 模式，以及详细的日志和错误处理。
 
 ### 版本信息
-- **版本**: 1.0.2
-- **最后更新**: 2026-05-21
+- **版本**: 随 w_cli 包版本（`ww --version`）
 - **作者**: Stone
 
 ## 2. 功能特点
@@ -27,10 +26,10 @@
 - Xcode（用于 iOS 构建，仅 macOS）
 
 ### 安装步骤
-1. 将 `build.sh` 脚本复制到项目的 `lib/sh` 目录中
+1. 将 `build.sh` 与共享库 `lib.sh` 一起复制到项目的 `lib/sh` 目录中（脚本会 source 同目录下的 `lib.sh`，少了它无法运行）
 2. 赋予脚本执行权限：
    ```bash
-   chmod +x lib/sh/build.sh
+   chmod +x lib/sh/lib.sh lib/sh/build.sh
    ```
 
 ## 4. 目录结构

@@ -61,18 +61,19 @@ drbb() {
   fi
   
   # 检查 dart 命令是否可用
+  local build_status=0
   if command_available dart; then
     log_debug "使用 dart 命令"
-    dart run build_runner build --delete-conflicting-outputs
+    dart run build_runner build --delete-conflicting-outputs || build_status=$?
   elif command_available flutter; then
     log_debug "使用 flutter 命令"
-    flutter run build_runner build --delete-conflicting-outputs
+    flutter run build_runner build --delete-conflicting-outputs || build_status=$?
   else
     log_error "Dart 和 Flutter 命令都不可用"
     return 1
   fi
   
-  if [ $? -eq 0 ]; then
+  if [ "$build_status" -eq 0 ]; then
     printf "${GREEN}======================================================${NC}\n"
     printf "${GREEN}build_runner build 执行成功!${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
     printf "${GREEN}======================================================${NC}\n"
@@ -147,7 +148,7 @@ main() {
     esac
   fi
   
-  exit $result
+  exit "$result"
 }
 
 # 只有直接执行时才跑 main，被 source 时只提供函数

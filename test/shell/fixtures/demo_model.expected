@@ -1,0 +1,13 @@
+@JsonSerializable()
+class Demo extends Object {
+
+  @JsonKey(name: 'id')
+  int? id;
+  @JsonKey(name: 'name')
+  String? name;
+  Demo(this.id, this.name);
+
+  factory Demo.fromJson(Map<String, dynamic> srcJson) => _$DemoFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$DemoToJson(this);
+}
+

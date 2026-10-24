@@ -5,8 +5,7 @@
 `open.sh` 是一个用于 Flutter 项目的打开脚本，用于打开 Flutter 项目的不同部分，如 iOS 项目、Android 项目、构建目录和根目录。
 
 ### 版本信息
-- **版本**: 1.0.0
-- **最后更新**: 2026-04-02
+- **版本**: 随 w_cli 包版本（`ww --version`）
 - **作者**: Stone
 
 ## 2. 功能特点
@@ -23,10 +22,10 @@
 - 相应的 IDE 已安装（Xcode 用于 iOS，Android Studio 用于 Android）
 
 ### 安装步骤
-1. 将 `open.sh` 脚本复制到项目的 `lib/sh` 目录中
+1. 将 `open.sh` 与共享库 `lib.sh` 一起复制到项目的 `lib/sh` 目录中（脚本会 source 同目录下的 `lib.sh`，少了它无法运行）
 2. 赋予脚本执行权限：
    ```bash
-   chmod +x lib/sh/open.sh
+   chmod +x lib/sh/lib.sh lib/sh/open.sh
    ```
 
 ## 4. 目录结构

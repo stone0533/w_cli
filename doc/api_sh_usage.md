@@ -5,8 +5,7 @@
 `api.sh` 是一个用于 Flutter 项目的 API 代码生成脚本，根据 `client.dart` 文件动态生成 `data_source_mixin.dart` 和 `repository.dart` 文件，简化 API 层代码的编写和维护。
 
 ### 版本信息
-- **版本**: 1.0.1
-- **最后更新**: 2026-05-09
+- **版本**: 随 w_cli 包版本（`ww --version`）
 - **作者**: Stone
 
 ## 2. 功能特点
@@ -29,10 +28,10 @@
 - 项目中已配置 `retrofit` 相关依赖
 
 ### 安装步骤
-1. 将 `api.sh` 脚本复制到项目的 `lib/sh` 目录中
+1. 将 `api.sh` 与共享库 `lib.sh` 一起复制到项目的 `lib/sh` 目录中（脚本会 source 同目录下的 `lib.sh`，少了它无法运行）
 2. 赋予脚本执行权限：
    ```bash
-   chmod +x lib/sh/api.sh
+   chmod +x lib/sh/lib.sh lib/sh/api.sh
    ```
 
 ## 4. 目录结构

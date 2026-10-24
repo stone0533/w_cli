@@ -374,7 +374,7 @@ check_permissions() {
 # 询问项目名
 ask_project_name() {
   if [ -z "$PROJECT_NAME" ]; then
-    read -p "请输入项目名称: " PROJECT_NAME
+    read -rp "请输入项目名称: " PROJECT_NAME
     if [ -z "$PROJECT_NAME" ]; then
       PROJECT_NAME="$DEFAULT_PROJECT_NAME"
       log_info "使用默认项目名称: $PROJECT_NAME"
@@ -638,7 +638,7 @@ EOF
     if [[ "$line" == "flutter:" ]]; then
       in_flutter_section=true
       echo "$line" >> "$pubspec_file.tmp"
-    elif [[ "$in_flutter_section == true" && "$line" =~ ^[[:space:]]*#.*assets: ]]; then
+    elif [[ "$in_flutter_section" == true && "$line" =~ ^[[:space:]]*#.*assets: ]]; then
       # 找到注释掉的 assets 配置，替换为新的配置
       echo "  assets:" >> "$pubspec_file.tmp"
       echo "    - .env" >> "$pubspec_file.tmp"
@@ -653,7 +653,7 @@ EOF
       if [[ -n "$next_line" && "$next_line" != "" ]]; then
         echo "$next_line" >> "$pubspec_file.tmp"
       fi
-    elif [[ "$in_flutter_section == true" && "$line" =~ ^[[:space:]]*assets: ]]; then
+    elif [[ "$in_flutter_section" == true && "$line" =~ ^[[:space:]]*assets: ]]; then
       # 找到已有的 assets 配置，检查并添加缺失项
       echo "$line" >> "$pubspec_file.tmp"
       assets_added=true

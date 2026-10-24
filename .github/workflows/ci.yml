@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  dart:
+    name: Dart 分析与测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: 安装依赖
+        run: dart pub get
+      - name: 静态分析
+        run: dart analyze
+      - name: 单元测试
+        run: dart test
+
+  shell:
+    name: Shell 检查与测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 语法检查
+        run: |
+          for f in lib/sh/*.sh test/shell/run.sh test/shell/stubs/*; do
+            bash -n "$f"
+          done
+      - name: ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          # 门禁设在 warning 级：error 与 warning 都必须为 0
+          shellcheck --version
+          shellcheck --severity=warning lib/sh/*.sh test/shell/run.sh test/shell/stubs/*
+      - name: Shell 测试
+        run: bash test/shell/run.sh

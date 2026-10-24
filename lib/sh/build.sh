@@ -299,7 +299,7 @@ send_notification() {
 }
 
 # 检查执行权限（仅在直接执行时检查，source 时跳过）
-if [ "$0" = "$BASH_SOURCE" ] && [ ! -x "$0" ]; then
+if [ "$0" = "${BASH_SOURCE[0]}" ] && [ ! -x "$0" ]; then
   log_error "Script does not have execution permission."
   log_warn "Please run: chmod +x $0"
   exit 1
@@ -416,7 +416,7 @@ validate_config() {
 # 获取版本号
 VERSION=$(get_version)
 # 移除版本号中的 + 号，用于文件名
-VERSION_FOR_FILENAME=$(echo $VERSION | tr '+' '-')
+VERSION_FOR_FILENAME=$(printf '%s' "$VERSION" | tr '+' '-')
 
 # 检查参数
 UAT_MODE=false
@@ -535,7 +535,7 @@ validate_config
 # 清空输出目录
 if [ "$CLEAR_MODE" == "true" ]; then
   log_warn "清空构建目录: $OUTPUT_DIR"
-  rm -rf "$OUTPUT_DIR"/*
+  rm -rf -- "${OUTPUT_DIR:?}"/*
 fi
 
 # 记录本次生成的文件
@@ -665,7 +665,7 @@ build_android_package() {
   GENERATED_FILES="$GENERATED_FILES $output_file"
   
   # 记录最后构建时间（用于增量构建）
-  echo "$(date +%s)" > "$OUTPUT_DIR/.last_build_$package_type"
+  date +%s > "$OUTPUT_DIR/.last_build_$package_type"
   
   log_info "$package_type_upper 构建成功: $(pwd)/$output_file ($file_size)"
   
@@ -1160,7 +1160,7 @@ build_ios() {
   GENERATED_FILES="$GENERATED_FILES $ipa_file"
   
   # 记录最后构建时间（用于增量构建）
-  echo "$(date +%s)" > "$OUTPUT_DIR/.last_build_ios"
+  date +%s > "$OUTPUT_DIR/.last_build_ios"
   
   return 0
 }
@@ -1259,20 +1259,17 @@ else
   for platform in "${PLATFORMS[@]}"; do
     case "$platform" in
       "apk")
-        build_android_package "apk" "flutter build apk --release" "build/app/outputs/flutter-apk/app-release.apk"
-        if [ $? -ne 0 ]; then
+        if ! build_android_package "apk" "flutter build apk --release" "build/app/outputs/flutter-apk/app-release.apk"; then
           BUILD_FAILURE=true
         fi
         ;;
       "aab")
-        build_android_package "aab" "flutter build appbundle --release" "build/app/outputs/bundle/release/app-release.aab"
-        if [ $? -ne 0 ]; then
+        if ! build_android_package "aab" "flutter build appbundle --release" "build/app/outputs/bundle/release/app-release.aab"; then
           BUILD_FAILURE=true
         fi
         ;;
       "ios")
-        build_ios
-        if [ $? -ne 0 ]; then
+        if ! build_ios; then
           BUILD_FAILURE=true
         fi
         ;;

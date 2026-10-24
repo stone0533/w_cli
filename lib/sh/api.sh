@@ -448,7 +448,7 @@ to_snake_case() {
   # 内容匹配：查找包含指定类定义的文件（最准确的匹配方式）
   local model_file
   local class_pattern="(^|[[:space:]])class[[:space:]]+$camel_case([[:space:]]+|{|extends|implements)"
-  local typedef_pattern="(^|[[:space:]])typedef[[:space:]]+$camel_case[[:space:]]*=[[:space:]]*"
+  local typedef_pattern="(^|[[:space:]])typedef[[:space:]]+${camel_case}[[:space:]]*=[[:space:]]*"
   local extension_pattern="^extension[[:space:]]+$camel_case([[:space:]]+|on)"
   
   for model_file in $all_models; do
@@ -909,7 +909,7 @@ check_and_add_dependencies() {
   for dep in "${dev_deps[@]}"; do
     if ! grep -q "$dep:" "$pubspec_file"; then
       log_info "添加 $dep 依赖..."
-      flutter pub add --dev $dep
+      flutter pub add --dev "$dep"
       updated=true
     fi
   done

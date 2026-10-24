@@ -1,0 +1,26 @@
+# ShellCheck 配置
+#
+# CI 以 `shellcheck --severity=error` 作为门禁（见 .github/workflows/ci.yml），
+# 这里的 disable 只针对"已知且有意为之"的规则，避免噪声掩盖真问题。
+# 想收紧时，逐条删掉再修，而不是整体关掉 shellcheck。
+
+# local x=$(cmd) 写法：本项目沿用，语义清楚（local 的退出码问题已由 if/exit 结构避开）
+disable=SC2155
+
+# printf "带颜色格式串"：格式串本身都是常量，占位符写法已在 lib.sh 统一
+disable=SC2059
+
+# 无法静态跟随 source "$SCRIPT_DIR/lib.sh"：运行期同目录解析，这是设计
+disable=SC1091
+
+# 供被 source 的脚本使用的变量
+disable=SC2034
+
+# 有意按空格拆分数组字面量
+disable=SC2206
+
+# sed 字面替换已足够，换成 ${var//} 反而降低可读性
+disable=SC2001
+
+# " $list " =~ " $item " 有意用引号做字面量子串匹配（右值不是正则）
+disable=SC2076
