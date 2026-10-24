@@ -44,10 +44,18 @@ assert_contains() { # 描述 期望子串 实际
   esac
 }
 
-run_script() { # 脚本 参数...  -> 回显退出码
+run_script() { # 脚本 参数...  -> 回显退出码（在仓库根目录执行）
   local script="$1"
   shift
   ( cd "$ROOT" && bash "$SH/$script" "$@" ) > /dev/null 2>&1
+  printf '%s' "$?"
+}
+
+run_script_in() { # 目录 脚本 参数... -> 回显退出码（在指定目录执行）
+  local dir="$1"
+  local script="$2"
+  shift 2
+  ( cd "$dir" && bash "$SH/$script" "$@" ) > /dev/null 2>&1
   printf '%s' "$?"
 }
 
@@ -65,7 +73,16 @@ done
 
 # build.sh 自己校验参数，语义是"运行失败"(1)；其余脚本把未知参数当用法错误(2)
 for script in api clean common open project setup; do
-  assert_eq "$script.sh 未知参数退出 2" 2 "$(run_script "$script.sh" --definitely-not-an-option)"
+  if [ "$script" = "setup" ]; then
+    # setup.sh 参数出错时会往当前目录写 setup_error.log，所以放到临时目录里跑，
+    # 免得给仓库根留下垃圾文件
+    tmp_dir="$(mktemp -d)"
+    status="$(run_script_in "$tmp_dir" setup.sh --definitely-not-an-option)"
+    rm -rf "$tmp_dir"
+  else
+    status="$(run_script "$script.sh" --definitely-not-an-option)"
+  fi
+  assert_eq "$script.sh 未知参数退出 2" 2 "$status"
 done
 assert_eq "build.sh 未知参数退出 1" 1 "$(run_script build.sh --definitely-not-an-option)"
 
