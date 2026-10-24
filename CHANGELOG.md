@@ -1,3 +1,21 @@
+## Unreleased
+
+### Breaking
+
+- `ww api` 改为子命令写法，旧的 `--init` / `--models` / `--full` 不再支持（会报错并提示新写法）：
+  | 旧写法 | 新写法 |
+  |---|---|
+  | `ww api --init` | `ww api init` |
+  | `ww api --models` | `ww api models` |
+  | `ww api --models --full` | `ww api models --force` |
+- `api.sh` 同样改为子命令：`api.sh <init|models> [--force]`，裸跑或缺子命令以 2 退出
+- 生成器自检 `verify_generated_models` 现在真的会检查重复 class（之前只查 import）
+
+### Added
+
+- `ww api generate`（别名 `g`）显式写法
+- `ww api -d/--debug` 可以传到脚本（之前会被参数解析拒绝）
+
 ## 1.0.30
 
 - Updated version number to 1.0.30

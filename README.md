@@ -134,19 +134,25 @@ ww cl ios      # Clean iOS platform / 清理 iOS 平台
 # Generate API code / 生成 API 代码
 ww api
 
-# Generate with debug mode / 使用调试模式生成
-ww api --debug
+# Explicit form / 显式写法
+ww api generate
 
 # Initialize API directory structure / 初始化 API 目录结构
-ww api --init
+ww api init
 
 # Generate model files from JSON / 从 JSON 生成模型文件
-ww api --models
+ww api models
+
+# Force full regeneration / 忽略增量，全量重新生成模型
+ww api models --force
+
+# Debug logging (passed to the script) / 调试日志（传给脚本）
+ww api models --debug
 
 # Using aliases / 使用别名
 ww a            # Generate API code / 生成 API 代码
-ww a --init     # Initialize API directory structure / 初始化 API 目录结构
-ww a --models   # Generate model files from JSON / 从 JSON 生成模型文件
+ww a init       # Initialize API directory structure / 初始化 API 目录结构
+ww a models     # Generate model files from JSON / 从 JSON 生成模型文件
 ```
 
 ### Flutter App Building / Flutter 应用构建

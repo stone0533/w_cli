@@ -2,6 +2,9 @@ import 'dart:io';
 import 'dart:convert';
 import 'src/version.dart';
 import 'src/resources.dart';
+import 'src/api/api_cli.dart';
+
+export 'src/api/api_cli.dart';
 import 'src/api/api_generator.dart';
 
 /// 获取当前版本号
@@ -320,29 +323,41 @@ Future<void> handleInitCommand() async {
 
 /// 处理 API 代码生成命令
 /// [arguments] - 命令参数
-Future<int> handleApiCommand(List<String> arguments) async {
-  // --init / --models 仍是 JSON 那一半，继续交给 api.sh
-  if (arguments.contains('--init') || arguments.contains('--models')) {
-    print('\n🚀 Running API code generation');
+Future<int> handleApiCommand(List<String> arguments, {bool debug = false}) async {
+  final ApiInvocation invocation;
+  try {
+    invocation = resolveApiArgs(arguments);
+  } on ApiUsageError catch (error) {
+    stderr.writeln(error.message);
+    return 2;
+  }
+
+  print('\n🚀 Running API code generation');
+
+  // client.dart -> mixin / repository 走 Dart 侧（见 docs/adr/0001）
+  if (invocation.mode == ApiMode.generate) {
     try {
-      final filteredArgs =
-          arguments.where((arg) => arg != 'generate' && arg != 'g').toList();
-      return await executeScript(
-        'api.sh',
-        filteredArgs,
-        'API code generation completed successfully!',
-        'API code generation failed',
-      );
+      return await ApiGenerator().generate();
     } catch (e) {
       handleError(e, 'API code generation');
       return 1;
     }
   }
 
-  // client.dart -> mixin / repository 走 Dart 侧（见 docs/adr/0001）
-  print('\n🚀 Running API code generation');
+  // init / models 仍是 api.sh 负责的那一半
+  final scriptArgs = <String>[
+    invocation.mode == ApiMode.init ? 'init' : 'models',
+    if (invocation.force) '--force',
+    if (debug) '--debug',
+  ];
+
   try {
-    return await ApiGenerator().generate();
+    return await executeScript(
+      'api.sh',
+      scriptArgs,
+      'API code generation completed successfully!',
+      'API code generation failed',
+    );
   } catch (e) {
     handleError(e, 'API code generation');
     return 1;

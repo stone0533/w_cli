@@ -26,8 +26,8 @@ PENDING_MODEL_TEMPS=()
 PENDING_MODEL_TARGETS=()
 
 # 配置选项（DEBUG 由 lib.sh 提供）
-INIT_MODE=false
-MODELS_MODE=false
+SUBCOMMAND=""          # init | models（空 = 没给子命令）
+FORCE=false            # 配合 models：忽略增量检查
 INCREMENTAL_MODE=true  # 默认启用增量模式
 
 # 显示版本信息
@@ -37,29 +37,32 @@ show_version() {
 
 # 显示帮助信息
 show_help() {
-  echo "使用方法: $0 [选项]"
+  echo "使用方法: $0 <init|models> [选项]"
+  echo ""
+  echo "子命令:"
+  echo "  init           初始化 lib/app/data 目录与模板文件"
+  echo "  models         从 w_json/*.json 生成模型文件（默认增量模式）"
+  echo ""
   echo "选项:"
+  echo "  --force        配合 models：忽略增量检查，全量重新生成"
   echo "  -d, --debug    启用调试模式"
   echo "  --version      显示脚本版本信息"
-  echo "  --init         初始化目录结构"
-  echo "  --models       生成模型文件（默认增量模式）"
-  echo "  --full         配合 --models 使用，强制全量重新生成"
   echo "  --help         显示帮助信息"
   echo ""
   echo "说明:"
   echo "  client.dart 的代码生成已经迁到 Dart（见 docs/adr/0001），请改用：ww api"
-  echo "  本脚本继续负责 --init 与 --models。"
+  echo "  本脚本只负责 init 与 models。"
   echo ""
   echo "示例:"
-  echo "  $0 --init       # 初始化目录结构"
-  echo "  $0 --models     # 生成模型文件（增量模式）"
-  echo "  $0 --models --full  # 强制全量重新生成模型"
+  echo "  $0 init                 # 初始化目录结构"
+  echo "  $0 models               # 生成模型文件（增量模式）"
+  echo "  $0 models --force       # 强制全量重新生成模型"
 }
 
-# 解析命令行参数
+# 解析命令行参数：子命令只有 init / models，修饰符只有 --force 与 --debug
 parse_args() {
   while [[ $# -gt 0 ]]; do
-    case $1 in
+    case "$1" in
       -d|--debug)
         DEBUG=true
         shift
@@ -68,24 +71,26 @@ parse_args() {
         show_version
         exit 0
         ;;
-      --init)
-        # 标记为初始化模式
-        INIT_MODE=true
-        shift
-        ;;
-      --models)
-        # 标记为模型生成模式
-        MODELS_MODE=true
-        shift
-        ;;
-      --full)
-        # 标记为全量模式（禁用增量检查）
-        INCREMENTAL_MODE=false
-        shift
-        ;;
       --help)
         show_help
         exit 0
+        ;;
+      --force)
+        FORCE=true
+        shift
+        ;;
+      init|models)
+        if [[ -n "$SUBCOMMAND" ]]; then
+          log_error "子命令只能给一个，收到: $SUBCOMMAND 和 $1"
+          show_help >&2
+          exit 2
+        fi
+        SUBCOMMAND="$1"
+        shift
+        ;;
+      --init|--models|--full)
+        log_error "$1 已改成子命令，请改用：$(_legacy_hint "$1")"
+        exit 2
         ;;
       *)
         log_error "未知参数: $1"
@@ -94,6 +99,22 @@ parse_args() {
         ;;
     esac
   done
+
+  if [[ "$FORCE" = true && "$SUBCOMMAND" != "models" ]]; then
+    log_error "--force 只能配合 models 使用"
+    show_help >&2
+    exit 2
+  fi
+}
+
+# 旧参数 -> 新写法的一行指路
+_legacy_hint() {
+  case "$1" in
+    --init) printf '%s' "api.sh init" ;;
+    --models) printf '%s' "api.sh models" ;;
+    --full) printf '%s' "api.sh models --force" ;;
+    *) printf '%s' "api.sh --help" ;;
+  esac
 }
 
 # 初始化目录结构
@@ -1003,52 +1024,45 @@ generate_models() {
 
 # 主函数
 main() {
-  # 解析命令行参数
   parse_args "$@"
-  
-  # 添加运行开始分隔线
+
+  if [[ -z "$SUBCOMMAND" ]]; then
+    log_error "缺少子命令"
+    show_help >&2
+    exit 2
+  fi
+
+  if [[ "$FORCE" = true ]]; then
+    INCREMENTAL_MODE=false
+  fi
+
   printf "${GREEN}======================================================${NC}\n"
 
-  # 处理模型生成模式
-  if [[ "$MODELS_MODE" = true ]]; then
+  if [[ "$SUBCOMMAND" = "models" ]]; then
     printf "${GREEN}模型文件生成开始${NC}\n"
     printf "${GREEN}======================================================${NC}\n"
-    
-    generate_models
-    
-    # 添加运行结束分隔线
+
+    generate_models || exit 1
+
     printf "${GREEN}======================================================${NC}\n"
     printf "${GREEN}模型文件生成结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
     printf "${GREEN}======================================================${NC}\n"
     exit 0
   fi
 
-  # 处理初始化模式
-  if [[ "$INIT_MODE" = true ]]; then
-    printf "${GREEN}API 目录结构初始化开始${NC}\n"
-    printf "${GREEN}======================================================${NC}\n"
-    
-    log_info "检查并添加必要的依赖项..."
-    check_and_add_dependencies
-    
-    log_info "开始初始化目录结构..."
-    init_directory_structure
-    
-    # # 执行 build_runner build
-    # run_build_runner
-    
-    # 添加运行结束分隔线
-    printf "${GREEN}======================================================${NC}\n"
-    printf "${GREEN}API 目录结构初始化结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
-    printf "${GREEN}======================================================${NC}\n"
-    exit 0
-  fi
-  
-  # client.dart 的解析与生成已经迁到 Dart：docs/adr/0001-client-codegen-in-dart.md
-  log_error "client.dart 的代码生成已经迁到 ww api，api.sh 不再处理这一步"
-  log_info "请改用：ww api"
-  log_info "本脚本仍负责：--init（初始化目录结构）、--models（w_json -> 模型文件）"
-  exit 1
+  printf "${GREEN}API 目录结构初始化开始${NC}\n"
+  printf "${GREEN}======================================================${NC}\n"
+
+  log_info "检查并添加必要的依赖项..."
+  check_and_add_dependencies || exit 1
+
+  log_info "开始初始化目录结构..."
+  init_directory_structure
+
+  printf "${GREEN}======================================================${NC}\n"
+  printf "${GREEN}API 目录结构初始化结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
+  printf "${GREEN}======================================================${NC}\n"
+  exit 0
 }
 
 # 调用主函数

@@ -308,7 +308,21 @@ fn_out="$(bash -c '. "$1"; APP_NAME=demo; TIMESTAMP=2026_0101_010101; VERSION_FO
 assert_eq "generate_filename 生产模式" "w_build/demo_live_1.0.0.apk" "$fn_out"
 
 echo
-echo "== 9. api.sh 生成自检（verify_generated_models） =="
+echo "== 9. api.sh 子命令契约 =="
+assert_eq "api.sh 无子命令退出 2" 2 "$(run_script api.sh)"
+assert_eq "api.sh 未知子命令退出 2" 2 "$(run_script api.sh bogus)"
+assert_eq "api.sh 两个子命令退出 2" 2 "$(run_script api.sh init models)"
+assert_eq "api.sh --force 单独退出 2" 2 "$(run_script api.sh --force)"
+for old_flag in --init --models --full; do
+  assert_eq "api.sh $old_flag 已移除（退出 2）" 2 "$(run_script api.sh "$old_flag")"
+done
+assert_contains "api.sh 旧写法 --models 指路新写法" "api.sh models" \
+  "$( cd "$ROOT" && bash "$SH/api.sh" --models 2>&1 )"
+assert_contains "api.sh 旧写法 --full 指路 --force" "models --force" \
+  "$( cd "$ROOT" && bash "$SH/api.sh" --full 2>&1 )"
+
+echo
+echo "== 10. api.sh 生成自检（verify_generated_models） =="
 vgm_dir="$(mktemp -d)"
 vgm() { # 目录 -> 退出码
   bash -c ". '$SH/api.sh'; verify_generated_models '$1'" > /dev/null 2>&1
