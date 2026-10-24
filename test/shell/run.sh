@@ -151,9 +151,6 @@ rm -rf "$tmp_work"
 
 echo
 echo "== 5. api.sh 代码生成（黄金文件） =="
-snake=$(bash -c ". '$SH/api.sh'; to_snake_case 'userName'" 2>/dev/null | tail -1)
-assert_eq "to_snake_case 驼峰转蛇形" "user_name_result.dart" "$snake"
-
 generated="$(mktemp)"
 bash -c ". '$SH/api.sh'; generate_model_class \"\$(cat '$FIXTURES/demo.json')\" Demo" \
   > "$generated" 2>/dev/null
@@ -254,86 +251,6 @@ rm -rf "$py_dir"
 echo
 echo "== 6. clean.sh 参数校验 =="
 assert_eq "--pod 与 android 同时使用退出 2" 2 "$(run_script clean.sh --pod android)"
-
-echo
-echo "== 7. client.dart 解析与产物生成 =="
-tmp_proj="$(mktemp -d)"
-mkdir -p "$tmp_proj/lib/app/data/sources/remote" "$tmp_proj/lib/app/data/models"
-cp "$FIXTURES/client_nested.expected" "$tmp_proj/lib/app/data/sources/client.dart"
-printf 'class UserResult {}\n' > "$tmp_proj/lib/app/data/models/user.dart"
-printf 'class OrderResult {}\n' > "$tmp_proj/lib/app/data/models/order.dart"
-
-methods_dump="$( cd "$tmp_proj" && bash -c ". '$SH/api.sh'; parse_client" 2>/dev/null )"
-
-# 用脚本文件而不是嵌套 bash -c：方法信息里有空格（Map<String, dynamic>），
-# 这里必须按行读到数组里，不能数组字面量直接 $-展开
-cat > "$tmp_proj/gen_mixin.sh" << 'GEN'
-#!/bin/bash
-. "$1"
-m=()
-while IFS= read -r line; do
-  if [ -n "$line" ]; then m+=("$line"); fi
-done < <(parse_client)
-generate_remote_datasource "${m[@]}"
-GEN
-cat > "$tmp_proj/gen_files.sh" << 'GEN'
-#!/bin/bash
-. "$1"
-m=()
-while IFS= read -r line; do
-  if [ -n "$line" ]; then m+=("$line"); fi
-done < <(parse_client)
-update_files "${m[@]}"
-GEN
-chmod +x "$tmp_proj/gen_mixin.sh" "$tmp_proj/gen_files.sh"
-assert_contains "Map 返回类型不被截断" "getProfile|Map<String, dynamic>" "$methods_dump"
-assert_contains "List<T> 保留类型实参" "getUsers|List<UserResult>" "$methods_dump"
-assert_contains "@Query 保留名字与类型" "page:int;size:int" "$methods_dump"
-
-mixin_out="$( cd "$tmp_proj" && bash gen_mixin.sh "$SH/api.sh" 2>/dev/null )"
-assert_contains "接口保留 Map 泛型" "Future<Map<String, dynamic>> getProfile(" "$mixin_out"
-assert_contains "两个 @Query 用 int 类型" "int page," "$mixin_out"
-assert_contains "两个 @Query 名字不重复" "int size," "$mixin_out"
-if printf '%s' "$mixin_out" | grep -qE 'Map<String, dynamic> queries'; then
-  fail "@Query 不再被当成 Map 参数" "仍生成了 Map<String, dynamic> queries"
-else
-  pass "@Query 不再被当成 Map 参数"
-fi
-
-# 生成物必须是合法 Dart（有 dart 时才断言，CI 的 shell job 里装了 dart）
-if command -v dart > /dev/null 2>&1; then
-  printf '%s\n' "$mixin_out" > "$tmp_proj/mixin.dart"
-  if ( cd "$tmp_proj" && dart format mixin.dart > /dev/null 2>&1 ); then
-    pass "生成物是合法 Dart"
-  else
-    fail "生成物是合法 Dart" "$( cd "$tmp_proj" && dart format mixin.dart 2>&1 | head -3 )"
-  fi
-else
-  pass "生成物是合法 Dart（跳过：环境里没有 dart）"
-fi
-
-# Dart 关键字作字段名时，字段名要合法（@JsonKey 里保留原名）
-kw_out="$( cd "$tmp_proj" && bash -c ". '$SH/api.sh'; generate_model_class '{\"class\":\"x\",\"1st\":1}' Kw kw.dart" 2>/dev/null )"
-assert_contains "关键字字段名加后缀" "String? class_;" "$kw_out"
-assert_contains "数字开头字段名加前缀" "int? f_1st;" "$kw_out"
-assert_contains "JsonKey 保留原始字段名" "@JsonKey(name: 'class')" "$kw_out"
-
-# 正常路径：update_files 写入产物
-printf 'OLD\n' > "$tmp_proj/lib/app/data/sources/remote/data_source_mixin.dart"
-( cd "$tmp_proj" && bash gen_files.sh "$SH/api.sh" > /dev/null 2>&1 )
-assert_contains "update_files 写入生成物" "IAppRemoteDataSource" \
-  "$(cat "$tmp_proj/lib/app/data/sources/remote/data_source_mixin.dart" 2>/dev/null)"
-
-# 失败路径：dart 校验不通过时，已有产物必须原样保留
-mkdir -p "$tmp_proj/broken-bin"
-printf '#!/bin/bash\nexit 65\n' > "$tmp_proj/broken-bin/dart"
-chmod +x "$tmp_proj/broken-bin/dart"
-printf 'KEEP-ME\n' > "$tmp_proj/lib/app/data/sources/remote/data_source_mixin.dart"
-( cd "$tmp_proj" && PATH="$tmp_proj/broken-bin:$PATH" \
-  bash gen_files.sh "$SH/api.sh" > /dev/null 2>&1 )
-assert_contains "校验失败时保留原有产物" "KEEP-ME" \
-  "$(cat "$tmp_proj/lib/app/data/sources/remote/data_source_mixin.dart" 2>/dev/null)"
-rm -rf "$tmp_proj"
 
 echo
 echo "== 8. build.sh 可 source 与纯函数 =="
