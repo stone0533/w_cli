@@ -28,6 +28,18 @@ Future<String> getScriptPath(String scriptName) async {
   }
 }
 
+/// 找不到 bash 时的提示（纯函数，方便测试）。
+///
+/// 非 Windows 上 bash 本来就该有，属于环境损坏，只给一句短的；
+/// Windows 上脚本命令需要 Git Bash 或 WSL，要说清楚。
+String? bashMissingHint(String scriptName, {required bool isWindows}) {
+  if (!isWindows) {
+    return '找不到 bash，无法执行 $scriptName（macOS/Linux 自带 bash，请检查 PATH）';
+  }
+  return 'Windows 上执行 $scriptName 需要 bash：请安装 Git Bash 或使用 WSL，'
+      '或改用不依赖脚本的命令（如 ww api）。';
+}
+
 /// 执行脚本文件并实时显示输出
 /// [scriptName] - 脚本文件名称
 /// [arguments] - 传递给脚本的参数
@@ -50,20 +62,20 @@ Future<int> executeScript(
     Process process;
     // 把包版本注入脚本环境，脚本的 --version 因此不再各自维护一份版本号
     final env = {...Platform.environment, 'WW_VERSION': getVersionFromPubspec()};
-    if (Platform.isWindows) {
-      // 在 Windows 上使用 PowerShell 执行脚本
-      process = await Process.start(
-        'powershell.exe',
-        ['-File', scriptPath, ...arguments],
-        environment: env,
-      );
-    } else {
-      // 在 macOS 和 Linux 上使用 bash 执行脚本
+    try {
+      // 所有脚本都是 bash 脚本：Windows 上同样走 bash（Git Bash / WSL），
+      // 没有 bash 时会在下面的 ProcessException 分支里给出明确提示
       process = await Process.start(
         'bash',
         [scriptPath, ...arguments],
         environment: env,
       );
+    } on ProcessException {
+      final hint = bashMissingHint(scriptName, isWindows: Platform.isWindows);
+      if (hint != null) {
+        print(hint);
+      }
+      return 1;
     }
 
     // 实时显示标准输出

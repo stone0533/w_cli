@@ -280,6 +280,25 @@ void main() {
     });
   });
 
+  group('bashMissingHint', () {
+    test('Windows 上提示 Git Bash / WSL', () {
+      final hint = bashMissingHint('build.sh', isWindows: true)!;
+      expect(hint, contains('build.sh'));
+      expect(hint, contains('Git Bash'));
+      expect(hint, contains('WSL'));
+    });
+
+    test('非 Windows 上指向 PATH 问题', () {
+      final hint = bashMissingHint('clean.sh', isWindows: false)!;
+      expect(hint, contains('clean.sh'));
+      expect(hint, isNot(contains('Git Bash')));
+    });
+
+    test('只有 Windows 才会提到 WSL', () {
+      expect(bashMissingHint('open.sh', isWindows: false), isNot(contains('WSL')));
+    });
+  });
+
   group('脚本解压', () {
     tearDown(Resources.cleanupTempFiles);
 
