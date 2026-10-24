@@ -336,6 +336,31 @@ assert_contains "校验失败时保留原有产物" "KEEP-ME" \
 rm -rf "$tmp_proj"
 
 echo
+echo "== 8. build.sh 可 source 与纯函数 =="
+src_out="$(bash -c 'set -eo pipefail; . "$1"; echo SOURCED' _ "$SH/build.sh" 2>&1 | tail -1)"
+assert_eq "build.sh 可 source 且不执行构建" "SOURCED" "$src_out"
+
+trap_out="$(bash -c '. "$1"; trap -p EXIT' _ "$SH/build.sh" 2>/dev/null)"
+assert_eq "source 不安装 EXIT trap" "" "$trap_out"
+
+ver_ge() { # 脚本 当前版本 要求版本
+  bash -c '. "$1"; if version_ge "$2" "$3"; then echo 0; else echo 1; fi' _ "$1" "$2" "$3" 2>/dev/null | tail -1
+}
+assert_eq "version_ge 3.10.0 >= 3.9.0" 0 "$(ver_ge "$SH/build.sh" 3.10.0 3.9.0)"
+assert_eq "version_ge 3.9.0 < 3.10.0" 1 "$(ver_ge "$SH/build.sh" 3.9.0 3.10.0)"
+assert_eq "version_ge 1.0.0 >= 1.0.0" 0 "$(ver_ge "$SH/build.sh" 1.0.0 1.0.0)"
+
+vp() { # 脚本 参数...
+  bash -c '. "$1"; shift; if validate_parameters "$@"; then echo 0; else echo 1; fi' _ "$@" 2>/dev/null | tail -1
+}
+assert_eq "validate_parameters apk" 0 "$(vp "$SH/build.sh" apk)"
+assert_eq "validate_parameters 无参数" 1 "$(vp "$SH/build.sh")"
+assert_eq "validate_parameters 未知参数" 1 "$(vp "$SH/build.sh" bogus)"
+
+fn_out="$(bash -c '. "$1"; APP_NAME=demo; TIMESTAMP=2026_0101_010101; VERSION_FOR_FILENAME=1.0.0; UAT_MODE=false; generate_filename apk apk ""' _ "$SH/build.sh" 2>/dev/null | tail -1)"
+assert_eq "generate_filename 生产模式" "w_build/demo_live_1.0.0.apk" "$fn_out"
+
+echo
 if [ "$FAILS" -eq 0 ]; then
   printf '全部通过：%d 项\n' "$TOTAL"
   exit 0

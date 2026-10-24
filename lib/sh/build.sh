@@ -55,9 +55,6 @@ cleanup() {
   fi
 }
 
-# 设置全局清理 trap
-trap cleanup EXIT
-
 # 验证构建产物完整性
 # 参数: file_path min_size_bytes
 verify_build_output() {
@@ -298,13 +295,6 @@ send_notification() {
   fi
 }
 
-# 检查执行权限（仅在直接执行时检查，source 时跳过）
-if [ "$0" = "${BASH_SOURCE[0]}" ] && [ ! -x "$0" ]; then
-  log_error "Script does not have execution permission."
-  log_warn "Please run: chmod +x $0"
-  exit 1
-fi
-
 # 显示帮助信息
 show_help() {
   log_info "Usage: ./build.sh [apk] [aab] [ios] [--uat] [--clean] [--open] [--debug] [--version] [--help]"
@@ -337,56 +327,26 @@ show_help() {
   log_info "  ./build.sh ios                 # Build iOS，自动查找 w_build/ios.plist 进行签名"
 }
 
-# 检查参数是否正确
-if [ $# -lt 1 ]; then
-  show_help
-  exit 0
-fi
-
-# 检查帮助参数
-if [ "$1" == "--help" ]; then
-  show_help
-  exit 0
-fi
-
-# 检查版本参数
-if [ "$1" == "--version" ]; then
-  log_info "build.sh version: $(ww::version)"
-  log_info "Description: Flutter application packaging script"
-  log_info "Features:"
-  log_info "  - Support Android APK, AAB and iOS IPA packaging"
-  log_info "  - Support production and UAT modes"
-  log_info "  - App store requirement checking"
-  log_info "  - File backup and version management"
-  log_info "  - Detailed logging and error handling"
-  log_info "  - Parallel build support"
-  log_info "  - Build notifications"
-  exit 0
-fi
-
-# 获取当前时间，格式为 yyyy_mmdd_hhmmss
-TIMESTAMP=$(date +"%Y_%m%d_%H%M%S")
-
 # 改进的版本号提取
 get_version() {
   local version_file="pubspec.yaml"
   
   if [ ! -f "$version_file" ]; then
     log_error "pubspec.yaml not found"
-    exit 1
+    return 1
   fi
   
   local version=$(grep '^version:' "$version_file" | awk '{print $2}' | tr -d '"'"'")
   
   if [ -z "$version" ]; then
     log_error "Failed to extract version from pubspec.yaml"
-    exit 1
+    return 1
   fi
   
   # 验证版本号格式
   if ! echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(\+[0-9]+)?$'; then
     log_error "Invalid version format: $version"
-    exit 1
+    return 1
   fi
   
   log_debug "Extracted version: $version"
@@ -401,7 +361,7 @@ validate_config() {
   local parent_dir=$(dirname "$OUTPUT_DIR")
   if [ "$parent_dir" != "." ] && [ ! -d "$parent_dir" ]; then
     log_error "Output directory parent does not exist: $parent_dir"
-    exit 1
+    return 1
   fi
   
   # 检查磁盘空间（至少需要 1GB）
@@ -412,134 +372,6 @@ validate_config() {
   
   log_debug "Configuration validated successfully"
 }
-
-# 获取版本号
-VERSION=$(get_version)
-# 移除版本号中的 + 号，用于文件名
-VERSION_FOR_FILENAME=$(printf '%s' "$VERSION" | tr '+' '-')
-
-# 检查参数
-UAT_MODE=false
-CLEAR_MODE=false
-OPEN_MODE=false
-PLATFORMS=()
-APP_NAME=""
-CODE_SIGN_IDENTITY=""
-PROVISIONING_PROFILE=""
-EXPORT_OPTIONS_PLIST=""
-for arg in "$@"; do
-  case "$arg" in
-    "apk"|"aab"|"ios")
-      PLATFORMS+=($arg)
-      ;;
-    "--uat")
-      UAT_MODE=true
-      ;;
-    "--clean")
-      CLEAR_MODE=true
-      ;;
-    "--open")
-      OPEN_MODE=true
-      ;;
-    "--help")
-      show_help
-      ;;
-    "--debug")
-      DEBUG_MODE=true
-      log_info "启用调试模式"
-      ;;
-    -name:* )
-      APP_NAME="${arg#-name:}"
-      # 去除首尾空格
-      APP_NAME=$(echo "$APP_NAME" | tr -d '[:space:]')
-      # 验证参数不为空
-      if [ -z "$APP_NAME" ]; then
-        log_error "-name 参数不能为空"
-        show_help >&2
-        exit 2
-      fi
-      # 验证参数不包含路径分隔符
-      if [[ "$APP_NAME" == *"/"* ]]; then
-        log_error "-name 参数不允许包含路径分隔符: $APP_NAME"
-        exit 1
-      fi
-      ;;
-    -export-options:* )
-      EXPORT_OPTIONS_PLIST="${arg#-export-options:}"
-      # 去除首尾空格
-      EXPORT_OPTIONS_PLIST=$(echo "$EXPORT_OPTIONS_PLIST" | tr -d '[:space:]')
-      # 验证参数不为空
-      if [ -z "$EXPORT_OPTIONS_PLIST" ]; then
-        log_error "-export-options 参数不能为空"
-        show_help >&2
-        exit 2
-      fi
-      # 防止路径遍历攻击
-      if [[ "$EXPORT_OPTIONS_PLIST" == *".."* ]]; then
-        log_error "不允许使用路径遍历: $EXPORT_OPTIONS_PLIST"
-        exit 1
-      fi
-      # 如果指定的是纯文件名（不含路径分隔符），则在 OUTPUT_DIR 中查找
-      if [[ "$EXPORT_OPTIONS_PLIST" != */* ]]; then
-        EXPORT_OPTIONS_PLIST="$OUTPUT_DIR/$EXPORT_OPTIONS_PLIST"
-      fi
-      ;;
-  esac
-done
-
-# 添加运行开始分隔线
-printf "${GREEN}======================================================${NC}\n"
-printf "${GREEN}Flutter 应用打包脚本运行开始${NC}\n"
-printf "${GREEN}======================================================${NC}\n"
-
-# 显示构建信息
-if [ "$UAT_MODE" == "true" ]; then
-  log_info "打包模式: UAT"
-  log_info "打包时间戳: $TIMESTAMP"
-else
-  log_info "打包模式: PROD (Versioned)"
-  log_info "打包版本: $VERSION"
-fi
-
-if [ ${#PLATFORMS[@]} -gt 0 ]; then
-  log_info "构建平台: ${PLATFORMS[*]}"
-else
-  log_info "构建平台: 无"
-fi
-
-# 环境检查
-if ! check_environment; then
-  log_error "环境检查失败，无法继续构建"
-  exit 1
-fi
-
-# 检查项目依赖
-if ! check_dependencies; then
-  log_error "依赖检查失败，无法继续构建"
-  exit 1
-fi
-
-# 构建前完整性检查
-if ! pre_build_check; then
-  log_error "完整性检查失败，无法继续构建"
-  exit 1
-fi
-
-# 创建输出目录
-log_warn "创建输出目录: $OUTPUT_DIR"
-mkdir -p "$OUTPUT_DIR"
-
-# 验证配置
-validate_config
-
-# 清空输出目录
-if [ "$CLEAR_MODE" == "true" ]; then
-  log_warn "清空构建目录: $OUTPUT_DIR"
-  rm -rf -- "${OUTPUT_DIR:?}"/*
-fi
-
-# 记录本次生成的文件
-GENERATED_FILES=""
 
 # 删除已存在的文件
 delete_existing_file() {
@@ -1192,10 +1024,179 @@ validate_parameters() {
   
   return 0
 }
+# 解析命令行参数：只填全局变量，不执行构建动作
+parse_args() {
+# 检查参数是否正确
+if [ $# -lt 1 ]; then
+  show_help
+  ARGS_HANDLED=true
+  return 0
+fi
 
+# 检查帮助参数
+if [ "$1" == "--help" ]; then
+  show_help
+  ARGS_HANDLED=true
+  return 0
+fi
+
+# 检查版本参数
+if [ "$1" == "--version" ]; then
+  log_info "build.sh version: $(ww::version)"
+  log_info "Description: Flutter application packaging script"
+  log_info "Features:"
+  log_info "  - Support Android APK, AAB and iOS IPA packaging"
+  log_info "  - Support production and UAT modes"
+  log_info "  - App store requirement checking"
+  log_info "  - File backup and version management"
+  log_info "  - Detailed logging and error handling"
+  log_info "  - Parallel build support"
+  log_info "  - Build notifications"
+  ARGS_HANDLED=true
+  return 0
+fi
+
+
+# 检查参数
+UAT_MODE=false
+CLEAR_MODE=false
+OPEN_MODE=false
+PLATFORMS=()
+APP_NAME=""
+CODE_SIGN_IDENTITY=""
+PROVISIONING_PROFILE=""
+EXPORT_OPTIONS_PLIST=""
+for arg in "$@"; do
+  case "$arg" in
+    "apk"|"aab"|"ios")
+      PLATFORMS+=($arg)
+      ;;
+    "--uat")
+      UAT_MODE=true
+      ;;
+    "--clean")
+      CLEAR_MODE=true
+      ;;
+    "--open")
+      OPEN_MODE=true
+      ;;
+    "--help")
+      show_help
+      ;;
+    "--debug")
+      DEBUG_MODE=true
+      log_info "启用调试模式"
+      ;;
+    -name:* )
+      APP_NAME="${arg#-name:}"
+      # 去除首尾空格
+      APP_NAME=$(echo "$APP_NAME" | tr -d '[:space:]')
+      # 验证参数不为空
+      if [ -z "$APP_NAME" ]; then
+        log_error "-name 参数不能为空"
+        show_help >&2
+        return 2
+      fi
+      # 验证参数不包含路径分隔符
+      if [[ "$APP_NAME" == *"/"* ]]; then
+        log_error "-name 参数不允许包含路径分隔符: $APP_NAME"
+        return 1
+      fi
+      ;;
+    -export-options:* )
+      EXPORT_OPTIONS_PLIST="${arg#-export-options:}"
+      # 去除首尾空格
+      EXPORT_OPTIONS_PLIST=$(echo "$EXPORT_OPTIONS_PLIST" | tr -d '[:space:]')
+      # 验证参数不为空
+      if [ -z "$EXPORT_OPTIONS_PLIST" ]; then
+        log_error "-export-options 参数不能为空"
+        show_help >&2
+        return 2
+      fi
+      # 防止路径遍历攻击
+      if [[ "$EXPORT_OPTIONS_PLIST" == *".."* ]]; then
+        log_error "不允许使用路径遍历: $EXPORT_OPTIONS_PLIST"
+        return 1
+      fi
+      # 如果指定的是纯文件名（不含路径分隔符），则在 OUTPUT_DIR 中查找
+      if [[ "$EXPORT_OPTIONS_PLIST" != */* ]]; then
+        EXPORT_OPTIONS_PLIST="$OUTPUT_DIR/$EXPORT_OPTIONS_PLIST"
+      fi
+      ;;
+  esac
+done
+
+}
+
+# 构建前的准备：版本号、环境检查、输出目录
+prepare_build() {
+  TIMESTAMP=$(date +"%Y_%m%d_%H%M%S")
+
+# 获取版本号
+VERSION="$(get_version)" || return 1
+# 移除版本号中的 + 号，用于文件名
+VERSION_FOR_FILENAME=$(printf '%s' "$VERSION" | tr '+' '-')
+
+# 添加运行开始分隔线
+printf "${GREEN}======================================================${NC}\n"
+printf "${GREEN}Flutter 应用打包脚本运行开始${NC}\n"
+printf "${GREEN}======================================================${NC}\n"
+
+# 显示构建信息
+if [ "$UAT_MODE" == "true" ]; then
+  log_info "打包模式: UAT"
+  log_info "打包时间戳: $TIMESTAMP"
+else
+  log_info "打包模式: PROD (Versioned)"
+  log_info "打包版本: $VERSION"
+fi
+
+if [ ${#PLATFORMS[@]} -gt 0 ]; then
+  log_info "构建平台: ${PLATFORMS[*]}"
+else
+  log_info "构建平台: 无"
+fi
+
+# 环境检查
+if ! check_environment; then
+  log_error "环境检查失败，无法继续构建"
+  return 1
+fi
+
+# 检查项目依赖
+if ! check_dependencies; then
+  log_error "依赖检查失败，无法继续构建"
+  return 1
+fi
+
+# 构建前完整性检查
+if ! pre_build_check; then
+  log_error "完整性检查失败，无法继续构建"
+  return 1
+fi
+
+# 创建输出目录
+log_warn "创建输出目录: $OUTPUT_DIR"
+mkdir -p "$OUTPUT_DIR"
+
+# 验证配置
+validate_config
+
+# 清空输出目录
+if [ "$CLEAR_MODE" == "true" ]; then
+  log_warn "清空构建目录: $OUTPUT_DIR"
+  rm -rf -- "${OUTPUT_DIR:?}"/*
+fi
+
+# 记录本次生成的文件
+GENERATED_FILES=""
+}
+
+# 真正执行构建
+run_build() {
 # 验证参数
 if ! validate_parameters "$@"; then
-  exit 1
+  return 1
 fi
 
 # 根据参数执行打包命令
@@ -1288,7 +1289,7 @@ if [ "$BUILD_FAILURE" == "true" ]; then
   printf "${GREEN}======================================================${NC}\n"
   printf "${GREEN}Flutter 应用打包脚本运行结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
   printf "${GREEN}======================================================${NC}\n"
-  exit 1
+  return 1
 fi
 
 log_info "=== 打包完成！ ==="
@@ -1318,4 +1319,32 @@ fi
 printf "${GREEN}======================================================${NC}\n"
 printf "${GREEN}Flutter 应用打包脚本运行结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
 printf "${GREEN}======================================================${NC}\n"
+}
 
+# 入口：只有直接执行时才跑，被 source 时只提供函数（方便测试）
+main() {
+  if [ "$0" = "${BASH_SOURCE[0]}" ] && [ ! -x "$0" ]; then
+    log_error "Script does not have execution permission."
+    log_warn "Please run: chmod +x $0"
+    return 1
+  fi
+
+  ARGS_HANDLED=false
+  parse_args "$@" || return $?
+
+  if [[ "$ARGS_HANDLED" = true ]]; then
+    return 0
+  fi
+
+  # 只有真的要构建时才装清理 trap，source 不会污染调用者的 shell
+  trap cleanup EXIT
+
+  prepare_build || return 1
+  run_build "$@" || return 1
+
+  return 0
+}
+
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main "$@"
+fi
