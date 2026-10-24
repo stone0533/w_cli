@@ -1,0 +1,23 @@
+// <<<GENERATED w_tools import（工具只维护下一行导入；本文件其余部分手写，不会被覆盖）
+import 'package:demo/app/w/toolkit.dart';
+// GENERATED>>>
+import '../client.dart';
+import '../paths.dart';
+import 'data_source_mixin.dart';
+
+class AppRemoteDataSource extends BaseRemoteDataSource
+    with AppRemoteDataSourceMixin {
+  AppRemoteDataSource() {
+    libRest = ApiClient(
+      DioUtil.instance(
+        ApiPath.baseUrl,
+        interceptors: [
+          WTokenInterceptor(),
+          WLogInterceptor(),
+          WErrorInterceptor(),
+        ],
+      ).dio,
+    );
+  }
+}
+

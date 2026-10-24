@@ -1,0 +1,16 @@
+import 'package:retrofit/retrofit.dart';
+import 'package:dio/dio.dart';
+import 'paths.dart';
+
+part 'client.g.dart';
+
+@RestApi()
+abstract class ApiClient {
+  factory ApiClient(Dio dio, {String baseUrl}) = _ApiClient;
+
+  // 认证相关
+  @POST(ApiPath.login)
+  Future<dynamic> login(@Body() Map<String, dynamic> data);
+
+  // 这里新增需要的 API，然后执行 ww api generate 来自动生成对应的代码
+}

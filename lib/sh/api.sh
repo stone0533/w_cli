@@ -240,7 +240,13 @@ EOF
   fi
 
   # 导入行由 marker 段维护：新文件填占位符，老文件（有 marker）同步成本项目写法
-  sync_or_hint "$remote_dir/data_source.dart" "$(resolve_w_tools_import ".")"
+  sync_or_hint "$remote_dir/data_source.dart" "$(resolve_w_tools_import ".")" || return 1
+
+  # 占位符绝不能落盘：同步失败（或 python3 缺失）时上面已报错，这里再兜一层
+  if grep -q "__W_TOOLS_IMPORT__" "$remote_dir/data_source.dart"; then
+    log_error "data_source.dart 仍含占位符 __W_TOOLS_IMPORT__，请手工替换后再继续"
+    return 1
+  fi
   
   # 检查并创建 data_source_mixin.dart 文件
   if [[ ! -f "$remote_dir/data_source_mixin.dart" ]]; then
@@ -272,8 +278,8 @@ EOF
   if [[ ! -f "$sources_dir/repository.dart" ]]; then
     log_info "创建文件: $sources_dir/repository.dart"
     cat > "$sources_dir/repository.dart" << EOF
-// 由 api.sh 生成的骨架：首次生成后由你维护，重跑不会覆盖手写部分。
-// w_tools 的导入行在 <<<GENERATED 段内，由工具维护。
+// 由 api.sh 首次创建；之后的内容由 ww api 依据 client.dart 整份重写。
+// 直接在这里加方法会让 ww api 拒绝覆盖（它会提示用手写扩展或 --force）。
 import '$(resolve_w_tools_import ".")';
 
 import 'remote/data_source.dart';
@@ -392,9 +398,15 @@ sync_or_hint() {
   local uri="$2"
   local rc=0
   sync_w_tools_import "$file" "$uri" || rc=$?
-  if [[ "$rc" -eq 3 ]]; then
-    log_info "  ↳ 未接管导入行（无 marker，视为手写文件）: $file"
-  fi
+
+  case "$rc" in
+    0) ;;
+    3) log_info "  ↳ 未接管导入行（无 marker，视为手写文件）: $file" ;;
+    *)
+      log_error "同步 w_tools 导入失败: $file（python3 退出码 $rc）"
+      return 1
+      ;;
+  esac
   return 0
 }
 

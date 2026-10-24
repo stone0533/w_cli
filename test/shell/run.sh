@@ -510,7 +510,53 @@ assert_eq "失败的产物不会进输出目录" "gone" \
 rm -rf "$build_root"
 
 echo
-echo "== 11. api.sh 生成自检（verify_generated_models） =="
+echo "== 11. api.sh init 产物 golden（迁移契约） =="
+scaffold_root="$(mktemp -d)"
+mkdir -p "$scaffold_root/bin" "$scaffold_root/demo/lib/app/w"
+printf '#!/bin/bash\nexit 0\n' > "$scaffold_root/bin/flutter"
+chmod +x "$scaffold_root/bin/flutter"
+printf '// barrel\n' > "$scaffold_root/demo/lib/app/w/toolkit.dart"
+cat > "$scaffold_root/demo/pubspec.yaml" << 'YAML'
+name: demo
+dependencies:
+  retrofit: ^4.0.0
+dev_dependencies:
+  build_runner: ^2.4.0
+  json_serializable: ^6.8.0
+  retrofit_generator: ^8.0.0
+YAML
+
+run_init() {
+  ( cd "$scaffold_root/demo" && PATH="$scaffold_root/bin:$PATH" bash "$SH/api.sh" init ) 2>&1
+}
+run_init > /dev/null
+assert_eq "init 退出 0" 0 "$?"
+
+scaffold_diff() { # 生成文件 相对路径
+  diff -u "$FIXTURES/scaffold/$1.expected" "$scaffold_root/demo/$2" 2>&1 | head -5
+}
+assert_eq "golden: client.dart" "" "$(scaffold_diff client.dart lib/app/data/sources/client.dart)"
+assert_eq "golden: paths.dart" "" "$(scaffold_diff paths.dart lib/app/data/sources/paths.dart)"
+assert_eq "golden: data_source.dart" "" \
+  "$(scaffold_diff data_source.dart lib/app/data/sources/remote/data_source.dart)"
+assert_eq "golden: data_source_mixin.dart" "" \
+  "$(scaffold_diff data_source_mixin.dart lib/app/data/sources/remote/data_source_mixin.dart)"
+assert_eq "golden: repository.dart" "" \
+  "$(scaffold_diff repository.dart lib/app/data/sources/repository.dart)"
+
+# 老文件没有 marker：只提示，绝不改写
+printf "import 'package:w_tools/w.dart';\n\nclass HandWritten {}\n" \
+  > "$scaffold_root/demo/lib/app/data/sources/remote/data_source.dart"
+before_hand="$(cat "$scaffold_root/demo/lib/app/data/sources/remote/data_source.dart")"
+init_out="$(run_init)"
+assert_contains "无 marker 时提示跳过" "未接管导入行" "$init_out"
+assert_eq "无 marker 的文件一个字节都没改" "$before_hand" \
+  "$(cat "$scaffold_root/demo/lib/app/data/sources/remote/data_source.dart")"
+assert_eq "init 仍退出 0" 0 "$?"
+rm -rf "$scaffold_root"
+
+echo
+echo "== 12. api.sh 生成自检（verify_generated_models） =="
 vgm_dir="$(mktemp -d)"
 vgm() { # 目录 -> 退出码
   bash -c ". '$SH/api.sh'; verify_generated_models '$1'" > /dev/null 2>&1

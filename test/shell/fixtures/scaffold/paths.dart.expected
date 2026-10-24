@@ -1,0 +1,6 @@
+class ApiPath {
+  static const String baseUrl = 'https://api.example.com';
+
+  // 认证相关
+  static const String login = '/auth/login';
+}

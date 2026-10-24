@@ -17,6 +17,78 @@ void main() {
 
   const headerTimestamp = '2026-01-01 00:00:00';
 
+  group('覆盖保护', () {
+    late Directory project;
+
+    setUp(() {
+      project = Directory.systemTemp.createTempSync('w_cli_guard');
+      Directory('${project.path}/lib/app/data/sources/remote')
+          .createSync(recursive: true);
+      Directory('${project.path}/lib/app/data/models')
+          .createSync(recursive: true);
+      File('${project.path}/lib/app/data/sources/client.dart')
+          .writeAsStringSync(clientSource);
+    });
+
+    tearDown(() => project.deleteSync(recursive: true));
+
+    // 用绝对路径：Directory.current 是进程级的，改了会影响并行跑的其它测试文件
+    Future<int> run({bool force = false}) {
+      final root = project.path;
+      return ApiGenerator(
+        clientPath: '$root/lib/app/data/sources/client.dart',
+        dataSourcePath: '$root/lib/app/data/sources/remote/data_source.dart',
+        mixinPath: '$root/lib/app/data/sources/remote/data_source_mixin.dart',
+        repositoryPath: '$root/lib/app/data/sources/repository.dart',
+        modelsDir: '$root/lib/app/data/models',
+        now: DateTime(2026, 1, 1),
+      ).generate(force: force);
+    }
+
+    String repository() =>
+        File('${project.path}/lib/app/data/sources/repository.dart')
+            .readAsStringSync();
+
+    test('初次生成没有旧文件，直接写入', () async {
+      expect(await run(), 0);
+      expect(repository(), contains('class AppRepository'));
+    });
+
+    test('用户手写了方法后拒绝覆盖', () async {
+      expect(await run(), 0);
+
+      final withHandwritten = repository().replaceFirst(
+        '  static bool destroyInstance() {',
+        '  Future<int> orderCount() async => 0;\n\n  static bool destroyInstance() {',
+      );
+      File('${project.path}/lib/app/data/sources/repository.dart')
+          .writeAsStringSync(withHandwritten);
+
+      expect(await run(), 1);
+      expect(repository(), contains('orderCount'));
+    });
+
+    test('--force 时才覆盖手写内容', () async {
+      expect(await run(), 0);
+
+      File('${project.path}/lib/app/data/sources/repository.dart')
+          .writeAsStringSync(repository().replaceFirst(
+        '  static bool destroyInstance() {',
+        '  Future<int> orderCount() async => 0;\n\n  static bool destroyInstance() {',
+      ));
+
+      expect(await run(force: true), 0);
+      expect(repository(), isNot(contains('orderCount')));
+    });
+
+    test('没有手写内容时重复生成不受影响', () async {
+      expect(await run(), 0);
+      final first = repository();
+      expect(await run(), 0);
+      expect(repository(), first);
+    });
+  });
+
   group('parseApiClient', () {
     test('解析出全部方法', () {
       final methods = parseApiClient(clientSource);

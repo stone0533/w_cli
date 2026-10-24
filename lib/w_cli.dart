@@ -337,7 +337,7 @@ Future<int> handleApiCommand(List<String> arguments, {bool debug = false}) async
   // client.dart -> mixin / repository 走 Dart 侧（见 docs/adr/0001）
   if (invocation.mode == ApiMode.generate) {
     try {
-      return await ApiGenerator().generate();
+      return await ApiGenerator().generate(force: invocation.force);
     } catch (e) {
       handleError(e, 'API code generation');
       return 1;

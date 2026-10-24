@@ -6,6 +6,7 @@
 ///   ww api init             初始化 lib/app/data 目录与模板
 ///   ww api models           从 w_json/*.json 生成模型
 ///   ww api models --force   忽略增量检查，全量重新生成
+///   ww api generate --force 覆盖 repository.dart 里检测到的手写成员
 ///
 /// 旧的 `--init` / `--models` / `--full` 不再支持，只给一句指路。
 library;
@@ -33,8 +34,9 @@ const String apiUsage = '''
   ww api init                 初始化 lib/app/data 目录与模板文件
   ww api models               从 w_json/*.json 生成模型
   ww api models --force       忽略增量检查，全量重新生成模型
+  ww api generate --force     检测到手写成员时仍然覆盖
 选项:
-  --force                     配合 models：全量重新生成
+  --force                     models：全量重新生成；generate：忽略手写成员保护
   -d, --debug                 输出调试日志（init / models 传给脚本）''';
 
 /// 把命令行参数解析成 [ApiInvocation]；非法用法抛 [ApiUsageError]。
@@ -74,8 +76,8 @@ ApiInvocation resolveApiArgs(List<String> args) {
     final other => throw ApiUsageError('未知子命令: $other\n\n$apiUsage'),
   };
 
-  if (force && mode != ApiMode.models) {
-    throw ApiUsageError('--force 只能配合 models 使用\n\n$apiUsage');
+  if (force && mode == ApiMode.init) {
+    throw ApiUsageError('--force 不能配合 init 使用\n\n$apiUsage');
   }
 
   return ApiInvocation(mode: mode, force: force);
