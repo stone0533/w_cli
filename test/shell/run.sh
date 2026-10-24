@@ -320,6 +320,9 @@ assert_contains "api.sh 旧写法 --models 指路新写法" "api.sh models" \
   "$( cd "$ROOT" && bash "$SH/api.sh" --models 2>&1 )"
 assert_contains "api.sh 旧写法 --full 指路 --force" "models --force" \
   "$( cd "$ROOT" && bash "$SH/api.sh" --full 2>&1 )"
+assert_eq "api.sh generate 不被接受（退出 2）" 2 "$(run_script api.sh generate)"
+assert_contains "api.sh generate 指路 ww api generate" "ww api generate" \
+  "$( cd "$ROOT" && bash "$SH/api.sh" generate 2>&1 )"
 
 echo
 echo "== 10. api.sh 生成自检（verify_generated_models） =="
