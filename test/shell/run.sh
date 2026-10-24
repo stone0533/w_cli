@@ -308,6 +308,25 @@ fn_out="$(bash -c '. "$1"; APP_NAME=demo; TIMESTAMP=2026_0101_010101; VERSION_FO
 assert_eq "generate_filename 生产模式" "w_build/demo_live_1.0.0.apk" "$fn_out"
 
 echo
+echo "== 9. api.sh 生成自检（verify_generated_models） =="
+vgm_dir="$(mktemp -d)"
+vgm() { # 目录 -> 退出码
+  bash -c ". '$SH/api.sh'; verify_generated_models '$1'" > /dev/null 2>&1
+  echo $?
+}
+
+mkdir -p "$vgm_dir/clean" "$vgm_dir/dup_import" "$vgm_dir/dup_class"
+printf "import 'a.dart';\nimport 'b.dart';\n\nclass A {}\nclass B {}\n" > "$vgm_dir/clean/model.dart"
+printf "import 'a.dart';\nimport 'a.dart';\n\nclass A {}\n" > "$vgm_dir/dup_import/model.dart"
+printf "import 'a.dart';\n\nclass A {}\nclass A {}\n" > "$vgm_dir/dup_class/model.dart"
+
+assert_eq "自检：干净目录通过" 0 "$(vgm "$vgm_dir/clean")"
+assert_eq "自检：重复 import 被拦下" 1 "$(vgm "$vgm_dir/dup_import")"
+assert_eq "自检：重复 class 被拦下" 1 "$(vgm "$vgm_dir/dup_class")"
+assert_eq "自检：目录不存在时跳过" 0 "$(vgm "$vgm_dir/does-not-exist")"
+rm -rf "$vgm_dir"
+
+echo
 if [ "$FAILS" -eq 0 ]; then
   printf '全部通过：%d 项\n' "$TOTAL"
   exit 0

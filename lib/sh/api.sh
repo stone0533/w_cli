@@ -660,11 +660,21 @@ verify_generated_models() {
     return 0
   fi
 
+  # 只查同一文件内的结构性错误：重复 import、重复 class。
+  # 不同文件里出现同名 class 在 Dart 里是允许的（只有同时 import 才冲突），
+  # 所以每个文件开头重置一次统计。
   local bad=""
   bad="$(awk '
-    FNR == 1 { delete seen_import }
+    FNR == 1 {
+      delete seen_import
+      delete seen_class
+    }
     /^import /{
       if (seen_import[$0]++) print FILENAME ": 重复 import → " $0
+    }
+    /^class /{
+      name = $2
+      if (name != "" && seen_class[name]++) print FILENAME ": 重复 class → " name
     }
   ' "$models_dir"/*.dart 2>/dev/null)"
 
