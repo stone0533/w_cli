@@ -208,6 +208,37 @@ JSON
   rm -rf "$e2e"
 fi
 
+# 独立类之间互相引用：两种声明顺序都要补 import
+for order in customer-first order-first; do
+  e2e="$(mktemp -d)"
+  mkdir -p "$e2e/w_json" "$e2e/lib/app/data/models"
+  printf 'name: demo\ndependencies:\n  json_annotation: ^4.9.0\ndev_dependencies:\n  json_serializable: ^6.8.0\n  build_runner: ^2.4.0\n' > "$e2e/pubspec.yaml"
+  cat > "$e2e/w_json/order.json" << 'JSON'
+{"data":{"order":{"id":1,"customer":{"cid":7,"name":"n"}}}}
+JSON
+  cat > "$e2e/w_json/customer.json" << 'JSON'
+{"data":{"customer":{"cid":7,"name":"n"}}}
+JSON
+  if [ "$order" = "customer-first" ]; then
+    printf '# Customer\ncustomer.json data.customer\n# Order\norder.json data.order\n' > "$e2e/w_json/w_json.config"
+  else
+    printf '# Order\norder.json data.order\n# Customer\ncustomer.json data.customer\n' > "$e2e/w_json/w_json.config"
+  fi
+  ( cd "$e2e" && bash -c ". '$SH/api.sh'; run_build_runner() { :; }; generate_models" > /dev/null 2>&1 )
+  order_file="$e2e/lib/app/data/models/order.dart"
+  if grep -qE '(^|[^A-Za-z])Customer\? customer' "$order_file" 2>/dev/null; then
+    pass "独立类引用命中（${order}）"
+  else
+    fail "独立类引用命中（${order}）" "order.dart 没有复用 Customer"
+  fi
+  if grep -q "import './customer.dart'" "$order_file" 2>/dev/null; then
+    pass "独立类引用补 import（${order}）"
+  else
+    fail "独立类引用补 import（${order}）" "order.dart 缺少 import"
+  fi
+  rm -rf "$e2e"
+done
+
 # 每个模型只起一次 python3（性能票的验收）
 py_dir="$(mktemp -d)"
 cat > "$py_dir/python3" << EOF

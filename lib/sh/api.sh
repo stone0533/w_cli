@@ -14,12 +14,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
 . "$SCRIPT_DIR/lib.sh"
 
-# 全局变量：存储已定义的独立类名（使用字符串格式存储："类名:文件路径|节点路径"）
-STANDALONE_CLASSES=""
-
-# 全局变量：存储已生成的独立类名（用于避免重复生成）
-GENERATED_STANDALONE_CLASSES=""
-
 # 全局变量：存储配置文件中引用的 JSON 文件名（用于增量检查）
 CONFIG_REFERENCED_JSON_FILES=""
 
@@ -1012,113 +1006,56 @@ run_build_runner() {
   fi
 }
 
-# 解析配置文件，生成独立模型类
+# 解析配置文件：只收集独立类（类名 / JSON 文件 / 节点路径），不在这里生成。
+# 全部收集完再统一生成，配置行的先后顺序因此不再影响结构匹配。
 parse_config_file() {
   local config_file="$1"
   local json_dir="$2"
-  local models_dir="$3"
-  
+
   if [[ ! -f "$config_file" ]]; then
     log_info "配置文件不存在: $config_file，跳过自定义类生成"
     return 0
   fi
-  
+
   log_info "读取配置文件: $config_file"
-  
+
   local current_class=""
-  
+  local line=""
+
   while IFS= read -r line || [[ -n "$line" ]]; do
-    # 跳过空行
     if [[ -z "$line" ]]; then
       continue
     fi
-    
-    # 检查是否是类名注释行（以 # 开头）
+
+    # 类名注释行（# Merchant）
     if [[ "$line" =~ ^[[:space:]]*# ]]; then
-      # 提取类名（去掉 # 和空格）
       current_class=$(echo "$line" | sed 's/^[[:space:]]*#[[:space:]]*//')
       continue
     fi
-    
-    # 解析 JSON 文件路径和节点路径
-    # 格式: merchantDetails.json data.Merchant
+
+    # 配置行：json 文件名 + 节点路径
     if [[ "$line" =~ ^([^[:space:]]+)[[:space:]]+(.+)$ ]]; then
       local json_file="${BASH_REMATCH[1]}"
       local node_path="${BASH_REMATCH[2]}"
-      
+
       if [[ -z "$current_class" ]]; then
         log_warn "跳过配置行，缺少类名: $line"
         continue
       fi
-      
+
       local full_json_path="$json_dir/$json_file"
-      
       if [[ ! -f "$full_json_path" ]]; then
         log_warn "JSON 文件不存在: $full_json_path"
         continue
       fi
-      
+
       log_debug "  - $current_class: $json_file -> $node_path"
-      
-      # 记录独立类名（用于后续引用）
-      # 使用特殊分隔符: @@@分隔类, |||分隔类名和信息, &&&分隔文件路径和节点路径
-      if [[ -n "${STANDALONE_CLASSES:-}" ]]; then
-        STANDALONE_CLASSES="$STANDALONE_CLASSES@@@$current_class|||$full_json_path&&&$node_path"
-      else
-        STANDALONE_CLASSES="$current_class|||$full_json_path&&&$node_path"
-      fi
-      
-      # 记录配置文件中引用的 JSON 文件名（用于增量检查）
+
+      STANDALONE_SPEC_LINES+=("${current_class}	${full_json_path}	${node_path}")
+
       if [[ -z "${CONFIG_REFERENCED_JSON_FILES:-}" || ! " $CONFIG_REFERENCED_JSON_FILES " =~ " $json_file " ]]; then
         CONFIG_REFERENCED_JSON_FILES="$CONFIG_REFERENCED_JSON_FILES $json_file"
       fi
-
-      # 传给渲染器做结构匹配：类名 / JSON 文件 / 节点路径，TAB 分隔
-      STANDALONE_SPEC_LINES+=("${current_class}	${full_json_path}	${node_path}")
-      
-      # 提取 JSON 节点内容
-      local node_content=$(extract_json_node "$full_json_path" "$node_path")
-      
-      if [[ -z "$node_content" ]]; then
-        log_warn "无法提取节点内容: $node_path"
-        continue
-      fi
-      
-      # 将类名转换为文件名（驼峰转下划线）
-      local standalone_file_name=$(echo "$current_class" | awk '{for(i=1;i<=length;i++) {c=substr($0,i,1); if(c~/[A-Z]/ && i>1) printf "_" tolower(c); else printf tolower(c)}}')
-      local dart_file="$models_dir/${standalone_file_name}.dart"
-      
-      # 检查是否已经生成过这个类，避免重复生成
-      if [[ -z "${GENERATED_STANDALONE_CLASSES:-}" || ! " $GENERATED_STANDALONE_CLASSES " =~ " $current_class " ]]; then
-        local need_generate=true
-        
-        # 增量模式下检查文件是否需要更新
-        if [[ "$INCREMENTAL_MODE" = true && -f "$dart_file" ]]; then
-          local json_mtime=$(stat -f "%m" "$full_json_path" 2>/dev/null || stat -c "%Y" "$full_json_path" 2>/dev/null)
-          local config_mtime=$(stat -f "%m" "$config_file" 2>/dev/null || stat -c "%Y" "$config_file" 2>/dev/null)
-          local dart_mtime=$(stat -f "%m" "$dart_file" 2>/dev/null || stat -c "%Y" "$dart_file" 2>/dev/null)
-          
-          # 如果 JSON 文件和配置文件都不比 Dart 文件新，不需要更新
-          if [[ "$json_mtime" -le "$dart_mtime" && "$config_mtime" -le "$dart_mtime" ]]; then
-            need_generate=false
-            log_info "  - ${standalone_file_name}.dart (无需更新)"
-          fi
-        fi
-        
-        if [[ "$need_generate" = true ]]; then
-          # 生成独立的模型文件
-          generate_standalone_model "$node_content" "$current_class" "$models_dir"
-          log_info "  ~ ${standalone_file_name}.dart (生成/更新)"
-        fi
-        
-        # 记录已生成的类名（标记为已处理）
-        GENERATED_STANDALONE_CLASSES="$GENERATED_STANDALONE_CLASSES $current_class"
-      else
-        log_debug "  - $current_class: 已存在，跳过重复生成"
-      fi
-      
-      # 不移重置当前类名，允许同一个类名对应多个配置行
-      # current_class=""
     fi
   done < "$config_file"
 }
@@ -1325,37 +1262,71 @@ generate_model_class() {
   fi
 }
 
-# 生成独立的模型文件
-generate_standalone_model() {
-  local json_content="$1"
-  local class_name="$2"
-  local models_dir="$3"
-  
-  # 将类名转换为文件名（驼峰转下划线）
-  local dart_file_name=$(echo "$class_name" | awk '{for(i=1;i<=length;i++) {c=substr($0,i,1); if(c~/[A-Z]/ && i>1) printf "_" tolower(c); else printf tolower(c)}}')
-  local dart_file="$models_dir/${dart_file_name}.dart"
-  
-  local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+# 驼峰类名 -> 蛇形文件名
+snake_name() {
+  printf '%s' "$1" | awk '{for(i=1;i<=length;i++) {c=substr($0,i,1); if(c~/[A-Z]/ && i>1) printf "_" tolower(c); else printf tolower(c)}}'
+}
+
+# 扫模型内容里用到的独立类，生成 import 语句（排除自身，避免自引用）
+collect_standalone_imports() {
+  local self_class="$1"
+  local model_content="$2"
+
+  local imports=""
+  local spec=""
+  local name=""
+  local path=""
+  local node=""
+
+  for spec in "${STANDALONE_SPEC_LINES[@]}"; do
+    if [[ -z "$spec" ]]; then
+      continue
+    fi
+    IFS=$'\t' read -r name path node <<< "$spec"
+
+    if [[ "$name" = "$self_class" ]]; then
+      continue
+    fi
+    if printf '%s' "$model_content" | grep -q "\b${name}\b"; then
+      imports+="import './$(snake_name "$name").dart';"$'\n'
+    fi
+  done
+
+  printf '%s' "$imports"
+}
+
+# 生成一个模型文件。主模型和独立类走同一段装配：import 扫描、part、原子写，
+# 以前两条路径各写各的，import 只长在其中一条上。
+generate_model_file() {
+  local class_name="$1"
+  local json_content="$2"
+  local dart_file="$3"
+  local part_name="$4"
+
+  local model_content=""
+  model_content="$(generate_model_class "$json_content" "$class_name" "$dart_file")"
+
   local file_content=""
-  
-  file_content+="// **************************************************************************\n"
-  file_content+="// Auto-generated file. Do not edit manually.\n"
-  file_content+="// **************************************************************************\n"
-  file_content+="// This file was generated by api.sh on $timestamp\n"
-  file_content+="// Changes will be overwritten the next time the script runs.\n"
-  file_content+="// **************************************************************************\n"
+  file_content+="$(generate_header_comment)"
+  file_content+="\n"
   file_content+="import 'package:json_annotation/json_annotation.dart';\n"
   file_content+="\n"
-  file_content+="part '${dart_file_name}.g.dart';\n"
+
+  local standalone_imports=""
+  standalone_imports="$(collect_standalone_imports "$class_name" "$model_content")"
+  if [[ -n "$standalone_imports" ]]; then
+    file_content+="$standalone_imports"
+    file_content+="\n"
+  fi
+
+  file_content+="part '${part_name}.g.dart';\n"
   file_content+="\n"
-  
-  # 使用 generate_model_class 函数生成类
-  local model_content=$(generate_model_class "$json_content" "$class_name" "$dart_file")
   file_content+="$model_content"
-  
-  # 生成 dart 文件：同样是先写临时文件、校验通过才替换
+
+  log_info "生成文件: $dart_file"
   local tmp_dart=""
   tmp_dart="$(mktemp "${dart_file}.XXXXXX")" || { log_error "无法创建临时文件: $dart_file"; return 1; }
+  # printf 的格式串不能是文件内容：内容里的 \' 会被当成转义吃掉
   if ! printf '%s' "${file_content//\\n/$'\n'}" > "$tmp_dart"; then
     log_error "写入临时文件失败: $dart_file"
     rm -f "$tmp_dart"
@@ -1459,9 +1430,53 @@ generate_models() {
     log_info "  - $(basename "$json_file")"
   done
   
-  # 解析配置文件，生成独立模型类
-  parse_config_file "$json_dir/w_json.config" "$json_dir" "$models_dir"
-  log_debug "配置解析完成，STANDALONE_CLASSES: '$STANDALONE_CLASSES'"
+  # 先解析配置（只收集），再统一生成：配置行的先后顺序不再影响结构匹配
+  parse_config_file "$json_dir/w_json.config" "$json_dir"
+
+  # 生成独立类（同类名只生成一次，保持声明顺序）
+  if [[ ${#STANDALONE_SPEC_LINES[@]} -gt 0 ]]; then
+    log_info "生成配置文件声明的独立类..."
+    local seen_standalone=" "
+    local spec=""
+    local standalone_class=""
+    local standalone_json=""
+    local standalone_node=""
+    for spec in "${STANDALONE_SPEC_LINES[@]}"; do
+      if [[ -z "$spec" ]]; then
+        continue
+      fi
+      IFS=$'\t' read -r standalone_class standalone_json standalone_node <<< "$spec"
+
+      case "$seen_standalone" in
+        *" $standalone_class "*) continue ;;
+      esac
+      seen_standalone="$seen_standalone$standalone_class "
+
+      local standalone_dart_name=""
+      standalone_dart_name="$(snake_name "$standalone_class")"
+      local standalone_dart_file="$models_dir/${standalone_dart_name}.dart"
+
+      if [[ "$INCREMENTAL_MODE" = true && -f "$standalone_dart_file" ]]; then
+        local json_mtime=$(stat -f "%m" "$standalone_json" 2>/dev/null || stat -c "%Y" "$standalone_json" 2>/dev/null)
+        local config_mtime=$(stat -f "%m" "$json_dir/w_json.config" 2>/dev/null || stat -c "%Y" "$json_dir/w_json.config" 2>/dev/null)
+        local dart_mtime=$(stat -f "%m" "$standalone_dart_file" 2>/dev/null || stat -c "%Y" "$standalone_dart_file" 2>/dev/null)
+        if [[ "$json_mtime" -le "$dart_mtime" && "$config_mtime" -le "$dart_mtime" ]]; then
+          log_info "  - ${standalone_dart_name}.dart (无需更新)"
+          continue
+        fi
+      fi
+
+      local standalone_content=""
+      standalone_content="$(extract_json_node "$standalone_json" "$standalone_node")"
+      if [[ -z "$standalone_content" ]]; then
+        log_warn "无法提取节点内容: $standalone_node"
+        continue
+      fi
+
+      generate_model_file "$standalone_class" "$standalone_content" "$standalone_dart_file" "$standalone_dart_name" || return 1
+      log_info "  ~ ${standalone_dart_name}.dart (生成/更新)"
+    done
+  fi
   
   # 检查文件是否需要更新
   local files_to_generate=()
@@ -1535,76 +1550,18 @@ generate_models() {
     log_info "全量模式: 重新生成所有 ${#files_to_generate[@]} 个文件..."
   fi
   
-  # 转换 json 文件为 dart 文件
+  # 转换 json 文件为 dart 文件（与独立类共用同一段装配）
   log_info "开始转换 json 文件为 dart 文件..."
   for item in "${files_to_generate[@]}"; do
     IFS='|' read -r json_file dart_file dart_file_name json_name <<< "$item"
-    
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
     local class_name=$(echo "$json_name" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
-    
-    # 读取 json 文件内容并提取字段
     local json_content=$(cat "$json_file")
-    
-    # 生成主模型类
     local main_class_name="${class_name}Result"
-    local file_content=""
-    # 使用 generate_model_class 函数生成主类和嵌套类
-    local model_content=$(generate_model_class "$json_content" "$main_class_name" "$dart_file")
-    
-    file_content+="$(generate_header_comment)"
-    file_content+="\n"
-    file_content+="import 'package:json_annotation/json_annotation.dart';\n"
-    file_content+="\n"
-    
-    # 扫描生成的模型内容，找出所有对独立类的引用
-    local used_classes=""
-    if [[ -n "${STANDALONE_CLASSES:-}" ]]; then
-      IFS='@@@' read -ra class_entries <<< "$STANDALONE_CLASSES"
-      for class_entry in "${class_entries[@]}"; do
-        IFS='|||' read -r standalone_class _ <<< "$class_entry"
-        # 检查模型内容中是否使用了这个独立类，并且避免重复添加
-        if echo "$model_content" | grep -q "\b$standalone_class\b" && [[ ! " $used_classes " =~ " $standalone_class " ]]; then
-          used_classes="$used_classes $standalone_class"
-          #echo "DEBUG: 发现使用独立类: $standalone_class" >&2
-        fi
-      done
-    fi
-    
-    # 添加对独立类的导入
-    if [[ -n "$used_classes" ]]; then
-      for standalone_class in $used_classes; do
-        # 将类名转换为文件名（驼峰转下划线）
-        local standalone_file_name=$(echo "$standalone_class" | awk '{for(i=1;i<=length;i++) {c=substr($0,i,1); if(c~/[A-Z]/ && i>1) printf "_" tolower(c); else printf tolower(c)}}')
-        file_content+="import './${standalone_file_name}.dart';\n"
-        #echo "DEBUG: 添加导入: './${standalone_file_name}.dart'" >&2
-      done
-      file_content+="\n"
-    fi
-    
-    file_content+="part '${dart_file_name}.g.dart';\n"
-    file_content+="\n"
-    file_content+="$model_content"
-    
-    # 生成 dart 文件：先写临时文件，校验通过才替换
-    log_info "生成文件: $dart_file"
-    local tmp_dart=""
-    tmp_dart="$(mktemp "${dart_file}.XXXXXX")" || { log_error "无法创建临时文件: $dart_file"; return 1; }
-    # printf 的格式串不能是文件内容：内容里的 \' 会被当成转义吃掉。
-    # 这里只把装配时用的字面 \n 还原成换行，其余字符原样输出。
-    if ! printf '%s' "${file_content//\\n/$'\n'}" > "$tmp_dart"; then
-      log_error "写入临时文件失败: $dart_file"
-      rm -f "$tmp_dart"
-      return 1
-    fi
-    if ! dart_format_check "$tmp_dart"; then
-      log_error "生成的模型不是合法 Dart，已放弃写入: $dart_file"
-      rm -f "$tmp_dart"
-      return 1
-    fi
-    mv -- "$tmp_dart" "$dart_file"
+
+    generate_model_file "$main_class_name" "$json_content" "$dart_file" "$dart_file_name" || return 1
   done
-  
+
   # 执行 build_runner build
   run_build_runner
   
