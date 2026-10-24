@@ -131,16 +131,39 @@ cleanup_failed_build() {
 # 构建超时处理函数
 # 参数: timeout_seconds command...
 run_with_timeout() {
-  local timeout="$1"
+  local timeout_seconds="$1"
   shift
-  
-  log_debug "执行命令: $*"
-  
-  # 直接执行命令（不使用复杂的超时机制，避免子shell问题）
-  "$@"
-  local exit_code=$?
-  
-  return $exit_code
+
+  log_debug "执行命令（超时: ${timeout_seconds}s）: $*"
+
+  # 优先用 GNU coreutils 的 timeout / gtimeout；macOS 默认两者都没有，
+  # 所以必须有一个不依赖外部工具的实现，超时才不是一句空话。
+  if command -v timeout &> /dev/null; then
+    timeout "$timeout_seconds" "$@"
+    return $?
+  fi
+  if command -v gtimeout &> /dev/null; then
+    gtimeout "$timeout_seconds" "$@"
+    return $?
+  fi
+
+  "$@" &
+  local child=$!
+  local waited=0
+  while kill -0 "$child" 2>/dev/null; do
+    if [ "$waited" -ge "$timeout_seconds" ]; then
+      log_warn "命令超时（${timeout_seconds}s），正在终止进程 $child"
+      kill -TERM "$child" 2>/dev/null || true
+      sleep 2
+      kill -KILL "$child" 2>/dev/null || true
+      wait "$child" 2>/dev/null || true
+      return 124
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+  wait "$child"
+  return $?
 }
 PARALLEL_BUILD="${PARALLEL_BUILD:-false}"
 
@@ -381,17 +404,18 @@ show_help() {
   log_info "  PARALLEL_BUILD=true ./build.sh apk aab # Build APK and AAB in parallel"
   log_info "  ./build.sh apk aab ios --uat --clean # Build all platforms in UAT mode and clear build directory"
   log_info "  ./build.sh ios                 # Build iOS，自动查找 w_build/ios.plist 进行签名"
-  exit 0
 }
 
 # 检查参数是否正确
 if [ $# -lt 1 ]; then
   show_help
+  exit 0
 fi
 
 # 检查帮助参数
 if [ "$1" == "--help" ]; then
   show_help
+  exit 0
 fi
 
 # 检查版本参数
@@ -501,8 +525,8 @@ for arg in "$@"; do
       # 验证参数不为空
       if [ -z "$APP_NAME" ]; then
         log_error "-name 参数不能为空"
-        show_help
-        exit 1
+        show_help >&2
+        exit 2
       fi
       # 验证参数不包含路径分隔符
       if [[ "$APP_NAME" == *"/"* ]]; then
@@ -517,8 +541,8 @@ for arg in "$@"; do
       # 验证参数不为空
       if [ -z "$EXPORT_OPTIONS_PLIST" ]; then
         log_error "-export-options 参数不能为空"
-        show_help
-        exit 1
+        show_help >&2
+        exit 2
       fi
       # 防止路径遍历攻击
       if [[ "$EXPORT_OPTIONS_PLIST" == *".."* ]]; then
@@ -659,8 +683,11 @@ build_android_package() {
   log_info "执行构建命令..."
   log_debug "完整命令: ${build_command[*]}"
   local timeout=1800  # 30 分钟
-  if ! run_with_timeout "$timeout" "${build_command[@]}" | sed 's/\x1B\[[0-9;]*[mK]//g'; then
-    local exit_code=$?
+  run_with_timeout "$timeout" "${build_command[@]}" | sed 's/\x1B\[[0-9;]*[mK]//g'
+  # 管道最后一个命令是 sed，必须取 PIPESTATUS[0] 才是构建本身的退出码
+  local build_status=${PIPESTATUS[0]}
+  if [ "$build_status" -ne 0 ]; then
+    local exit_code=$build_status
     if [ "$exit_code" -eq 124 ]; then
       log_error "构建 $package_type_upper 超时（超过 ${timeout}s）"
     else
@@ -1031,8 +1058,10 @@ build_ios() {
   
   # 执行 Flutter 构建命令（设置超时时间为 30 分钟）
   local timeout=1800  # 30 分钟
-  if ! run_with_timeout "$timeout" "${flutter_build_command[@]}" | sed 's/\x1B\[[0-9;]*[mK]//g'; then
-    local exit_code=$?
+  run_with_timeout "$timeout" "${flutter_build_command[@]}" | sed 's/\x1B\[[0-9;]*[mK]//g'
+  local build_status=${PIPESTATUS[0]}
+  if [ "$build_status" -ne 0 ]; then
+    local exit_code=$build_status
     if [ "$exit_code" -eq 124 ]; then
       log_error "Flutter 构建超时（超过 ${timeout}s）"
     else
@@ -1242,19 +1271,20 @@ if [ "$PARALLEL_BUILD" == "true" ] && [ ${#PLATFORMS[@]} -gt 1 ]; then
   log_info "启用并行构建模式"
   
   # 用于存储构建状态的数组
-  local build_status=()
+  # 注意：这一段在脚本顶层执行，不能用 local（bash 的 local 只允许出现在函数内）
+  build_status=()
   for platform in "${PLATFORMS[@]}"; do
     build_status+=(0)
   done
-  
+
   # 创建临时文件来存储每个构建的退出状态
-  local temp_dir=$(mktemp -d)
-  local status_files=()
-  
-  local i=0
+  temp_dir=$(mktemp -d)
+  status_files=()
+
+  i=0
   for platform in "${PLATFORMS[@]}"; do
-    local status_file="$temp_dir/status_$i.txt"
-    status_files+=($status_file)
+    status_file="$temp_dir/status_$i.txt"
+    status_files+=("$status_file")
     
     case "$platform" in
       "apk")
@@ -1276,7 +1306,7 @@ if [ "$PARALLEL_BUILD" == "true" ] && [ ${#PLATFORMS[@]} -gt 1 ]; then
   # 检查构建状态
   for status_file in "${status_files[@]}"; do
     if [ -f "$status_file" ]; then
-      local exit_code=$(cat "$status_file" 2>/dev/null || echo 1)
+      exit_code=$(cat "$status_file" 2>/dev/null || echo 1)
       if [ "$exit_code" -ne 0 ]; then
         BUILD_FAILURE=true
         break

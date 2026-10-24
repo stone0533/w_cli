@@ -53,7 +53,6 @@ show_help() {
   echo ""
   echo "示例:"
   echo "  ./project.sh --update  # 更新项目依赖和配置"
-  exit 0
 }
 
 # 显示版本信息
@@ -150,6 +149,7 @@ main() {
   # 检查参数
   if [ $# -eq 0 ]; then
     show_help
+    exit 0
   fi
   
   for arg in "$@"; do
@@ -200,14 +200,15 @@ main() {
         ;;
       --help)
         show_help
+        exit 0
         ;;
       --version)
         show_version
         ;;
       *)
         log_error "未知参数: $arg"
-        show_help
-        return 1
+        show_help >&2
+        exit 2
         ;;
     esac
   done

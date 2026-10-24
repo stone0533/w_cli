@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:args/args.dart';
 import 'package:w_cli/w_cli.dart' as w;
 import 'package:w_cli/src/resources.dart' as resources;
@@ -96,22 +98,25 @@ Future<void> main(List<String> arguments) async {
     final command = results.command;
     if (command == null) {
       print('Error: No command specified');
+      exitCode = 2;
       return;
     }
 
     // 处理不同的命令
+    // 每个 handler 返回子进程退出码：脚本失败必须让 ww 也失败，
+    // 否则 CI 与 `ww build && ./upload.sh` 这类串联都会误判为成功。
     switch (command.name) {
       case 'create':
       case 'c':
-        await w.handleCreateCommand(command.arguments);
+        exitCode = await w.handleCreateCommand(command.arguments);
         break;
       case 'api':
       case 'a':
-        await w.handleApiCommand(command.arguments);
+        exitCode = await w.handleApiCommand(command.arguments);
         break;
       case 'update':
       case 'u':
-        await w.handleUpdateCommand();
+        exitCode = await w.handleUpdateCommand();
         break;
       case 'build':
       case 'b':
@@ -122,7 +127,7 @@ Future<void> main(List<String> arguments) async {
           if (command['clean'] as bool) '--clean',
           if (command['open'] as bool) '--open',
         ];
-        await w.handleBuildCommand(buildArgs);
+        exitCode = await w.handleBuildCommand(buildArgs);
         break;
       case 'project':
       case 'p':
@@ -131,25 +136,31 @@ Future<void> main(List<String> arguments) async {
           ...command.rest,
           if (command['update'] as bool) '--update',
         ];
-        await w.handleProjectCommand(projectArgs);
+        exitCode = await w.handleProjectCommand(projectArgs);
         break;
       case 'open':
       case 'o':
-        await w.handleOpenCommand(command.arguments);
+        exitCode = await w.handleOpenCommand(command.arguments);
         break;
       case 'common':
       case 'co':
-        await w.handleCommonCommand(command.arguments);
+        exitCode = await w.handleCommonCommand(command.arguments);
         break;
       case 'clean':
       case 'cl':
-        await w.handleCleanCommand(command.arguments);
+        exitCode = await w.handleCleanCommand(command.arguments);
         break;
       default:
         print('Error: Unknown command: ${command.name}');
+        exitCode = 2;
     }
+  } on FormatException catch (e) {
+    // 参数解析失败（例如未知选项）属于用法错误，用 2 区分于运行时失败
+    print('Error: $e');
+    exitCode = 2;
   } catch (e) {
     print('Error: $e');
+    exitCode = 1;
   } finally {
     // 清理临时文件
     resources.Resources.cleanupTempFiles();

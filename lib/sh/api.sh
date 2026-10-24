@@ -96,7 +96,6 @@ show_help() {
   echo "  $0 --debug      # 启用调试模式生成代码"
   echo "  $0 --models     # 生成模型文件（增量模式）"
   echo "  $0 --models --full  # 强制全量重新生成模型"
-  exit 0
 }
 
 # 解析命令行参数
@@ -127,10 +126,12 @@ parse_args() {
         ;;
       --help)
         show_help
+        exit 0
         ;;
       *)
         log_error "未知参数: $1"
-        show_help
+        show_help >&2
+        exit 2
         ;;
     esac
   done
@@ -1182,7 +1183,7 @@ generate_model_class() {
   # 处理所有字段
   for field in $all_fields; do
     # 转换字段名（下划线转驼峰，并确保首字母小写）
-    local camel_field=$(echo "$field" | perl -pe 's/_([a-z])/\U$1/g' | awk '{print tolower(substr($0,1,1)) substr($0,2)}')
+    local camel_field=$(echo "$field" | sed 's/-/_/g' | perl -pe 's/_([a-zA-Z])/\U$1/g' | awk '{print tolower(substr($0,1,1)) substr($0,2)}')
     
     # 提取字段值
     local value=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); print(data.get('$field'))" 2>/dev/null || echo "")

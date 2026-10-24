@@ -95,7 +95,6 @@ show_help() {
   echo "  --debug    启用调试模式"
   echo "  --lock     清理锁文件（pubspec.lock 或 Podfile.lock）"
   echo "  --pod      清理 iOS Pods（仅适用于 iOS 平台）"
-  exit 0
 }
 
 # 配置选项
@@ -113,6 +112,7 @@ parse_args() {
     case "$1" in
       --help)
         show_help
+        exit 0
         ;;
       --version)
         show_version
@@ -135,7 +135,8 @@ parse_args() {
         ;;
       *)
         log_error "未知参数: $1"
-        show_help
+        show_help >&2
+        exit 2
         ;;
     esac
   done
@@ -143,7 +144,8 @@ parse_args() {
   # 检查 --pod 选项是否只用于 iOS 平台
   if [[ "$POD" == true && "$PLATFORM" != "ios" && "$PLATFORM" != "all" ]]; then
     log_error "--pod 选项只能用于 iOS 平台"
-    show_help
+    show_help >&2
+    exit 2
   fi
 }
 
