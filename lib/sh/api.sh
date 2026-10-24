@@ -50,8 +50,8 @@ show_help() {
   echo "  --help         显示帮助信息"
   echo ""
   echo "说明:"
-  echo "  client.dart 的代码生成已经迁到 Dart（见 docs/adr/0001），请改用：ww api"
-  echo "  本脚本只负责 init 与 models。"
+  echo "  client.dart 的代码生成（ww api generate）是纯 Dart 实现，见 docs/adr/0001"
+  echo "  本脚本只负责 init 与 models 这两个需要操作文件系统的子命令。"
   echo ""
   echo "示例:"
   echo "  $0 init                 # 初始化目录结构"
@@ -90,6 +90,12 @@ parse_args() {
         ;;
       --init|--models|--full)
         log_error "$1 已改成子命令，请改用：$(_legacy_hint "$1")"
+        exit 2
+        ;;
+      generate|g)
+        # 这一半已经是纯 Dart 实现（lib/src/api/），api.sh 里没有对应代码
+        log_error "generate 由 ww api 直接实现（Dart），api.sh 只有 init 与 models"
+        log_info "请改用：ww api generate"
         exit 2
         ;;
       *)
