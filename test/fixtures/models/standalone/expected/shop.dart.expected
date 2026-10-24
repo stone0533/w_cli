@@ -1,0 +1,35 @@
+// **************************************************************************
+// Auto-generated file. Do not edit manually.
+// **************************************************************************
+
+import 'package:json_annotation/json_annotation.dart';
+
+import './customer.dart';
+import './order.dart';
+part 'shop.g.dart';
+
+@JsonSerializable()
+class ShopResult extends Object {
+
+  @JsonKey(name: 'data')
+  ShopResultData? data;
+  ShopResult(this.data);
+
+  factory ShopResult.fromJson(Map<String, dynamic> srcJson) => _$ShopResultFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$ShopResultToJson(this);
+}
+
+@JsonSerializable()
+class ShopResultData extends Object {
+
+  @JsonKey(name: 'order')
+  Order? order;
+  @JsonKey(name: 'customer')
+  Customer? customer;
+  @JsonKey(name: 'note')
+  String? note;
+  ShopResultData(this.order, this.customer, this.note);
+
+  factory ShopResultData.fromJson(Map<String, dynamic> srcJson) => _$ShopResultDataFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$ShopResultDataToJson(this);
+}

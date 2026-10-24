@@ -468,6 +468,16 @@ verify_generated_models() {
   return 0
 }
 
+# 头部注释：@PR26 误删过一次（heredoc 里带 `}` 导致判定失误），
+# 这里补回来——models 的产物必须带这段标记
+generate_header_comment() {
+  cat << 'EOF'
+// **************************************************************************
+// Auto-generated file. Do not edit manually.
+// **************************************************************************
+EOF
+}
+
 # 生成一个模型文件。主模型和独立类走同一段装配：import 扫描、part、原子写，
 # 以前两条路径各写各的，import 只长在其中一条上。
 generate_model_file() {

@@ -1,0 +1,24 @@
+// **************************************************************************
+// Auto-generated file. Do not edit manually.
+// **************************************************************************
+
+import 'package:json_annotation/json_annotation.dart';
+
+part 'escape.g.dart';
+
+@JsonSerializable()
+class EscapeResult extends Object {
+
+  @JsonKey(name: 'it\'s')
+  int? itS;
+  @JsonKey(name: 'a\\b')
+  int? aB;
+  @JsonKey(name: 'quote"x')
+  int? quoteX;
+  @JsonKey(name: 'back`tick')
+  int? backTick;
+  EscapeResult(this.itS, this.aB, this.quoteX, this.backTick);
+
+  factory EscapeResult.fromJson(Map<String, dynamic> srcJson) => _$EscapeResultFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$EscapeResultToJson(this);
+}

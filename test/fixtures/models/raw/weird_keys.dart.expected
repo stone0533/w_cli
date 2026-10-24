@@ -1,0 +1,28 @@
+// **************************************************************************
+// Auto-generated file. Do not edit manually.
+// **************************************************************************
+
+import 'package:json_annotation/json_annotation.dart';
+
+part 'weird_keys.g.dart';
+
+@JsonSerializable()
+class Weird_keysResult extends Object {
+
+  @JsonKey(name: '-plus')
+  int? plus;
+  @JsonKey(name: 'with space')
+  int? withSpace;
+  @JsonKey(name: '2fa')
+  bool? f_2fa;
+  @JsonKey(name: 'class')
+  String? class_;
+  @JsonKey(name: 'type')
+  String? type;
+  @JsonKey(name: '中文')
+  String? __;
+  Weird_keysResult(this.plus, this.withSpace, this.f_2fa, this.class_, this.type, this.__);
+
+  factory Weird_keysResult.fromJson(Map<String, dynamic> srcJson) => _$Weird_keysResultFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$Weird_keysResultToJson(this);
+}

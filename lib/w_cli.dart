@@ -7,6 +7,7 @@ import 'src/api/api_cli.dart';
 export 'src/api/api_cli.dart';
 import 'src/api/api_generator.dart';
 import 'src/api/scaffolder.dart';
+import 'src/models/models_generator.dart';
 
 /// 获取当前版本号
 /// 从自动生成的版本文件中读取版本号
@@ -355,22 +356,11 @@ Future<int> handleApiCommand(List<String> arguments, {bool debug = false}) async
     }
   }
 
-  // models 仍是 api.sh 负责的那一半（JSON 渲染）
-  final scriptArgs = <String>[
-    'models',
-    if (invocation.force) '--force',
-    if (debug) '--debug',
-  ];
-
+  // JSON -> 模型（ADR-0002 Phase 3：不再走 api.sh）
   try {
-    return await executeScript(
-      'api.sh',
-      scriptArgs,
-      'API code generation completed successfully!',
-      'API code generation failed',
-    );
+    return await ModelsGenerator(force: invocation.force).generate();
   } catch (e) {
-    handleError(e, 'API code generation');
+    handleError(e, 'Model generation');
     return 1;
   }
 }

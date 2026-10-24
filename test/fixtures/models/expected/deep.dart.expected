@@ -1,0 +1,51 @@
+// **************************************************************************
+// Auto-generated file. Do not edit manually.
+// **************************************************************************
+
+import 'package:json_annotation/json_annotation.dart';
+
+part 'deep.g.dart';
+
+@JsonSerializable()
+class DeepResult extends Object {
+  @JsonKey(name: 'a')
+  DeepResultA? a;
+  DeepResult(this.a);
+
+  factory DeepResult.fromJson(Map<String, dynamic> srcJson) =>
+      _$DeepResultFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$DeepResultToJson(this);
+}
+
+@JsonSerializable()
+class DeepResultA extends Object {
+  @JsonKey(name: 'b')
+  DeepResultAB? b;
+  DeepResultA(this.b);
+
+  factory DeepResultA.fromJson(Map<String, dynamic> srcJson) =>
+      _$DeepResultAFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$DeepResultAToJson(this);
+}
+
+@JsonSerializable()
+class DeepResultAB extends Object {
+  @JsonKey(name: 'c')
+  DeepResultABC? c;
+  DeepResultAB(this.c);
+
+  factory DeepResultAB.fromJson(Map<String, dynamic> srcJson) =>
+      _$DeepResultABFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$DeepResultABToJson(this);
+}
+
+@JsonSerializable()
+class DeepResultABC extends Object {
+  @JsonKey(name: 'd')
+  int? d;
+  DeepResultABC(this.d);
+
+  factory DeepResultABC.fromJson(Map<String, dynamic> srcJson) =>
+      _$DeepResultABCFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$DeepResultABCToJson(this);
+}
