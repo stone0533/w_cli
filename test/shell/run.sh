@@ -325,7 +325,62 @@ assert_contains "api.sh generate 指路 ww api generate" "ww api generate" \
   "$( cd "$ROOT" && bash "$SH/api.sh" generate 2>&1 )"
 
 echo
-echo "== 10. api.sh 生成自检（verify_generated_models） =="
+echo "== 10. build.sh 端到端（stub flutter） =="
+build_root="$(mktemp -d)"
+mkdir -p "$build_root/bin" "$build_root/demo/android"
+cat > "$build_root/bin/flutter" << 'STUB'
+#!/bin/bash
+case "$1" in
+  --version) echo "Flutter 3.24.0 • channel stable"; exit 0 ;;
+  build)
+    case "$2" in
+      apk) mkdir -p build/app/outputs/flutter-apk; head -c 20000 /dev/zero > build/app/outputs/flutter-apk/app-release.apk ;;
+      appbundle) mkdir -p build/app/outputs/bundle/release; head -c 20000 /dev/zero > build/app/outputs/bundle/release/app-release.aab ;;
+    esac
+    exit 0 ;;
+  *) exit 0 ;;
+esac
+STUB
+chmod +x "$build_root/bin/flutter"
+printf 'name: demo\nversion: 1.2.3\n' > "$build_root/demo/pubspec.yaml"
+
+run_build_sh() { # 参数...（在 demo 工程里跑）
+  ( cd "$build_root/demo" && PATH="$build_root/bin:$PATH" bash "$SH/build.sh" "$@" ) > /dev/null 2>&1
+}
+
+# 1) 非法参数 + --clean：不能先删掉上次的产物
+mkdir -p "$build_root/demo/w_build"
+head -c 100 /dev/zero > "$build_root/demo/w_build/demo_live_1.2.3.apk"
+run_build_sh apk bogus --clean
+assert_eq "非法参数退出 1" 1 "$?"
+assert_eq "非法参数不会清掉上次产物" "present" \
+  "$([ -f "$build_root/demo/w_build/demo_live_1.2.3.apk" ] && echo present || echo gone)"
+
+# 2) --help 放在任意位置都只打印帮助，不进入构建
+rm -rf "$build_root/demo/w_build"
+run_build_sh apk --help
+assert_eq "--help（非首位）退出 0" 0 "$?"
+assert_eq "--help 不创建输出目录" "absent" \
+  "$([ -d "$build_root/demo/w_build" ] && echo present || echo absent)"
+
+# 3) 成功构建：产物 + build.log
+run_build_sh apk
+assert_eq "构建成功退出 0" 0 "$?"
+assert_eq "产物已生成" "present" \
+  "$([ -f "$build_root/demo/w_build/demo_live_1.2.3.apk" ] && echo present || echo gone)"
+assert_contains "构建日志已写入" "Built APK" \
+  "$(cat "$build_root/demo/w_build/build.log" 2>/dev/null)"
+
+# 4) 失败清理不再动输出目录里的成品
+head -c 100 /dev/zero > "$build_root/demo/w_build/keep_live_9.9.9.apk"
+( cd "$build_root/demo" && bash -c ". '$SH/build.sh'; cleanup_failed_build apk" ) > /dev/null 2>&1
+assert_eq "失败清理保留输出目录里的成品" "present" \
+  "$([ -f "$build_root/demo/w_build/keep_live_9.9.9.apk" ] && echo present || echo gone)"
+
+rm -rf "$build_root"
+
+echo
+echo "== 11. api.sh 生成自检（verify_generated_models） =="
 vgm_dir="$(mktemp -d)"
 vgm() { # 目录 -> 退出码
   bash -c ". '$SH/api.sh'; verify_generated_models '$1'" > /dev/null 2>&1

@@ -55,6 +55,36 @@ cleanup() {
   fi
 }
 
+# 追加一行到构建日志（$OUTPUT_DIR/build.log）。
+# 记日志失败不该影响构建结果，所以吞掉错误。
+log_to_file() {
+  local line="$1"
+  local log_file="${OUTPUT_DIR:-w_build}/build.log"
+  printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$line" >> "$log_file" 2>/dev/null || true
+}
+
+# 只清理本工具产出的文件。
+# OUTPUT_DIR 里还放着用户自己的东西（例如 w_build/ios.plist 签名配置），
+# 以前 `rm -rf $OUTPUT_DIR/*` 会把它们一起删掉。
+clean_output_directory() {
+  local dir="$1"
+  local removed=0
+  local artifact=""
+
+  if [ ! -d "$dir" ]; then
+    return 0
+  fi
+
+  while IFS= read -r artifact; do
+    rm -f -- "$artifact"
+    removed=$((removed + 1))
+  done < <(find "$dir" -maxdepth 1 -type f \( \
+    -name '*_live_*' -o -name '*_uat_*' \
+    -o -name '.last_build_*' -o -name 'build.log' \) 2>/dev/null)
+
+  log_info "已清理 $removed 个上次构建产物（目录里的其它文件保留）"
+}
+
 # 验证构建产物完整性
 # 参数: file_path min_size_bytes
 verify_build_output() {
@@ -95,27 +125,20 @@ cleanup_failed_build() {
   
   log_info "清理 $platform 失败产物..."
   
+  # 只清理本次构建的中间产物。$OUTPUT_DIR 里可能是上一次成功的成品，
+  # 失败的这一次根本还没往里写过东西，不该去动它。
   case "$platform" in
     "apk")
-      # 清理 APK 相关产物
       rm -f "build/app/outputs/flutter-apk/app-release.apk" 2>/dev/null
-      rm -f "$OUTPUT_DIR"/*_live_*.apk 2>/dev/null
-      rm -f "$OUTPUT_DIR"/*_uat_*.apk 2>/dev/null
       log_debug "已清理 APK 失败产物"
       ;;
     "aab")
-      # 清理 AAB 相关产物
       rm -f "build/app/outputs/bundle/release/app-release.aab" 2>/dev/null
-      rm -f "$OUTPUT_DIR"/*_live_*.aab 2>/dev/null
-      rm -f "$OUTPUT_DIR"/*_uat_*.aab 2>/dev/null
       log_debug "已清理 AAB 失败产物"
       ;;
     "ios")
-      # 清理 iOS 相关产物
       rm -rf "build/ios/iphoneos/Runner.app" 2>/dev/null
       rm -f "build/ios/iphoneos/Runner.ipa" 2>/dev/null
-      rm -f "$OUTPUT_DIR"/*_live_*.ipa 2>/dev/null
-      rm -f "$OUTPUT_DIR"/*_uat_*.ipa 2>/dev/null
       log_debug "已清理 iOS 失败产物"
       ;;
     *)
@@ -1082,6 +1105,8 @@ for arg in "$@"; do
       ;;
     "--help")
       show_help
+      ARGS_HANDLED=true
+      return 0
       ;;
     "--debug")
       DEBUG_MODE=true
@@ -1182,10 +1207,10 @@ mkdir -p "$OUTPUT_DIR"
 # 验证配置
 validate_config
 
-# 清空输出目录
+# 清空输出目录（只删本工具的产物，保留 ios.plist 这类用户文件）
 if [ "$CLEAR_MODE" == "true" ]; then
-  log_warn "清空构建目录: $OUTPUT_DIR"
-  rm -rf -- "${OUTPUT_DIR:?}"/*
+  log_warn "清理输出目录里的旧产物: $OUTPUT_DIR"
+  clean_output_directory "$OUTPUT_DIR"
 fi
 
 # 记录本次生成的文件
@@ -1194,11 +1219,7 @@ GENERATED_FILES=""
 
 # 真正执行构建
 run_build() {
-# 验证参数
-if ! validate_parameters "$@"; then
-  return 1
-fi
-
+# 参数已经由 main 校验过；这里只管构建
 # 根据参数执行打包命令
 BUILD_FAILURE=false
 
@@ -1330,17 +1351,24 @@ main() {
   fi
 
   ARGS_HANDLED=false
-  parse_args "$@" || return $?
+  parse_args "$@"
 
   if [[ "$ARGS_HANDLED" = true ]]; then
     return 0
   fi
 
+  # 参数校验必须在任何会删除东西的动作（--clean、建输出目录）之前
+  if ! validate_parameters "$@"; then
+    return 1
+  fi
+
   # 只有真的要构建时才装清理 trap，source 不会污染调用者的 shell
   trap cleanup EXIT
 
-  prepare_build || return 1
-  run_build "$@" || return 1
+  # 注意：这里不能写成 `prepare_build || return 1`——`||` 会关掉函数体内的
+  # errexit，前面辛苦加的 set -e 就白费了。函数内部自己 log_error + return。
+  prepare_build
+  run_build "$@"
 
   return 0
 }
