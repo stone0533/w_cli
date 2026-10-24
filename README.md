@@ -14,7 +14,7 @@ A comprehensive command-line tool for Flutter projects, providing API code gener
 - **Build Runner Execution / 构建运行器执行**: Run `build_runner` with a simple command / 使用简单命令运行 `build_runner`
 - **Command Aliases / 命令别名**: Short aliases for all commands for faster usage / 为所有命令提供短别名以加快使用
 - **Default Behaviors / 默认行为**: Intelligent defaults for common commands / 为常用命令提供智能默认值
-- **Cross-Platform / 跨平台**: Works on macOS, Linux, and Windows / 支持 macOS、Linux 和 Windows
+- **Cross-Platform / 跨平台**: macOS and Linux are fully supported; on Windows the script commands need bash (Git Bash or WSL) / 完整支持 macOS 与 Linux；Windows 上的脚本命令需要 bash（Git Bash 或 WSL）
 
 ## Installation / 安装
 
@@ -23,6 +23,14 @@ A comprehensive command-line tool for Flutter projects, providing API code gener
 ```bash
 dart pub global activate w_cli
 ```
+
+### Platform Support / 平台支持
+
+| 平台 | 状态 |
+|------|------|
+| macOS | 完整支持（开发和验证都在 macOS 上） |
+| Linux | 支持（CI 在 Ubuntu 上跑全部测试） |
+| Windows | 部分支持：`ww api` 的代码生成已经是纯 Dart 实现，可以直接用；其余命令（`create` / `build` / `clean` / `open` / `project` / `common`）是 bash 脚本，需要 Git Bash 或 WSL 提供 `bash`，否则会给出明确提示而不是静默失败 |
 
 ## Usage / 使用方法
 

@@ -10,7 +10,7 @@
 
 ## 2. 功能特点
 
-- **自动检测操作系统**: 支持 macOS、Linux 和 Windows 系统
+- **自动检测操作系统**: 支持 macOS 与 Linux；Windows 需要 bash（Git Bash / WSL）
 - **Flutter 环境检查**: 检查 Flutter 安装状态和版本
 - **完整目录结构**: 创建完整的项目目录结构
 - **依赖管理**: 安装必要的依赖包

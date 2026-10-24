@@ -14,7 +14,7 @@
 - **锁文件清理**: 支持清理 `pubspec.lock` 和 `Podfile.lock` 文件
 - **iOS Pods 清理**: 支持清理 iOS Pods 目录
 - **依赖更新**: 自动执行 `flutter pub get` 更新依赖
-- **跨平台兼容**: 支持 macOS、Linux 和 Windows 系统
+- **跨平台兼容**: 支持 macOS 与 Linux；Windows 需要 bash（Git Bash / WSL）
 - **详细日志**: 提供详细的清理过程日志和错误处理
 - **调试模式**: 支持启用调试模式，显示更详细的执行信息
 
