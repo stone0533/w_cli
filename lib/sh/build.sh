@@ -135,12 +135,15 @@ cleanup_failed_build() {
       log_debug "已清理 iOS 失败产物"
       ;;
     *)
-      log_warn "未知平台: $platform，跳过清理"
+      log_warn "未知平台: ${platform}，跳过清理"
       ;;
   esac
 }
 
 PARALLEL_BUILD="${PARALLEL_BUILD:-false}"
+
+# 构建产物最小大小（字节），低于这个值视为构建失败
+MIN_BUILD_SIZE="${MIN_BUILD_SIZE:-10240}"
 
 # 是否启用构建通知，默认启用
 # 构建完成后会发送系统通知
@@ -489,7 +492,7 @@ build_android_package() {
   log_info "构建耗时: ${duration}s"
   
   # 验证构建产物完整性
-  if ! verify_build_output "$source_path" 10240; then  # 最小 10KB
+  if ! verify_build_output "$source_path" "$MIN_BUILD_SIZE"; then
     cleanup_failed_build "$package_type"
     return 1
   fi
@@ -1229,58 +1232,55 @@ run_build() {
   # 根据参数执行打包命令
   BUILD_FAILURE=false
 
-  # 并行构建
+  # 并行构建：Android 的 apk/aab 共用 .dart_tool 与 Gradle 构建目录，必须串行；
+  # 真正能并行的是「Android 组」与「iOS」之间。
   if [ "$PARALLEL_BUILD" == "true" ] && [ ${#PLATFORMS[@]} -gt 1 ]; then
-    log_info "启用并行构建模式"
-  
-    # 每个平台的构建状态
-    local -a build_status=()
-    for platform in "${PLATFORMS[@]}"; do
-      build_status+=(0)
-    done
+    log_info "启用并行构建模式（Android 内部串行，iOS 与 Android 并行）"
 
-    # 创建临时文件来存储每个构建的退出状态
     local temp_dir
     temp_dir=$(mktemp -d)
-    local -a status_files=()
-    local i=0
+
+    local -a android_platforms=()
+    local has_ios=false
     for platform in "${PLATFORMS[@]}"; do
-      local status_file="$temp_dir/status_$i.txt"
-      status_files+=("$status_file")
-    
       case "$platform" in
-        "apk")
-          (build_android_package "apk" "build/app/outputs/flutter-apk/app-release.apk"; echo $? > "$status_file") &
-          ;;
-        "aab")
-          (build_android_package "aab" "build/app/outputs/bundle/release/app-release.aab"; echo $? > "$status_file") &
-          ;;
-        "ios")
-          (build_ios; echo $? > "$status_file") &
-          ;;
+        apk|aab) android_platforms+=("$platform") ;;
+        ios) has_ios=true ;;
       esac
-      i=$((i + 1))
     done
-  
-    # 等待所有构建完成
+
+    if [ ${#android_platforms[@]} -gt 0 ]; then
+      (
+        for platform in "${android_platforms[@]}"; do
+          status=0
+          case "$platform" in
+            apk) build_android_package "apk" "build/app/outputs/flutter-apk/app-release.apk" || status=$? ;;
+            aab) build_android_package "aab" "build/app/outputs/bundle/release/app-release.aab" || status=$? ;;
+          esac
+          printf '%s\n' "$status" > "$temp_dir/status_$platform.txt"
+        done
+      ) &
+    fi
+
+    if [ "$has_ios" = true ]; then
+      (
+        status=0
+        build_ios || status=$?
+        printf '%s\n' "$status" > "$temp_dir/status_ios.txt"
+      ) &
+    fi
+
     wait
-  
-    # 检查构建状态
-    for status_file in "${status_files[@]}"; do
-      if [ -f "$status_file" ]; then
-        local exit_code
-      exit_code=$(cat "$status_file" 2>/dev/null || echo 1)
-        if [ "$exit_code" -ne 0 ]; then
-          BUILD_FAILURE=true
-          break
-        fi
-      else
+
+    for platform in "${PLATFORMS[@]}"; do
+      local platform_status
+      platform_status=$(cat "$temp_dir/status_$platform.txt" 2>/dev/null || echo 1)
+      if [ "$platform_status" -ne 0 ]; then
+        log_error "${platform} 构建失败（退出码 ${platform_status}）"
         BUILD_FAILURE=true
-        break
       fi
     done
-  
-    # 清理临时文件
+
     rm -rf "$temp_dir"
   else
     # 串行构建

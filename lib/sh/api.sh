@@ -464,7 +464,7 @@ parse_config_file() {
   local json_dir="$2"
 
   if [[ ! -f "$config_file" ]]; then
-    log_info "配置文件不存在: $config_file，跳过自定义类生成"
+    log_info "配置文件不存在: ${config_file}，跳过自定义类生成"
     return 0
   fi
 
