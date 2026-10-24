@@ -307,66 +307,92 @@ EOF
 # 解析参数
 parse_params() {
   local params_part="$1"
-  local params=()
-  
-  # 提取所有参数注解，但排除注释中的注解
-  # 首先移除注释部分（// 后面的内容）
-  local params_without_comments=$(echo "$params_part" | sed 's|//.*||g')
-  
-  # 提取所有参数注解
-  local param_annotations=$(echo "$params_without_comments" | grep -oE "@[A-Za-z]+\([^)]*\)" || echo "")
-  
-  for annotation in $param_annotations; do
-    if [[ "$annotation" == *"@Path"* ]]; then
-      # 提取 @Path 参数名 - 从 params_part 中提取
-      local param_name=$(echo "$params_without_comments" | grep -o "@Path()[[:space:]]*[A-Za-z]+[[:space:]]+[A-Za-z]+" | grep -o "[A-Za-z]*$" | tail -1)
-      if [[ -z "$param_name" ]]; then
-        param_name="identifier"
-      fi
-      params+=($param_name)
-    elif [[ "$annotation" == *"@Body"* ]]; then
-      # 提取 @Body 参数名
-      local param_name=$(echo "$params_without_comments" | grep -o "@Body()[[:space:]]*[A-Za-z]+[[:space:]]+[A-Za-z]+" | grep -o "[A-Za-z]*$" | tail -1)
-      if [[ -z "$param_name" ]]; then
-        # 如果没有找到参数名，使用 body 作为默认值
-        param_name="body"
-      fi
-      params+=($param_name)
-    elif [[ "$annotation" == *"@Query"* ]] || [[ "$annotation" == *"@Queries"* ]]; then
-      # 提取 @Query 或 @Queries 参数名
-      local param_name=$(echo "$params_without_comments" | grep -o "@[Qq]ueries()[[:space:]]*[A-Za-z]+[[:space:]]+[A-Za-z]+" | grep -o "[A-Za-z]*$" | tail -1)
-      if [[ -z "$param_name" ]]; then
-        param_name="queries"
-      fi
-      params+=($param_name)
-    elif [[ "$annotation" == *"@Header"* ]]; then
-      # 提取 @Header 参数名
-      if [[ "$annotation" == *"@Header('"* ]]; then
-        local param_name=$(echo "$annotation" | grep -o "'[^']*'" | cut -d"'" -f2)
-        params+=($param_name)
-      elif [[ "$annotation" == *"@Header("* ]]; then
-        local param_name=$(echo "$annotation" | grep -o "@Header([^)]*)" | cut -d'(' -f2 | cut -d')' -f1 | awk '{print $2}')
-        params+=($param_name)
-      fi
-    elif [[ "$annotation" == *"@Field"* ]]; then
-      # 提取 @Field 参数名
-      if [[ "$annotation" == *"@Field('"* ]]; then
-        local param_name=$(echo "$annotation" | grep -o "'[^']*'" | cut -d"'" -f2)
-        params+=($param_name)
-      elif [[ "$annotation" == *"@Field("* ]]; then
-        local param_name=$(echo "$annotation" | grep -o "@Field([^)]*)" | cut -d'(' -f2 | cut -d')' -f1 | awk '{print $2}')
-        params+=($param_name)
+  local out=""
+  local seen=" "
+  local decl=""
+
+  while IFS= read -r decl; do
+    # 去掉注解（@Path()、@Query('page') 等）、named 参数的花括号、默认值、修饰符
+    decl="$(printf '%s' "$decl" | sed -E 's/@[A-Za-z_]+(\([^)]*\))?//g')"
+    decl="${decl%%=*}"
+    decl="$(printf '%s' "$decl" | sed -E 's/[{}]//g; s/^[[:space:]]+//; s/[[:space:]]+$//')"
+    decl="$(printf '%s' "$decl" | sed -E 's/^(required|covariant|final|const)[[:space:]]+//')"
+
+    if [[ -z "$decl" ]]; then
+      continue
+    fi
+
+    # 类型在名字前面继承自 client.dart：@Query('page') int page -> page:int
+    local ptype="dynamic"
+    local pname="$decl"
+    if printf '%s' "$decl" | grep -qE '[[:space:]]'; then
+      ptype="${decl%[[:space:]]*}"
+      pname="${decl##*[[:space:]]}"
+    fi
+    ptype="$(printf '%s' "$ptype" | sed -E 's/[[:space:]]+$//')"
+
+    if [[ -z "$pname" ]]; then
+      continue
+    fi
+
+    # 同名参数加序号，避免生成非法 Dart（两个 @Query 曾经都叫 queries）
+    local unique="$pname"
+    local n=2
+    while [[ "$seen" == *" $unique "* ]]; do
+      unique="${pname}${n}"
+      n=$((n + 1))
+    done
+    seen="$seen$unique "
+    out="${out}${unique}:${ptype};"
+  done < <(printf '%s' "$params_part" | split_params_top_level)
+
+  printf '%s' "${out%;}"
+}
+
+# 提取 Future<...> 里的类型，按 <> 深度配对，支持 Map<String, dynamic> 这类嵌套泛型
+extract_future_inner() {
+  local text="$1"
+
+  # 只取 Future< 之后的部分
+  local after="${text#*Future<}"
+  if [[ "$after" = "$text" ]]; then
+    return 1
+  fi
+
+  local depth=1
+  local out=""
+  local i c
+  for ((i = 0; i < ${#after}; i++)); do
+    c="${after:$i:1}"
+    if [[ "$c" = "<" ]]; then
+      depth=$((depth + 1))
+    elif [[ "$c" = ">" ]]; then
+      depth=$((depth - 1))
+      if [[ $depth -eq 0 ]]; then
+        printf '%s' "$out"
+        return 0
       fi
     fi
+    out="$out$c"
   done
-  
-  # 合并参数为逗号分隔的字符串
-  if [[ ${#params[@]} -eq 0 ]]; then
-    echo ""
-  else
-    local params_str=$(IFS=,; echo "${params[*]}")
-    echo "$params_str"
-  fi
+
+  return 1
+}
+
+# 按顶层逗号切分（忽略 <> () {} [] 里的逗号），用于参数列表
+split_params_top_level() {
+  awk '{
+    depth = 0
+    cur = ""
+    for (i = 1; i <= length($0); i++) {
+      c = substr($0, i, 1)
+      if (c == "<" || c == "(" || c == "{" || c == "[") depth++
+      else if (c == ">" || c == ")" || c == "}" || c == "]") depth--
+      if (c == "," && depth == 0) { print cur; cur = ""; continue }
+      cur = cur c
+    }
+    if (cur != "") print cur
+  }'
 }
 
 # 处理返回类型
@@ -394,7 +420,8 @@ process_return_type() {
 is_basic_type() {
   local type="$1"
   # 基本类型列表
-  local basic_types=("dynamic" "void" "bool" "int" "double" "String" "num")
+  local basic_types=("dynamic" "void" "bool" "int" "double" "String" "num" \
+    "Map" "List" "Set" "Object" "DateTime")
   
   for basic_type in "${basic_types[@]}"; do
     if [[ "$type" == "$basic_type" ]]; then
@@ -468,51 +495,68 @@ to_snake_case() {
 generate_method_definition() {
   local method_info="$1"
   local show_override="$2"
-  local return_statement="$3"
-  
+  local body_template="$3"
+
   IFS='|' read -r method_name return_type params comment http_method <<< "$method_info"
-  
+
   # 跳过空的方法信息
   if [[ -z "$method_name" || -z "$return_type" ]]; then
     return
   fi
-  
-  if [[ -n "$comment" ]]; then
-    echo "  // $comment"
-  fi
-  
-  if [[ "$show_override" = true ]]; then
-    echo "  @override"
-  fi
-  
-  echo "  Future<$return_type> $method_name("
-  
-  # 处理多个参数
+
+  # 参数编码是 "名字:类型;名字:类型"，类型直接来自 client.dart
+  local param_lines=""
+  local arg_names=""
   if [[ -n "$params" ]]; then
-    IFS=, read -ra param_array <<< "$params"
+    local param
+    local param_array=()
+    IFS=';' read -ra param_array <<< "$params"
     for param in "${param_array[@]}"; do
-      if [[ "$param" == "body" ]]; then
-        echo "    Map<String, dynamic> $param,"
-      elif [[ "$param" == "queries" ]]; then
-        echo "    Map<String, dynamic> $param,"
+      if [[ -z "$param" ]]; then
+        continue
+      fi
+      local pname="${param%%:*}"
+      local ptype="${param#*:}"
+      if [[ "$ptype" = "$param" ]]; then
+        ptype="dynamic"
+      fi
+      param_lines="${param_lines}    ${ptype} ${pname},
+"
+      if [[ -z "$arg_names" ]]; then
+        arg_names="$pname"
       else
-        echo "    String $param,"
+        arg_names="${arg_names}, ${pname}"
       fi
     done
   fi
-  
-  if [[ -n "$return_statement" ]]; then
-    echo "  ) {
-    $return_statement
-  }"
-  else
-    if [[ -n "$params" ]]; then
-      echo "  );"
-    else
-      echo "  );"
-    fi
+
+  local body="$body_template"
+  if [[ -n "$body" ]]; then
+    body="${body//__CALL__/${method_name}(${arg_names})}"
   fi
-  
+
+  if [[ -n "$comment" ]]; then
+    echo "  // $comment"
+  fi
+
+  if [[ "$show_override" = true ]]; then
+    echo "  @override"
+  fi
+
+  echo "  Future<$return_type> $method_name("
+
+  if [[ -n "$param_lines" ]]; then
+    printf '%s' "$param_lines"
+  fi
+
+  if [[ -n "$body" ]]; then
+    echo "  ) {"
+    echo "    $body"
+    echo "  }"
+  else
+    echo "  );"
+  fi
+
   echo ""
 }
 
@@ -591,24 +635,30 @@ parse_client() {
     
     # 检查方法定义是否完成（包含分号）
     if [[ -n "$method_buffer" && "$method_buffer" == *");"* ]]; then
-      # 提取返回类型
-      local return_type=$(echo "$method_buffer" | grep -o 'Future<[^>]*>' | cut -d'<' -f2 | cut -d'>' -f1)
+      # 提取返回类型（深度感知：支持 Map<String, dynamic> 这类嵌套泛型）
+      local return_type=""
+      return_type="$(extract_future_inner "$method_buffer")"
       
       if [[ -z "$return_type" ]]; then
         method_buffer=""
         continue
       fi
       
-      # 提取方法名
-      local method_name=$(echo "$method_buffer" | awk '{print $2}' | cut -d'(' -f1)
+      # 返回类型之后才是 "方法名(参数);"
+      local after_type="${method_buffer#*Future<${return_type}>}"
       
-      if [[ -z "$method_name" ]]; then
+      # 提取方法名
+      local method_name=""
+      method_name="$(printf '%s' "$after_type" | sed -E 's/^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*).*/\1/')"
+      
+      if [[ -z "$method_name" || "$method_name" = "$after_type" ]]; then
         method_buffer=""
         continue
       fi
       
-      # 提取参数部分（从第一个左括号到倒数第一个右括号）
-      local params_part=$(echo "$method_buffer" | sed 's/.*Future<[^>]*> [^ (]* *(//' | sed 's/);.*//')
+      # 提取参数部分（第一个左括号之后、最后一个右括号之前）
+      local params_part=""
+      params_part="$(printf '%s' "$after_type" | sed -E 's/^[^(]*\(//' | sed -E 's/\)[[:space:]]*;.*$//')"
       
       # 解析参数
       local params=$(parse_params "$params_part")
@@ -624,15 +674,17 @@ parse_client() {
     fi
   done < "$CLIENT_FILE"
   
-  # 只返回 API 方法信息
-  echo "${api_methods[@]}"
+  # 只返回 API 方法信息：一行一个，避免类型里的空格被当成数组分隔符
+  if [[ ${#api_methods[@]} -gt 0 ]]; then
+    printf '%s\n' "${api_methods[@]}"
+  fi
 }
 
 # 提取需要的模型导入
 extract_imports() {
   local import_prefix="$1"
   shift
-  local api_methods=($@)
+  local api_methods=("$@")
   local models=""
   
   for method_info in "${api_methods[@]}"; do
@@ -651,14 +703,19 @@ extract_imports() {
       continue
     fi
     
+    # 还带泛型说明它不是模型类名（例如 Map<String, dynamic>），不存在对应文件
+    case "$model_type" in
+      *"<"*|*">"*) continue ;;
+    esac
+    
     # 生成对应的模型文件路径
     local model_file=$(to_snake_case "$model_type")
     local model_path="lib/app/data/models/$model_file"
     
     # 检查文件是否存在
     if [ -f "$model_path" ]; then
-      # 避免重复添加
-      if [[ "$models" != *"$model_file"* ]]; then
+      # 精确匹配去重：super_user.dart 不该让 user.dart 被跳过
+      if [[ " $models " != *" $model_file "* ]]; then
         models+="$model_file "
       fi
     else
@@ -704,7 +761,7 @@ EOF
 
 # 生成 app_remote_data_source_mixin.dart
 generate_remote_datasource() {
-  local api_methods=($@)
+  local api_methods=("$@")
   
   # 提取已存在的方法
   local existing_methods=$(extract_existing_methods)
@@ -783,7 +840,7 @@ EOF
       client_instance="$custom_annotation"
     fi
     
-    generate_method_definition "$method_name|$return_type|$params|$comment" true "return $client_instance.$method_name($params);"
+    generate_method_definition "$method_name|$return_type|$params|$comment" true "return $client_instance.__CALL__;"
   done
   
   cat << 'EOF'
@@ -793,7 +850,7 @@ EOF
 
 # 生成 app_repository.dart
 generate_repository() {
-  local api_methods=($@)
+  local api_methods=("$@")
   
   # 生成注释头部
   local header_comment=$(generate_header_comment)
@@ -844,7 +901,7 @@ EOF
       continue
     fi
     
-    generate_method_definition "$method_info" true "return remoteDataSource!.$method_name($params);"
+    generate_method_definition "$method_info" true "return remoteDataSource!.__CALL__;"
   done
   
   cat << 'EOF'
@@ -852,26 +909,46 @@ EOF
 EOF
 }
 
+# 校验生成物：必须是合法 Dart。校验通过会顺手格式化（原地），失败返回非零
+dart_format_check() {
+  local file="$1"
+  if ! command_available dart; then
+    log_warn "未找到 dart，跳过生成代码的合法性校验"
+    return 0
+  fi
+  dart format "$file" > /dev/null 2>&1
+}
+
 # 更新文件
 update_files() {
-  local api_methods=($@)
-  
-  # 生成并写入新内容
-  generate_remote_datasource "${api_methods[@]}" > "$REMOTE_DS_FILE"
-  generate_repository "${api_methods[@]}" > "$REPOSITORY_FILE"
-  
-  # 格式化生成的代码
-  log_info "开始格式化代码..."
-  if command_available dart; then
-    dart format "$REMOTE_DS_FILE" "$REPOSITORY_FILE"
-    log_info "代码格式化完成"
-  elif command_available flutter; then
-    flutter format "$REMOTE_DS_FILE" "$REPOSITORY_FILE"
-    log_info "代码格式化完成"
-  else
-    log_warn "Dart 和 Flutter 命令都不可用，跳过代码格式化"
+  local api_methods=("$@")
+
+  # 先生成到临时文件：生成或校验失败时，已有产物一个字都不会变
+  local tmp_ds="" tmp_repo=""
+  tmp_ds="$(mktemp "${REMOTE_DS_FILE}.XXXXXX")" || { log_error "无法创建临时文件: $REMOTE_DS_FILE"; return 1; }
+  tmp_repo="$(mktemp "${REPOSITORY_FILE}.XXXXXX")" || { rm -f "$tmp_ds"; log_error "无法创建临时文件: $REPOSITORY_FILE"; return 1; }
+
+  if ! generate_remote_datasource "${api_methods[@]}" > "$tmp_ds"; then
+    log_error "生成 $REMOTE_DS_FILE 失败，已放弃写入"
+    rm -f "$tmp_ds" "$tmp_repo"
+    return 1
   fi
-  
+  if ! generate_repository "${api_methods[@]}" > "$tmp_repo"; then
+    log_error "生成 $REPOSITORY_FILE 失败，已放弃写入"
+    rm -f "$tmp_ds" "$tmp_repo"
+    return 1
+  fi
+
+  log_info "校验生成的代码..."
+  if ! dart_format_check "$tmp_ds" || ! dart_format_check "$tmp_repo"; then
+    log_error "生成的代码不是合法 Dart，已放弃写入（原有文件未改动）"
+    rm -f "$tmp_ds" "$tmp_repo"
+    return 1
+  fi
+
+  mv -- "$tmp_ds" "$REMOTE_DS_FILE"
+  mv -- "$tmp_repo" "$REPOSITORY_FILE"
+
   log_info "已更新: $REMOTE_DS_FILE"
   log_info "已更新: $REPOSITORY_FILE"
 }
@@ -1109,6 +1186,25 @@ infer_type() {
   fi
 }
 
+# Dart 关键字不能直接作字段名：加下划线后缀（@JsonKey(name: ...) 里保留原名）
+dart_safe_field_name() {
+  local name="$1"
+
+  # 数字开头不是合法标识符
+  case "$name" in
+    [0-9]*) name="f_$name" ;;
+  esac
+
+  case "$name" in
+    assert|break|case|catch|class|const|continue|default|do|else|enum|extends|false|final|finally|for|if|in|is|new|null|rethrow|return|super|switch|this|throw|true|try|var|void|while|with|implements|import|library|mixin|part|typedef|abstract|covariant|deferred|dynamic|export|extension|external|factory|get|set|operator|static|async|await|yield|sync|required|late)
+      printf '%s_' "$name"
+      ;;
+    *)
+      printf '%s' "$name"
+      ;;
+  esac
+}
+
 # 生成字段声明函数
 generate_field_declaration() {
   local field="$1"
@@ -1154,6 +1250,7 @@ generate_model_class() {
   for field in $all_fields; do
     # 转换字段名（下划线转驼峰，并确保首字母小写）
     local camel_field=$(echo "$field" | sed 's/-/_/g' | perl -pe 's/_([a-zA-Z])/\U$1/g' | awk '{print tolower(substr($0,1,1)) substr($0,2)}')
+    camel_field="$(dart_safe_field_name "$camel_field")"
     
     # 提取字段值
     local value=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); print(data.get('$field'))" 2>/dev/null || echo "")
@@ -1369,8 +1466,20 @@ generate_standalone_model() {
   local model_content=$(generate_model_class "$json_content" "$class_name" "$dart_file")
   file_content+="$model_content"
   
-  # 生成 dart 文件
-  printf "$file_content" > "$dart_file"
+  # 生成 dart 文件：同样是先写临时文件、校验通过才替换
+  local tmp_dart=""
+  tmp_dart="$(mktemp "${dart_file}.XXXXXX")" || { log_error "无法创建临时文件: $dart_file"; return 1; }
+  if ! printf "$file_content" > "$tmp_dart"; then
+    log_error "写入临时文件失败: $dart_file"
+    rm -f "$tmp_dart"
+    return 1
+  fi
+  if ! dart_format_check "$tmp_dart"; then
+    log_error "生成的模型不是合法 Dart，已放弃写入: $dart_file"
+    rm -f "$tmp_dart"
+    return 1
+  fi
+  mv -- "$tmp_dart" "$dart_file"
 }
 
 # 生成模型文件
@@ -1590,9 +1699,21 @@ generate_models() {
     file_content+="\n"
     file_content+="$model_content"
     
-    # 生成 dart 文件
+    # 生成 dart 文件：先写临时文件，校验通过才替换
     log_info "生成文件: $dart_file"
-    printf "$file_content" > "$dart_file"
+    local tmp_dart=""
+    tmp_dart="$(mktemp "${dart_file}.XXXXXX")" || { log_error "无法创建临时文件: $dart_file"; return 1; }
+    if ! printf "$file_content" > "$tmp_dart"; then
+      log_error "写入临时文件失败: $dart_file"
+      rm -f "$tmp_dart"
+      return 1
+    fi
+    if ! dart_format_check "$tmp_dart"; then
+      log_error "生成的模型不是合法 Dart，已放弃写入: $dart_file"
+      rm -f "$tmp_dart"
+      return 1
+    fi
+    mv -- "$tmp_dart" "$dart_file"
   done
   
   # 执行 build_runner build
@@ -1733,10 +1854,14 @@ main() {
     exit 0
   fi
   
-  # 直接解析 API 方法
-  api_methods_str=$(parse_client)
-  
-  local api_methods=($api_methods_str)
+  # 直接解析 API 方法（一行一个，避免类型里的空格被拆开）
+  local api_methods=()
+  local method_line=""
+  while IFS= read -r method_line; do
+    if [[ -n "$method_line" ]]; then
+      api_methods+=("$method_line")
+    fi
+  done < <(parse_client)
   
   if [[ ${#api_methods[@]} -eq 0 ]]; then
     log_error "未解析到任何 API 方法"

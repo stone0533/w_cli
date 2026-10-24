@@ -1,0 +1,14 @@
+abstract class ApiClient {
+  Future<String> ping();
+
+  Future<Map<String, dynamic>> getProfile();
+
+  Future<List<UserResult>> getUsers();
+
+  @GET('/orders')
+  Future<List<OrderResult>> getOrders(@Query('page') int page, @Query('size') int size);
+
+  Future<void> deleteUser(@Path() String id);
+
+  Future<dynamic> login(@Body() Map<String, dynamic> data);
+}
