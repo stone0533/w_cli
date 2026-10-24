@@ -140,7 +140,7 @@ ww api generate
 # Initialize API directory structure / 初始化 API 目录结构
 ww api init
 
-# Generate model files from JSON / 从 JSON 生成模型文件
+# Generate model files from JSON / 从 JSON 生成模型文件（纯 Dart，不再需要 python3）
 ww api models
 
 # Force full regeneration / 忽略增量，全量重新生成模型

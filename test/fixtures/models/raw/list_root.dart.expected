@@ -1,0 +1,20 @@
+// **************************************************************************
+// Auto-generated file. Do not edit manually.
+// **************************************************************************
+
+import 'package:json_annotation/json_annotation.dart';
+
+part 'list_root.g.dart';
+
+@JsonSerializable()
+class List_rootResult extends Object {
+
+  @JsonKey(name: 'code')
+  String? code;
+  @JsonKey(name: 'value')
+  int? value;
+  List_rootResult(this.code, this.value);
+
+  factory List_rootResult.fromJson(Map<String, dynamic> srcJson) => _$List_rootResultFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$List_rootResultToJson(this);
+}

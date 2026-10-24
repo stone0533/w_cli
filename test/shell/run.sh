@@ -537,6 +537,24 @@ assert_eq "ww api init 产出五个骨架文件" "5" \
   "$(find "$scaffold_root/demo/lib/app/data" -name '*.dart' | wc -l | tr -d ' ')"
 assert_eq "ww api init 建了 w_json 目录" "present" \
   "$([ -d "$scaffold_root/demo/w_json" ] && echo present || echo absent)"
+
+# models 也走 Dart 了：产物与 shell 版本一致这件事由 test/models_test.dart 盯着，
+# 这里只验证 CLI 串起来了
+mkdir -p "$scaffold_root/demo/w_json"
+printf '{"id":1,"name":"x"}\n' > "$scaffold_root/demo/w_json/user.json"
+mkdir -p "$scaffold_root/demo/bin"
+cat > "$scaffold_root/demo/bin/dart" << 'STUB'
+#!/bin/bash
+if [ "$1" = "format" ]; then exec "$REAL_DART" "$@"; fi
+exit 0
+STUB
+chmod +x "$scaffold_root/demo/bin/dart"
+( cd "$scaffold_root/demo" && CI=true REAL_DART="$(command -v dart)" \
+    PATH="$scaffold_root/demo/bin:$scaffold_root/bin:$PATH" \
+    "$(command -v dart)" run "$ROOT/bin/w_cli.dart" api models ) > /dev/null 2>&1
+assert_eq "ww api models 退出 0" 0 "$?"
+assert_eq "ww api models 产出模型文件" "present" \
+  "$([ -f "$scaffold_root/demo/lib/app/data/models/user.dart" ] && echo present || echo gone)"
 rm -rf "$scaffold_root"
 
 echo

@@ -14,7 +14,7 @@
 | `data_source.dart` | ~~骨架 + marker~~ | 骨架 + marker 维护 | 模板（现带 marker） | Dart |
 | `data_source_mixin.dart` | ~~模板~~ | 整份重写 | 模板 | Dart |
 | `repository.dart` | ~~模板~~ | 整份重写 | 模板 | Dart |
-| `models/*.dart` | python 渲染 | 无 | 无 | shell 独占 |
+| `models/*.dart` | ~~python 渲染~~ | `lib/src/models/` | 无 | Dart |
 | w_tools 导入 URI | ~~`resolve_w_tools_import`~~ | `resolveWtoolsImport` | 写死 meta 包 | Dart |
 | 驼峰转蛇形 | `snake_name` | `snakeCase` | **两处都在用** |
 | 头部注释 | `generate_header_comment` | `renderHeader` | 各写各的 |
@@ -64,7 +64,8 @@
 | Phase 1 | `ww api init` 改 Dart 实现，`api.sh init` 移除并指路 | 五件产物与 golden 字节一致（`test/scaffold_test.dart`） | **已完成** |
 | Phase 2 | 删掉 shell 的模板与 `resolve_w_tools_import` / `snake_name` | `grep -rn "package:w_tools/w.dart" lib/sh/api.sh` 为空 | **已完成** |
 | Phase 2b | `lib/sh/setup.sh`（`ww create`）也会写同一批文件，且写死 meta 包 | 新工程里 `data_source.dart` 带 marker，`ww api init` 能把它同步成本项目入口 | 部分完成：`data_source.dart` 已加 marker，mixin/repository 靠 `ww api` 自愈；模板文本仍在 setup.sh 里 |
-| Phase 3（可选） | `models` 也迁 Dart，`api.sh` 退役 | `ww api models --force` 产物字节一致 + 自检通过 | 待做 |
+| Phase 3 | `models` 迁 Dart（`lib/src/models/`），`ww api models` 不再调脚本 | 七个 JSON fixture 与 shell 产物逐字节一致 + 独立类/增量/自检 | **已完成** |
+| Phase 3b | 删除 `lib/sh/api.sh`，同步 Resources / 测试 / 文档 | `grep -rn api.sh lib/ test/` 为空 | 待做 |
 
 每阶段独立提交，回滚 = revert 单个阶段。
 

@@ -1,0 +1,20 @@
+// **************************************************************************
+// Auto-generated file. Do not edit manually.
+// **************************************************************************
+
+import 'package:json_annotation/json_annotation.dart';
+
+part 'customer.g.dart';
+
+@JsonSerializable()
+class Customer extends Object {
+
+  @JsonKey(name: 'cid')
+  int? cid;
+  @JsonKey(name: 'name')
+  String? name;
+  Customer(this.cid, this.name);
+
+  factory Customer.fromJson(Map<String, dynamic> srcJson) => _$CustomerFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$CustomerToJson(this);
+}

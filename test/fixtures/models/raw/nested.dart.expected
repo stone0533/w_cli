@@ -1,0 +1,50 @@
+// **************************************************************************
+// Auto-generated file. Do not edit manually.
+// **************************************************************************
+
+import 'package:json_annotation/json_annotation.dart';
+
+part 'nested.g.dart';
+
+@JsonSerializable()
+class NestedResult extends Object {
+
+  @JsonKey(name: 'user')
+  NestedResultUser? user;
+  @JsonKey(name: 'items')
+  List<NestedResultItems>? items;
+  @JsonKey(name: 'empty')
+  List<dynamic>? empty;
+  @JsonKey(name: 'matrix')
+  List<dynamic>? matrix;
+  NestedResult(this.user, this.items, this.empty, this.matrix);
+
+  factory NestedResult.fromJson(Map<String, dynamic> srcJson) => _$NestedResultFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$NestedResultToJson(this);
+}
+
+@JsonSerializable()
+class NestedResultUser extends Object {
+
+  @JsonKey(name: 'id')
+  int? id;
+  @JsonKey(name: 'tags')
+  List<String>? tags;
+  NestedResultUser(this.id, this.tags);
+
+  factory NestedResultUser.fromJson(Map<String, dynamic> srcJson) => _$NestedResultUserFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$NestedResultUserToJson(this);
+}
+
+@JsonSerializable()
+class NestedResultItems extends Object {
+
+  @JsonKey(name: 'sku')
+  String? sku;
+  @JsonKey(name: 'qty')
+  int? qty;
+  NestedResultItems(this.sku, this.qty);
+
+  factory NestedResultItems.fromJson(Map<String, dynamic> srcJson) => _$NestedResultItemsFromJson(srcJson);
+  Map<String, dynamic> toJson() => _$NestedResultItemsToJson(this);
+}

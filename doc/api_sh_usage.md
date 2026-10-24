@@ -2,7 +2,10 @@
 
 ## 1. 脚本概述
 
-`api.sh` 现在只负责一件事：`models` —— 从 `w_json/*.json` 生成 Dart 模型。目录初始化（`init`）与代码生成（`generate`）已迁到 Dart，见 ADR-0002。
+`ww api models` 现在由 Dart 实现（`lib/src/models/`）：从 `w_json/*.json` 生成 Dart 模型，
+不再需要 python3。`lib/sh/api.sh` 保留为参考实现，`ww` 已不再调用它（ADR-0002 Phase 3）。
+
+目录初始化（`init`）与代码生成（`generate`）同样在 Dart 侧。
 
 > **`client.dart` -> `data_source_mixin.dart` / `repository.dart` 已迁到 Dart**，
 > 请改用 `ww api`。原因与分阶段见 `docs/adr/0001-client-codegen-in-dart.md`。
