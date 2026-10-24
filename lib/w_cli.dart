@@ -47,16 +47,22 @@ Future<int> executeScript(
     // );
 
     Process process;
+    // 把包版本注入脚本环境，脚本的 --version 因此不再各自维护一份版本号
+    final env = {...Platform.environment, 'WW_VERSION': getVersionFromPubspec()};
     if (Platform.isWindows) {
       // 在 Windows 上使用 PowerShell 执行脚本
-      process = await Process.start('powershell.exe', [
-        '-File',
-        scriptPath,
-        ...arguments,
-      ]);
+      process = await Process.start(
+        'powershell.exe',
+        ['-File', scriptPath, ...arguments],
+        environment: env,
+      );
     } else {
       // 在 macOS 和 Linux 上使用 bash 执行脚本
-      process = await Process.start('bash', [scriptPath, ...arguments]);
+      process = await Process.start(
+        'bash',
+        [scriptPath, ...arguments],
+        environment: env,
+      );
     }
 
     // 实时显示标准输出

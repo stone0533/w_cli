@@ -28,6 +28,7 @@ files:
 
 # 声明资源文件
 resources:
+  - lib/sh/lib.sh
   - lib/sh/api.sh
   - lib/sh/build.sh
   - lib/sh/open.sh

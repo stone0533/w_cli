@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eo pipefail
 
 # ======================================================
 # build.sh - Flutter 应用打包脚本
@@ -15,18 +16,16 @@
 #   - 支持通过命令行参数指定应用名称
 # ======================================================
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+. "$SCRIPT_DIR/lib.sh"
+
 # 配置变量
 # 输出目录，默认在当前目录创建 w_build 文件夹
 OUTPUT_DIR="${OUTPUT_DIR:-w_build}"
 
 # 是否启用调试模式，默认禁用
 DEBUG_MODE="${DEBUG_MODE:-false}"
-
-# 脚本版本号
-SCRIPT_VERSION="1.0.2"
-
-# 脚本最后更新日期
-SCRIPT_LAST_UPDATED="2026-05-21"
 
 # 是否启用并行构建，默认禁用
 # 启用后可以同时构建多个平台，提高构建速度
@@ -128,79 +127,11 @@ cleanup_failed_build() {
   esac
 }
 
-# 构建超时处理函数
-# 参数: timeout_seconds command...
-run_with_timeout() {
-  local timeout_seconds="$1"
-  shift
-
-  log_debug "执行命令（超时: ${timeout_seconds}s）: $*"
-
-  # 优先用 GNU coreutils 的 timeout / gtimeout；macOS 默认两者都没有，
-  # 所以必须有一个不依赖外部工具的实现，超时才不是一句空话。
-  if command -v timeout &> /dev/null; then
-    timeout "$timeout_seconds" "$@"
-    return $?
-  fi
-  if command -v gtimeout &> /dev/null; then
-    gtimeout "$timeout_seconds" "$@"
-    return $?
-  fi
-
-  "$@" &
-  local child=$!
-  local waited=0
-  while kill -0 "$child" 2>/dev/null; do
-    if [ "$waited" -ge "$timeout_seconds" ]; then
-      log_warn "命令超时（${timeout_seconds}s），正在终止进程 $child"
-      kill -TERM "$child" 2>/dev/null || true
-      sleep 2
-      kill -KILL "$child" 2>/dev/null || true
-      wait "$child" 2>/dev/null || true
-      return 124
-    fi
-    sleep 1
-    waited=$((waited + 1))
-  done
-  wait "$child"
-  return $?
-}
 PARALLEL_BUILD="${PARALLEL_BUILD:-false}"
 
 # 是否启用构建通知，默认启用
 # 构建完成后会发送系统通知
 ENABLE_NOTIFICATIONS="${ENABLE_NOTIFICATIONS:-true}"
-
-# 颜色定义
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# 日志函数
-log_debug() {
-  if [ "$DEBUG_MODE" == "true" ]; then
-    printf "${BLUE}[DEBUG]${NC} %s\n" "$1" >&2
-  fi
-}
-
-log_info() {
-  printf "${GREEN}[INFO]${NC} %s\n" "$1"
-}
-
-log_warn() {
-  printf "${YELLOW}[WARN]${NC} %s\n" "$1"
-}
-
-log_error() {
-  printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
-}
-
-log_to_file() {
-  # 不生成日志文件
-  return 0
-}
 
 # 版本比较函数 (纯 bash 实现，兼容性更好)
 # version_ge <current_version> <required_version>
@@ -376,8 +307,8 @@ fi
 
 # 显示帮助信息
 show_help() {
-  log_warn "Usage: ./build.sh [apk] [aab] [ios] [--uat] [--clean] [--open] [--debug] [--version] [--help]"
-  log_warn "Options:"
+  log_info "Usage: ./build.sh [apk] [aab] [ios] [--uat] [--clean] [--open] [--debug] [--version] [--help]"
+  log_info "Options:"
   log_info "  --uat                      # Build in UAT mode with timestamp"
   log_info "  --clean                    # Clear build directory before building"
   log_info "  --open                     # Open output directory in Finder after build"
@@ -385,17 +316,17 @@ show_help() {
   log_info "  --version                  # Show script version information"
   log_info "  --help                     # Show this help message"
   log_info "  -name:<name>               # Specify app name for output files"
-  log_warn "iOS 代码签名配置:"
+  log_info "iOS 代码签名配置:"
   log_info "  默认配置: 在 w_build/ 目录下放置 ios.plist 文件"
   log_info "  文件格式: Xcode ExportOptions.plist（XML 格式）"
   log_info "  用途: 指定代码签名证书、Provisioning Profile、团队 ID 等"
   log_info "  多配置支持: 在 w_build/ 目录下放置多个 plist 文件（如 uat.plist）"
   log_info "              使用: ./build.sh ios -export-options:uat.plist"
   log_info "  如果找到 ios.plist，构建时会自动使用它进行代码签名"
-  log_warn "Environment variables:"
+  log_info "Environment variables:"
   log_info "  PARALLEL_BUILD=true         # Enable parallel builds"
   log_info "  ENABLE_NOTIFICATIONS=true   # Enable build notifications"
-  log_warn "Examples:"
+  log_info "Examples:"
   log_info "  ./build.sh apk                # Build APK in production mode"
   log_info "  ./build.sh apk aab            # Build APK and AAB in production mode"
   log_info "  ./build.sh apk --uat          # Build APK in UAT mode"
@@ -420,8 +351,7 @@ fi
 
 # 检查版本参数
 if [ "$1" == "--version" ]; then
-  log_info "build.sh version: $SCRIPT_VERSION"
-  log_info "Last updated: $SCRIPT_LAST_UPDATED"
+  log_info "build.sh version: $(ww::version)"
   log_info "Description: Flutter application packaging script"
   log_info "Features:"
   log_info "  - Support Android APK, AAB and iOS IPA packaging"
@@ -683,9 +613,12 @@ build_android_package() {
   log_info "执行构建命令..."
   log_debug "完整命令: ${build_command[*]}"
   local timeout=1800  # 30 分钟
-  run_with_timeout "$timeout" "${build_command[@]}" | sed 's/\x1B\[[0-9;]*[mK]//g'
-  # 管道最后一个命令是 sed，必须取 PIPESTATUS[0] 才是构建本身的退出码
-  local build_status=${PIPESTATUS[0]}
+  # 管道最后一个命令是 sed，必须取 PIPESTATUS[0] 才是构建本身的退出码；
+  # 又因为脚本开了 -e，失败管道要放进 if 才不会被当场终止
+  local build_status=0
+  if ! ww::run_with_timeout "$timeout" "${build_command[@]}" | sed 's/\x1B\[[0-9;]*[mK]//g'; then
+    build_status=${PIPESTATUS[0]}
+  fi
   if [ "$build_status" -ne 0 ]; then
     local exit_code=$build_status
     if [ "$exit_code" -eq 124 ]; then
@@ -1058,8 +991,10 @@ build_ios() {
   
   # 执行 Flutter 构建命令（设置超时时间为 30 分钟）
   local timeout=1800  # 30 分钟
-  run_with_timeout "$timeout" "${flutter_build_command[@]}" | sed 's/\x1B\[[0-9;]*[mK]//g'
-  local build_status=${PIPESTATUS[0]}
+  local build_status=0
+  if ! ww::run_with_timeout "$timeout" "${flutter_build_command[@]}" | sed 's/\x1B\[[0-9;]*[mK]//g'; then
+    build_status=${PIPESTATUS[0]}
+  fi
   if [ "$build_status" -ne 0 ]; then
     local exit_code=$build_status
     if [ "$exit_code" -eq 124 ]; then
@@ -1139,14 +1074,14 @@ build_ios() {
   
   log_info "创建 Xcode Archive..."
   log_debug "Archive 命令: ${archive_command[*]}"
-  if ! run_with_timeout "$timeout" "${archive_command[@]}" 2>&1 | sed 's/\x1B\[[0-9;]*[mK]//g'; then
+  if ! ww::run_with_timeout "$timeout" "${archive_command[@]}" 2>&1 | sed 's/\x1B\[[0-9;]*[mK]//g'; then
     log_error "Xcode Archive 创建失败"
     cleanup_failed_build "ios"
     return 1
   fi
   
   log_info "导出 IPA..."
-  if ! run_with_timeout "$timeout" "${xcodebuild_command[@]}" 2>&1 | sed 's/\x1B\[[0-9;]*[mK]//g'; then
+  if ! ww::run_with_timeout "$timeout" "${xcodebuild_command[@]}" 2>&1 | sed 's/\x1B\[[0-9;]*[mK]//g'; then
     log_error "xcodebuild 导出 IPA 失败"
     log_error "错误原因可能包括:"
     log_error "  1. 开发者证书未正确配置"

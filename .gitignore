@@ -30,3 +30,9 @@ doc/api/
 
 # Executable file
 w
+
+# macOS
+.DS_Store
+
+# setup.sh 运行失败时写下的日志
+setup_error.log
