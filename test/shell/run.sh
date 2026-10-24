@@ -91,7 +91,26 @@ done
 assert_eq "build.sh 未知参数退出 1" 1 "$(run_script build.sh --definitely-not-an-option)"
 
 echo
-echo "== 2. 脚本可以被 source（不执行 main） =="
+echo "== 2. 脚本不以可执行文件身份运行也能工作（ww 用 bash 调用） =="
+noexec_dir="$(mktemp -d)"
+cp "$SH/lib.sh" "$SH/build.sh" "$SH/clean.sh" "$SH/common.sh" "$SH/open.sh" \
+  "$SH/project.sh" "$SH/setup.sh" "$noexec_dir/"
+chmod -x "$noexec_dir"/*.sh
+for script in build clean common open project setup; do
+  ( cd "$noexec_dir" && bash "$script.sh" --version ) > /dev/null 2>&1
+  assert_eq "不可执行的 $script.sh --version 退出 0" 0 "$?"
+done
+rm -rf "$noexec_dir"
+
+echo
+echo "== 3. 生成模板只有一份（setup.sh 不再写 API 层） =="
+for file in client.dart paths.dart data_source.dart data_source_mixin.dart repository.dart; do
+  assert_eq "setup.sh 不再写 $file" "absent" \
+    "$(grep -q "cat > .*$file" "$SH/setup.sh" && echo present || echo absent)"
+done
+
+echo
+echo "== 4. 脚本可以被 source（不执行 main） =="
 for script in clean common open project setup; do
   out=$(
     bash -c "set -eo pipefail; . '$SH/$script.sh'; echo sourced" 2>&1 | tail -1
@@ -100,7 +119,7 @@ for script in clean common open project setup; do
 done
 
 echo
-echo "== 3. lib.sh 单元 =="
+echo "== 5. lib.sh 单元 =="
 assert_eq "ww::version 默认 dev" "dev" "$(
   bash -c ". '$SH/lib.sh'; ww::version"
 )"

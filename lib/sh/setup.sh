@@ -182,13 +182,6 @@ show_help() {
 }
 
 # 检查执行权限
-check_execution_permission() {
-  if [ ! -x "$0" ]; then
-    log_error "Script does not have execution permission."
-    log_warn "Please run: chmod +x $0"
-    exit 1
-  fi
-}
 
 # 解析命令行参数
 parse_args() {
@@ -724,7 +717,6 @@ create_core_files() {
   log_info "创建核心文件..."
   
   local project_dir="$PROJECT_NAME"
-  local api_url="$API_BASE_URL"
   
   # 确保目录结构存在
   run_command mkdir -p "$project_dir/lib/app/data/sources/remote" "$project_dir/lib/app/routes"
@@ -740,97 +732,6 @@ API_BASE_URL=$API_BASE_URL
 DEBUG=true
 EOF
   log_info "已创建 .env 文件"
-  
-  # 创建 paths.dart
-  # 定义 API 路径常量
-  log_info "创建 API 路径文件..."
-  cat > "$project_dir/lib/app/data/sources/paths.dart" << EOF
-class ApiPath {
-  static const String baseUrl = '$api_url';
-  
-  // 认证相关
-  static const String login = '/auth/login';
-}
-EOF
-  
-  # 创建 client.dart
-  # 使用 Retrofit 定义 API 客户端接口
-  log_info "创建 API 客户端文件..."
-  cat > "$project_dir/lib/app/data/sources/client.dart" << 'EOF'
-import 'package:retrofit/retrofit.dart';
-import 'package:dio/dio.dart';
-import 'paths.dart';
-
-part 'client.g.dart';
-
-@RestApi()
-abstract class ApiClient {
-  factory ApiClient(Dio dio, {String baseUrl}) = _ApiClient;
-  
-  // 认证相关
-  @POST(ApiPath.login)
-  Future<dynamic> login(@Body() Map<String, dynamic> data);
-}
-EOF
-  
-  # 创建 data_source_mixin.dart
-  # 实现远程数据源混入类，处理网络请求
-  log_info "创建远程数据源混入文件..."
-  cat > "$project_dir/lib/app/data/sources/remote/data_source_mixin.dart" << 'EOF'
-import '../client.dart';
-
-abstract class IAppRemoteDataSource {}
-
-mixin AppRemoteDataSourceMixin implements IAppRemoteDataSource {
-  late final ApiClient libRest;
-}
-EOF
-
-  # 创建 data_source.dart
-  # 实现远程数据源，处理网络请求
-  log_info "创建远程数据源文件..."
-  cat > "$project_dir/lib/app/data/sources/remote/data_source.dart" << 'EOF'
-// <<<GENERATED w_tools import（工具只维护下一行导入；本文件其余部分手写，不会被覆盖）
-import 'package:w_tools/w.dart';
-// GENERATED>>>
-import '../client.dart';
-import '../paths.dart';
-import 'data_source_mixin.dart';
-
-class AppRemoteDataSource extends BaseRemoteDataSource with AppRemoteDataSourceMixin {
-  AppRemoteDataSource() {
-    libRest = ApiClient(
-      DioUtil.instance(
-        ApiPath.baseUrl,
-        interceptors: [WTokenInterceptor(), WLogInterceptor()],
-      ).dio,
-    );
-  }
-}
-EOF
-  
-  # 创建 repository.dart
-  # 实现仓库模式，提供数据访问接口
-  log_info "创建仓库文件..."
-  cat > "$project_dir/lib/app/data/sources/repository.dart" << 'EOF'
-import 'package:w_tools/w.dart';
-
-import 'remote/data_source.dart';
-import 'remote/data_source_mixin.dart';
-
-class AppRepository extends BaseRepository<Null, AppRemoteDataSource> implements IAppRemoteDataSource {
-  AppRepository() : super(remoteDataSource: AppRemoteDataSource());
-
-  static AppRepository? _instance;
-
-  static AppRepository _getInstance() {
-    _instance ??= AppRepository();
-    return _instance!;
-  }
-
-  static AppRepository get instance => _getInstance();
-}
-EOF
   
   # 创建 main.dart
   # 应用入口文件
@@ -1014,15 +915,8 @@ health_check() {
     log_error "✗ pubspec.yaml 不存在"
   fi
   
-  # 检查核心文件
-  core_files=("lib/app/data/sources/paths.dart" "lib/app/data/sources/client.dart" "lib/app/data/sources/remote/data_source.dart" "lib/app/data/sources/repository.dart")
-  for file in "${core_files[@]}"; do
-    if [ -f "$PROJECT_NAME/$file" ]; then
-      log_info "✓ $file 存在"
-    else
-      log_error "✗ $file 不存在"
-    fi
-  done
+  # API 层（paths / client / data_source / mixin / repository）由 Dart 侧在脚本之后生成，
+  # 不在这里检查，否则健康检查会误报"文件不存在"
   
   # 检查目录结构
   directories=("assets/fonts" "assets/images" "lib/app/components" "lib/app/utils" "lib/app/services" "lib/app/data/models" "lib/app/data/sources" "lib/app/data/sources/remote" "test")
@@ -1099,9 +993,6 @@ open_project() {
 
 # 主函数
 main() {
-  # 检查执行权限
-  check_execution_permission
-  
   # 首先解析命令行参数，这样 --help 可以立即生效
   parse_args "$@"
   

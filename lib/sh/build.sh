@@ -1350,12 +1350,6 @@ run_build() {
 
 # 入口：只有直接执行时才跑，被 source 时只提供函数（方便测试）
 main() {
-  if [ "$0" = "${BASH_SOURCE[0]}" ] && [ ! -x "$0" ]; then
-    log_error "Script does not have execution permission."
-    log_warn "Please run: chmod +x $0"
-    return 1
-  fi
-
   ARGS_HANDLED=false
   parse_args "$@"
 

@@ -12,6 +12,14 @@
   | `ww api --models --full` | `ww api models --force` |
 - 生成器自检 `verify_generated_models` 现在真的会检查重复 class（之前只查 import）
 
+### Fixed
+
+- **`ww build` / `ww create` / `ww project` 无法运行**：脚本被提取成临时文件后没有可执行位，
+  而三个脚本里有「检查执行权限」的守卫，直接退出。守卫已删除（`ww` 一律用 `bash` 调用），
+  并加了「不可执行的副本也能跑」的回归测试
+- `ww create` 生成的 API 层改用 `ApiScaffolder`（与 `ww api init` 同一份模板），
+  `setup.sh` 里重复的那份模板已删除
+
 ### Added
 
 - `ww api models` 不再需要 python3：JSON→Dart 渲染在 `lib/src/models/`
