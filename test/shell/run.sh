@@ -157,10 +157,7 @@ assert_eq "to_snake_case 驼峰转蛇形" "user_name_result.dart" "$snake"
 generated="$(mktemp)"
 bash -c ". '$SH/api.sh'; generate_model_class \"\$(cat '$FIXTURES/demo.json')\" Demo" \
   > "$generated" 2>/dev/null
-# 比较的是格式化后的产物：磁盘上留下的就是格式化的样子
-if command -v dart > /dev/null 2>&1; then
-  dart format "$generated" > /dev/null 2>&1
-fi
+# 比较的是渲染器的原始输出：与 dart 版本无关，确定性最好
 if diff -u "$FIXTURES/demo_model.expected" "$generated" > /dev/null 2>&1; then
   pass "generate_model_class 与黄金文件一致"
 else
