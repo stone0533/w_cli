@@ -1,40 +1,15 @@
 #!/bin/bash
+set -eo pipefail
 
 # ======================================================
 # project.sh - Flutter 项目管理脚本
-# Version: 1.0.0
-# Last Updated: 2026-03-23
 # Author: Stone
 # Description: 更新 Flutter 项目的依赖和配置
-# Features:
-#   - 检查 Flutter 安装状态
-#   - 升级 pub 依赖
-#   - 升级 Gradle 版本
 # ======================================================
 
-# 颜色定义
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# 日志函数
-log_info() {
-  printf "${GREEN}[INFO]${NC} %s\n" "$1"
-}
-
-log_success() {
-  printf "${GREEN}[SUCCESS]${NC} %s\n" "$1"
-}
-
-log_warn() {
-  printf "${YELLOW}[WARN]${NC} %s\n" "$1"
-}
-
-log_error() {
-  printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
-}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+. "$SCRIPT_DIR/lib.sh"
 
 # 检查执行权限
 if [ ! -x "$0" ]; then
@@ -57,14 +32,7 @@ show_help() {
 
 # 显示版本信息
 show_version() {
-  echo "project.sh version: 1.0.0"
-  echo "Last updated: 2026-03-23"
-  echo "Description: Flutter 项目管理脚本"
-  echo "Features:"
-  echo "  - 检查 Flutter 安装状态"
-  echo "  - 升级 pub 依赖"
-  echo "  - 升级 Gradle 版本"
-  exit 0
+  ww::show_version "更新 Flutter 项目的依赖和配置"
 }
 
 # 检查 Flutter 是否安装
@@ -86,8 +54,7 @@ update_pub() {
   log_info "正在升级 pub 依赖..."
   
   if [ -f "pubspec.yaml" ]; then
-    flutter pub upgrade
-    if [ $? -eq 0 ]; then
+    if flutter pub upgrade; then
       log_success "pub 依赖升级成功"
     else
       log_error "pub 依赖升级失败"
@@ -125,11 +92,12 @@ update_gradle() {
       log_info "推荐 Gradle 版本: $RECOMMENDED_GRADLE_VERSION"
       
       # 更新 gradle-wrapper.properties 文件
-      sed -i '' "s/distributionUrl=.*/distributionUrl=https\:\/\/services.gradle.org\/distributions\/gradle-$RECOMMENDED_GRADLE_VERSION-all.zip/" "$GRADLE_WRAPPER"
-      
-      if [ $? -eq 0 ]; then
+      # 用临时文件改写，避免 `sed -i ''` 只在 macOS 可用
+      if sed "s/distributionUrl=.*/distributionUrl=https\:\/\/services.gradle.org\/distributions\/gradle-$RECOMMENDED_GRADLE_VERSION-all.zip/" \
+          "$GRADLE_WRAPPER" > "$GRADLE_WRAPPER.tmp" && mv "$GRADLE_WRAPPER.tmp" "$GRADLE_WRAPPER"; then
         log_success "Gradle 版本更新成功"
       else
+        rm -f "$GRADLE_WRAPPER.tmp"
         log_error "Gradle 版本更新失败"
         return 1
       fi
@@ -204,6 +172,7 @@ main() {
         ;;
       --version)
         show_version
+        exit 0
         ;;
       *)
         log_error "未知参数: $arg"
@@ -214,5 +183,7 @@ main() {
   done
 }
 
-# 执行主函数
-main "$@"
+# 只有直接执行时才跑 main，被 source 时只提供函数（方便测试）
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main "$@"
+fi

@@ -8,48 +8,15 @@
 # Description: 提供通用的脚本工具函数
 # ======================================================
 
-set -euo pipefail  # Exit on error, undefined vars, and pipe failures
+set -eo pipefail
 
-# 颜色定义
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-NC='\033[0m'  # No Color
-
-# 配置选项
-DEBUG=false
-
-# 辅助函数：检查命令是否可用
-command_available() {
-  command -v "$1" &> /dev/null
-}
-
-# 日志函数
-log_info() {
-  printf "${GREEN}[INFO]${NC} %s\n" "$1"
-}
-
-log_warn() {
-  printf "${YELLOW}[WARN]${NC} %s\n" "$1"
-}
-
-log_error() {
-  printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
-}
-
-log_debug() {
-  if [[ "$DEBUG" = true ]]; then
-    printf "${BLUE}[DEBUG]${NC} %s\n" "$1"
-  fi
-}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+. "$SCRIPT_DIR/lib.sh"
 
 # 显示版本信息
 show_version() {
-  echo "common.sh version: 1.0.0"
-  echo "Last updated: 2026-03-24"
-  echo "Description: 提供通用的脚本工具函数"
-  exit 0
+  ww::show_version "执行通用开发命令（drbb）"
 }
 
 # 显示帮助信息
@@ -128,6 +95,7 @@ main() {
         case $1 in
           --version)
             show_version
+            exit 0
             ;;
           --help)
             show_help
@@ -182,7 +150,7 @@ main() {
   exit $result
 }
 
-# 如果直接执行脚本，调用主函数
-if [ "$0" = "$BASH_SOURCE" ]; then
-    main "$@"
+# 只有直接执行时才跑 main，被 source 时只提供函数
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main "$@"
 fi

@@ -1,5 +1,9 @@
 #!/bin/bash
-set -e  # 遇到错误立即退出
+set -eo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+. "$SCRIPT_DIR/lib.sh"
 
 # ======================================================
 # setup.sh - Flutter 项目初始化脚本
@@ -38,13 +42,6 @@ readonly DEFAULT_API_BASE_URL="https://api.example.com"
 readonly DEFAULT_W_TOOLS_PATH="/Users/lei0533/flutter/github_w_tools"
 readonly DEFAULT_W_TOOLS="w_tools"
 
-# 彩色输出
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
 # 全局变量
 PROJECT_NAME=""
 API_BASE_URL="$DEFAULT_API_BASE_URL"
@@ -70,7 +67,7 @@ handle_error() {
   echo "[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: $error_message" >> "$log_file"
   log_error "错误已记录到: $log_file"
   
-  cleanup
+  cleanup || true
   exit "$error_code"
 }
 
@@ -81,30 +78,17 @@ cleanup() {
 
   if [ "$PROJECT_CREATED_BY_US" = true ] && [ -n "$PROJECT_NAME" ] && [ -d "$PROJECT_NAME" ]; then
     echo "删除本次运行创建的项目目录: $PROJECT_NAME"
-    rm -rf "$PROJECT_NAME"
+    rm -rf -- "$PROJECT_NAME" || true
   fi
 
-  # 清理临时文件
+  # 清理临时文件（-- 防止名字以 - 开头时被当成选项）
   if [ -n "$PROJECT_NAME" ]; then
-    rm -f "$PROJECT_NAME/pubspec.yaml.tmp" 2>/dev/null
+    rm -f -- "$PROJECT_NAME/pubspec.yaml.tmp" 2>/dev/null || true
   fi
 }
 
 # 捕获错误
 trap 'handle_error "脚本执行失败"' ERR
-
-# 日志函数
-log_info() {
-  printf "${GREEN}[INFO]${NC} %s\n" "$1"
-}
-
-log_warn() {
-  printf "${YELLOW}[WARN]${NC} %s\n" "$1"
-}
-
-log_error() {
-  printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
-}
 
 # 显示进度
 show_progress() {
@@ -120,31 +104,27 @@ show_progress() {
   fi
 }
 
-# 执行命令
+# 在项目目录里执行命令
+run_in_project() {
+  ( cd "$PROJECT_NAME" && "$@" )
+}
+
+# 执行命令（argv 形式，不经过 eval，路径里的空格和特殊字符不会被当成语法）
 run_command() {
-  log_info "执行命令: $1"
-  if ! eval "$1"; then
-    handle_error "命令执行失败: $1"
+  log_info "执行命令: $*"
+  if ! "$@"; then
+    handle_error "命令执行失败: $*"
   fi
 }
 
-# 带超时的命令执行
+# 带超时的命令执行（argv 形式）：超时会杀掉子进程并返回 124
 run_command_with_timeout() {
-  local command="$1"
-  local timeout="${2:-300}"  # 默认5分钟超时
-  
-  log_info "执行命令（超时: ${timeout}s）: $command"
-  
-  # 使用 timeout 命令执行
-  if command -v timeout &> /dev/null; then
-    if ! timeout "$timeout" bash -c "$command"; then
-      handle_error "命令执行失败或超时: $command"
-    fi
-  else
-    # 没有 timeout 命令时的备选方案
-    if ! eval "$command"; then
-      handle_error "命令执行失败: $command"
-    fi
+  local timeout_seconds="$1"
+  shift
+
+  log_info "执行命令（超时: ${timeout_seconds}s）: $*"
+  if ! ww::run_with_timeout "$timeout_seconds" "$@"; then
+    handle_error "命令执行失败或超时: $*"
   fi
 }
 
@@ -177,49 +157,9 @@ normalize_path() {
 }
 
 # 跨平台命令执行
-# 功能：根据操作系统执行相应的命令
-# 参数：命令字符串
-# 注意：在不同操作系统上可能需要不同的处理
-run_cross_platform_command() {
-  local command="$1"
-  
-  case "$OS" in
-    windows)
-      # Windows 特定处理
-      log_info "在 Windows 上执行: $command"
-      ;;
-    macos|linux)
-      # Unix-like 系统处理
-      log_info "在 $OS 上执行: $command"
-      ;;
-    *)
-      log_info "在未知系统上执行: $command"
-      ;;
-  esac
-  
-  run_command "$command"
-}
-
-# 加载配置文件
-load_config() {
-  log_info "跳过配置文件加载"
-}
-
 # 显示版本信息
 show_version() {
-  echo "setup.sh version: 1.0.0"
-  echo "Last updated: 2026-03-23"
-  echo "Description: Flutter 项目初始化脚本"
-  echo "Features:"
-  echo "  - 自动检测操作系统"
-  echo "  - 检查 Flutter 安装状态"
-  echo "  - 创建完整的目录结构"
-  echo "  - 安装必要的依赖包"
-  echo "  - 创建核心数据层文件"
-  echo "  - 生成 Retrofit 代码"
-  echo "  - 初始化 Git 仓库"
-  echo "  - 创建 CI/CD 配置"
-  exit 0
+  ww::show_version "Flutter 项目初始化脚本"
 }
 
 # 显示帮助信息
@@ -263,6 +203,7 @@ parse_args() {
         ;;
       --version)
         show_version
+        exit 0
         ;;
       *)
         # 直接将第一个位置参数作为项目名称
@@ -280,7 +221,7 @@ parse_args() {
   
   # 验证命令行参数
   if [ -n "$PROJECT_NAME" ] && ! validate_config "$PROJECT_NAME" "PROJECT_NAME"; then
-    handle_error "命令行参数中的项目名称无效"
+    handle_error "命令行参数中的项目名称无效" 2
   fi
 }
 
@@ -399,7 +340,7 @@ check_directory_suitable() {
   if [ -d "$PROJECT_NAME" ]; then
     if [ "$FORCE" = true ]; then
       log_warn "目标目录已存在，--force 已启用，将覆盖: $PROJECT_NAME"
-      rm -rf "$PROJECT_NAME"
+      rm -rf -- "$PROJECT_NAME"
     else
       log_error "目标目录已存在: $PROJECT_NAME"
       log_error "为避免误删，默认不覆盖；确认要覆盖请加 --force"
@@ -447,7 +388,7 @@ create_project() {
   log_info "使用 flutter create 创建项目..."
   # 从这里开始目录归本次运行所有：失败时 cleanup 才允许删除它
   PROJECT_CREATED_BY_US=true
-  run_command_with_timeout "flutter create --org com.sampras -i swift -a kotlin $PROJECT_NAME"
+  run_command_with_timeout 900 flutter create --org com.sampras -i swift -a kotlin "$PROJECT_NAME"
   log_info "项目创建完成"
 }
 
@@ -466,9 +407,11 @@ install_dependencies() {
   fi
   # 使用 flutter pub add 安装依赖，避免使用 get_cli 导致的崩溃
   # 安装核心依赖
-  run_command_with_timeout "(cd \"$PROJECT_NAME\" && flutter pub add get dio flutter_screenutil flutter_form_builder form_builder_validators retrofit $DEFAULT_W_TOOLS)"
+  run_command_with_timeout 600 run_in_project flutter pub add get dio flutter_screenutil \
+    flutter_form_builder form_builder_validators retrofit "$DEFAULT_W_TOOLS"
   # 安装开发依赖
-  run_command_with_timeout "(cd \"$PROJECT_NAME\" && flutter pub add build_runner json_serializable retrofit_generator analyzer --dev)"
+  run_command_with_timeout 600 run_in_project flutter pub add \
+    build_runner json_serializable retrofit_generator analyzer --dev
   log_info "依赖包安装完成"
   
   # 手动创建首页文件，避免使用 get_cli 导致的崩溃
@@ -616,7 +559,12 @@ create_directory_structure() {
   log_info "创建目录结构..."
   # 合并为一个命令，减少进程创建
   local project_path="$PROJECT_NAME"
-  run_command "mkdir -p \"$project_path\"/assets/{fonts,images} \"$project_path\"/lib/app/{components,utils,services} \"$project_path\"/lib/app/data/{models,sources} \"$project_path\"/lib/app/data/sources/remote \"$project_path\"/test \"$project_path\"/.github/workflows \"$project_path\"/w_json"
+  run_command mkdir -p \
+    "$project_path/assets/fonts" "$project_path/assets/images" \
+    "$project_path/lib/app/components" "$project_path/lib/app/utils" "$project_path/lib/app/services" \
+    "$project_path/lib/app/data/models" "$project_path/lib/app/data/sources" \
+    "$project_path/lib/app/data/sources/remote" \
+    "$project_path/test" "$project_path/.github/workflows" "$project_path/w_json"
   log_info "目录结构创建完成"
 }
 
@@ -659,13 +607,16 @@ add_w_tools_dependency() {
           print "    path: " path
         }
       }' "$pubspec_file" > "$pubspec_file.tmp"
-      run_command "mv \"$pubspec_file.tmp\" \"$pubspec_file\""
+      run_command mv "$pubspec_file.tmp" "$pubspec_file"
     else
       # 如果没有找到 dependencies 部分，在文件末尾添加
-      run_command "echo \"\" >> \"$pubspec_file\""
-      run_command "echo \"dependencies:\" >> \"$pubspec_file\""
-      run_command "echo \"  w_tools:\" >> \"$pubspec_file\""
-      run_command "echo \"    path: $W_TOOLS_PATH\" >> \"$pubspec_file\""
+      # 追加写不需要经过命令执行器，直接在 shell 里重定向更清楚
+      {
+        printf '\n'
+        printf 'dependencies:\n'
+        printf '  w_tools:\n'
+        printf '    path: %s\n' "$W_TOOLS_PATH"
+      } >> "$pubspec_file"
     fi
   fi
   
@@ -776,7 +727,7 @@ create_core_files() {
   local api_url="$API_BASE_URL"
   
   # 确保目录结构存在
-  run_command "mkdir -p \"$project_dir\"/lib/app/data/sources/remote \"$project_dir\"/lib/app/routes"
+  run_command mkdir -p "$project_dir/lib/app/data/sources/remote" "$project_dir/lib/app/routes"
   
   # 创建 .env 文件
   # 环境配置文件
@@ -918,11 +869,11 @@ EOF
 generate_code() {
   log_info "生成代码..."
   # 再次执行 flutter pub get 确保所有依赖都已正确安装
-  run_command_with_timeout "(cd \"$PROJECT_NAME\" && flutter pub get)"
-  # 执行代码生成
-  if ! run_command_with_timeout "(cd \"$PROJECT_NAME\" && dart run build_runner build)"; then
+  run_command_with_timeout 600 run_in_project flutter pub get
+  # 执行代码生成（第一次失败才算"失败"，所以这里不能用会直接退出的 run_command_with_timeout）
+  if ! ww::run_with_timeout 900 run_in_project dart run build_runner build; then
     log_warn "代码生成失败，尝试使用 --delete-conflicting-outputs 选项"
-    run_command_with_timeout "(cd \"$PROJECT_NAME\" && dart run build_runner build --delete-conflicting-outputs)"
+    run_command_with_timeout 900 run_in_project dart run build_runner build --delete-conflicting-outputs
   fi
   log_info "代码生成完成"
 }
@@ -930,7 +881,7 @@ generate_code() {
 # 格式化代码
 format_code() {
   log_info "格式化代码..."
-  run_command "(cd \"$PROJECT_NAME\" && dart format .)"
+  run_command run_in_project dart format .
   log_info "代码格式化完成"
 }
 
@@ -982,7 +933,7 @@ EOF
 initialize_git() {
   if [ -d "$PROJECT_NAME" ]; then
     log_info "初始化 Git 仓库..."
-    run_command "(cd \"$PROJECT_NAME\" && git init)"
+    run_command run_in_project git init
     
     # 将 w_build 目录添加到 .gitignore 文件
     log_info "添加 w_build 目录到 .gitignore 文件..."
@@ -991,17 +942,18 @@ initialize_git() {
     # 检查 .gitignore 文件是否存在
     if [ ! -f "$gitignore_file" ]; then
       # 创建 .gitignore 文件
-      run_command "touch \"$gitignore_file\""
+      : > "$gitignore_file"
     fi
     
     # 检查 w_build 是否已经在 .gitignore 文件中
     if ! grep -q "w_build/" "$gitignore_file"; then
       # 添加 w_build 到 .gitignore 文件
-      run_command "echo \"w_build/\" >> \"$gitignore_file\""
+      printf 'w_build/\n' >> "$gitignore_file"
     fi
     
     # 添加所有文件并提交
-    run_command "(cd \"$PROJECT_NAME\" && git add . && git commit -m \"Initial commit\")"
+    run_command run_in_project git add .
+    run_command run_in_project git commit -m "Initial commit"
     log_info "Git 仓库初始化完成"
   fi
 }
@@ -1143,29 +1095,6 @@ open_project() {
   # fi
 }
 
-# 脚本测试
-test_script() {
-  log_info "运行脚本测试..."
-  
-  # 测试命令行参数解析
-  test_args() {
-    log_info "测试命令行参数解析..."
-    # 测试代码
-  }
-  
-  # 测试错误处理
-  test_error_handling() {
-    log_info "测试错误处理..."
-    # 测试代码
-  }
-  
-  # 运行所有测试
-  test_args
-  test_error_handling
-  
-  log_info "脚本测试完成"
-}
-
 # 主函数
 main() {
   # 检查执行权限
@@ -1275,4 +1204,7 @@ main() {
 }
 
 # 执行主函数
-main "$@"
+# 只有直接执行时才跑 main，被 source 时只提供函数（方便测试）
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main "$@"
+fi

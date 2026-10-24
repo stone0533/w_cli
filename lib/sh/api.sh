@@ -8,7 +8,11 @@
 # Description: 根据 client.dart 动态生成 data_source_mixin.dart 和 repository.dart
 # ======================================================
 
-set -euo pipefail  # Exit on error, undefined vars, and pipe failures
+set -eo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+. "$SCRIPT_DIR/lib.sh"
 
 # 全局变量：存储已定义的独立类名（使用字符串格式存储："类名:文件路径|节点路径"）
 STANDALONE_CLASSES=""
@@ -22,15 +26,7 @@ GENERATED_STANDALONE_CLASSES=""
 # 全局变量：存储配置文件中引用的 JSON 文件名（用于增量检查）
 CONFIG_REFERENCED_JSON_FILES=""
 
-# 颜色定义
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-# 配置选项
-DEBUG=false
+# 配置选项（DEBUG 由 lib.sh 提供）
 INIT_MODE=false
 MODELS_MODE=false
 INCREMENTAL_MODE=true  # 默认启用增量模式
@@ -47,36 +43,9 @@ REMOTE_DS_FILE=$(realpath "$REMOTE_DS_FILE" 2>/dev/null || echo "$REMOTE_DS_FILE
 REPOSITORY_FILE=$(realpath "$REPOSITORY_FILE" 2>/dev/null || echo "$REPOSITORY_FILE")
 APP_REMOTE_DS_FILE=$(realpath "$APP_REMOTE_DS_FILE" 2>/dev/null || echo "$APP_REMOTE_DS_FILE")
 
-# 辅助函数：检查命令是否可用
-command_available() {
-  command -v "$1" &> /dev/null
-}
-
-# 日志函数
-log_info() {
-  printf "${GREEN}[INFO]${NC} %s\n" "$1"
-}
-
-log_warn() {
-  printf "${YELLOW}[WARN]${NC} %s\n" "$1" >&2
-}
-
-log_error() {
-  printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
-}
-
-log_debug() {
-  if [[ "$DEBUG" = true ]]; then
-    printf "${BLUE}[DEBUG]${NC} %s\n" "$1" >&2
-  fi
-}
-
 # 显示版本信息
 show_version() {
-  echo "api.sh version: 1.0.1"
-  echo "Last updated: 2026-05-09"
-  echo "Description: 根据 client.dart 动态生成 data_source_mixin.dart 和 repository.dart"
-  exit 0
+  ww::show_version "根据 client.dart 动态生成 data_source_mixin.dart 和 repository.dart"
 }
 
 # 显示帮助信息
@@ -108,6 +77,7 @@ parse_args() {
         ;;
       --version)
         show_version
+        exit 0
         ;;
       --init)
         # 标记为初始化模式
@@ -1795,4 +1765,7 @@ main() {
 }
 
 # 调用主函数
-main "$@"
+# 只有直接执行时才跑 main，被 source 时只提供函数（方便测试）
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main "$@"
+fi

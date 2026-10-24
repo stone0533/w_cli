@@ -8,54 +8,16 @@
 # Description: 清理 Flutter 应用的构建文件并执行 flutter pub get
 # ======================================================
 
-set -euo pipefail  # Exit on error, undefined vars, and pipe failures
+set -eo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+. "$SCRIPT_DIR/lib.sh"
 
 # 配置选项 - 可以通过环境变量覆盖
 MAX_RETRIES=30         # 最大重试次数
 
-# 颜色定义
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-# 项目根目录
-PROJECT_ROOT="$(pwd)"
-
-# 操作系统检测
-OS_TYPE="$(uname -s)"
-case "$OS_TYPE" in
-  Darwin)  OS="macos" ;;
-  Linux)   OS="linux" ;;
-  CYGWIN*) OS="cygwin" ;;
-  MINGW*)  OS="mingw" ;;
-  *)       OS="unknown" ;;
-esac
-
-# 辅助函数：检查命令是否可用
-command_available() {
-  command -v "$1" &> /dev/null
-}
-
-# 日志函数
-log_info() {
-  printf "${GREEN}[INFO]${NC} %s\n" "$1"
-}
-
-log_warn() {
-  printf "${YELLOW}[WARN]${NC} %s\n" "$1"
-}
-
-log_error() {
-  printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
-}
-
-log_debug() {
-  if [[ "$DEBUG" = true ]]; then
-    printf "${BLUE}[DEBUG]${NC} %s\n" "$1"
-  fi
-}
+# 日志、颜色、命令检测由共享库提供
 
 # 检查命令是否可用
 check_command() {
@@ -76,10 +38,7 @@ check_command() {
 
 # 显示版本信息
 show_version() {
-  echo "clean.sh version: 1.0.0"
-  echo "Last updated: 2026-04-02"
-  echo "Description: 清理 Flutter 应用的构建文件并执行 flutter pub get"
-  exit 0
+  ww::show_version "清理 Flutter 应用的构建文件并执行 flutter pub get"
 }
 
 # 显示帮助信息
@@ -97,9 +56,6 @@ show_help() {
   echo "  --pod      清理 iOS Pods（仅适用于 iOS 平台）"
 }
 
-# 配置选项
-DEBUG=false
-
 # 解析命令行参数
 parse_args() {
   # 默认值
@@ -116,6 +72,7 @@ parse_args() {
         ;;
       --version)
         show_version
+        exit 0
         ;;
       --debug)
         DEBUG=true
@@ -156,8 +113,7 @@ delete_file() {
   
   if [[ -f "$file_path" ]]; then
     log_info "删除 $file_name 文件..."
-    rm -f "$file_path"
-    if [[ $? -eq 0 ]]; then
+    if rm -f -- "$file_path"; then
       log_info "$file_name 文件删除成功"
     else
       log_error "$file_name 文件删除失败"
@@ -176,8 +132,7 @@ delete_directory() {
   
   if [[ -d "$dir_path" ]]; then
     log_info "删除 $dir_name 目录..."
-    rm -rf "$dir_path"
-    if [[ $? -eq 0 ]]; then
+    if rm -rf -- "$dir_path"; then
       log_info "$dir_name 目录删除成功"
     else
       log_error "$dir_name 目录删除失败"
@@ -355,5 +310,7 @@ main() {
   printf "${GREEN}======================================================${NC}\n"
 }
 
-# 执行主函数
-main "$@"
+# 只有直接执行时才跑 main，被 source 时只提供函数（方便测试）
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main "$@"
+fi

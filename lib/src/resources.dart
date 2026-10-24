@@ -8,6 +8,23 @@ class Resources {
   /// 缓存脚本路径
   static final Map<String, String> _scriptPathCache = {};
 
+  /// 所有脚本共用的临时目录：脚本之间会 source 同一个 lib.sh，
+  /// 所以必须落在同一个目录里，不能一个脚本一个临时目录
+  static Directory? _tempRoot;
+
+  /// 任何脚本执行前都必须就位的共享库
+  static const List<String> _sharedScripts = ['lib.sh'];
+
+  static Future<Directory> _ensureTempRoot() async {
+    final existing = _tempRoot;
+    if (existing != null) {
+      return existing;
+    }
+    final created = await Directory.systemTemp.createTemp('w_cli_');
+    _tempRoot = created;
+    return created;
+  }
+
   /// 读取资源文件内容
   /// [resourcePath] - 资源文件路径
   /// 返回资源文件的字节数据
@@ -91,9 +108,26 @@ class Resources {
       return _scriptPathCache[fileName]!;
     }
 
+    final root = await _ensureTempRoot();
+
+    // 先把共享库放进同一个目录，脚本才能 source 到它
+    for (final shared in _sharedScripts) {
+      if (shared == fileName) {
+        continue;
+      }
+      final sharedPath = path.join(root.path, shared);
+      final sharedFile = File(sharedPath);
+      if (!sharedFile.existsSync()) {
+        final sharedData = await readResource('lib/sh/$shared');
+        await sharedFile.writeAsBytes(sharedData);
+        if (!Platform.isWindows) {
+          await Process.run('chmod', ['+x', sharedPath]);
+        }
+      }
+    }
+
     final data = await readResource(resourcePath);
-    final tempDir = await Directory.systemTemp.createTemp('w_cli_');
-    final tempFile = File('${tempDir.path}/$fileName');
+    final tempFile = File(path.join(root.path, fileName));
     await tempFile.writeAsBytes(data);
 
     // 设置执行权限（非Windows系统）
@@ -108,18 +142,21 @@ class Resources {
 
   /// 清理所有临时文件
   static void cleanupTempFiles() {
-    // 遍历缓存中的临时文件路径并删除
-    for (final path in _scriptPathCache.values) {
-      try {
-        final file = File(path);
-        if (file.existsSync()) {
-          file.deleteSync(recursive: true);
-        }
-      } catch (e) {
-        print('Warning: Failed to clean up temp file: $e');
-      }
-    }
+    // 共享目录整棵删掉：目录里的脚本与共享库互相关联，不能逐个删
+    final root = _tempRoot;
+    _tempRoot = null;
     _scriptPathCache.clear();
+
+    if (root == null) {
+      return;
+    }
+    try {
+      if (root.existsSync()) {
+        root.deleteSync(recursive: true);
+      }
+    } catch (e) {
+      print('Warning: Failed to clean up temp files: $e');
+    }
   }
 
   /// 获取缓存的脚本路径
