@@ -336,7 +336,7 @@ Future<int> handleApiCommand(List<String> arguments, {bool debug = false}) async
 
   print('\n🚀 Running API code generation');
 
-  // 目录初始化（ADR-0002 Phase 1：不再走 api.sh）
+  // 目录初始化（ADR-0002 Phase 1：Dart 实现）
   if (invocation.mode == ApiMode.init) {
     try {
       return ApiScaffolder().run();
@@ -356,7 +356,7 @@ Future<int> handleApiCommand(List<String> arguments, {bool debug = false}) async
     }
   }
 
-  // JSON -> 模型（ADR-0002 Phase 3：不再走 api.sh）
+  // JSON -> 模型（ADR-0002 Phase 3：Dart 实现）
   try {
     return await ModelsGenerator(force: invocation.force).generate();
   } catch (e) {

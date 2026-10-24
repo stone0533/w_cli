@@ -43,7 +43,7 @@ log_success() {
   printf '%s[OK]%s %s\n' "$GREEN" "$NC" "$1"
 }
 
-# 调试信息走 stderr：stdout 留给脚本产物（api.sh 会把生成结果重定向到文件）
+# 调试信息走 stderr：stdout 留给脚本产物
 log_debug() {
   if ww::debug_enabled; then
     printf '%s[DEBUG]%s %s\n' "$BLUE" "$NC" "$1" >&2

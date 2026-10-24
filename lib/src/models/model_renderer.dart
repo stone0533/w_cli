@@ -1,6 +1,6 @@
 /// JSON → Dart 模型类的渲染（纯函数）。
 ///
-/// 从 `api.sh` 里的 python 渲染器逐条搬过来，输出必须与其逐字节一致：
+/// 从 `api.sh` 里的 python 渲染器逐条搬过来（`api.sh` 已于 ADR-0002 Phase 3b 删除），输出必须与其逐字节一致：
 /// `test/fixtures/models/raw/` 是闸门。规则：
 ///
 /// - 每个字段都加 `@JsonKey(name: '...')` 保留原始键名

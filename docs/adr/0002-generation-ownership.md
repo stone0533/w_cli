@@ -8,14 +8,14 @@
 
 「生成出来的代码长什么样」现在由两处决定，它们互不调用：
 
-| 产物 | `lib/sh/api.sh` | `lib/src/api/`（Dart） | `lib/sh/setup.sh` | 最终生效 |
+| 产物 | `lib/sh/api.sh`（已删除） | `lib/src/api/`、`lib/src/models/`（Dart） | `lib/sh/setup.sh` | 最终生效 |
 | --- | --- | --- | --- |
-| `client.dart` / `paths.dart` | ~~模板~~ | `init` 模板 | `ww create` 模板 | Dart（`init` 之后） |
-| `data_source.dart` | ~~骨架 + marker~~ | 骨架 + marker 维护 | 模板（现带 marker） | Dart |
-| `data_source_mixin.dart` | ~~模板~~ | 整份重写 | 模板 | Dart |
-| `repository.dart` | ~~模板~~ | 整份重写 | 模板 | Dart |
-| `models/*.dart` | ~~python 渲染~~ | `lib/src/models/` | 无 | Dart |
-| w_tools 导入 URI | ~~`resolve_w_tools_import`~~ | `resolveWtoolsImport` | 写死 meta 包 | Dart |
+| `client.dart` / `paths.dart` | — | `init` 模板 | `ww create` 模板 | Dart（`init` 之后） |
+| `data_source.dart` | — | 骨架 + marker 维护 | 模板（带 marker） | Dart |
+| `data_source_mixin.dart` | — | 整份重写 | 模板 | Dart |
+| `repository.dart` | — | 整份重写 | 模板 | Dart |
+| `models/*.dart` | — | `lib/src/models/`（纯 Dart） | 无 | Dart |
+| w_tools 导入 URI | — | `resolveWtoolsImport` | 写死 meta 包（data_source.dart 带 marker，可被接管） | Dart |
 | 驼峰转蛇形 | `snake_name` | `snakeCase` | **两处都在用** |
 | 头部注释 | `generate_header_comment` | `renderHeader` | 各写各的 |
 
@@ -65,16 +65,16 @@
 | Phase 2 | 删掉 shell 的模板与 `resolve_w_tools_import` / `snake_name` | `grep -rn "package:w_tools/w.dart" lib/sh/api.sh` 为空 | **已完成** |
 | Phase 2b | `lib/sh/setup.sh`（`ww create`）也会写同一批文件，且写死 meta 包 | 新工程里 `data_source.dart` 带 marker，`ww api init` 能把它同步成本项目入口 | 部分完成：`data_source.dart` 已加 marker，mixin/repository 靠 `ww api` 自愈；模板文本仍在 setup.sh 里 |
 | Phase 3 | `models` 迁 Dart（`lib/src/models/`），`ww api models` 不再调脚本 | 七个 JSON fixture 与 shell 产物逐字节一致 + 独立类/增量/自检 | **已完成** |
-| Phase 3b | 删除 `lib/sh/api.sh`，同步 Resources / 测试 / 文档 | `grep -rn api.sh lib/ test/` 为空 | 待做 |
+| Phase 3b | 删除 `lib/sh/api.sh`，同步测试 / 文档 / 注释 | `grep -rn "api\.sh" lib/ test/` 只剩历史注释 | **已完成** |
 
 每阶段独立提交，回滚 = revert 单个阶段。
 
 ## 验收清单（Phase 2 结束时）
 
 ```bash
-grep -rn "cat > .*\.dart" lib/sh/api.sh        # 应为空
-grep -rn "package:w_tools/w.dart" lib/sh/api.sh # 应为空
-grep -rn "Auto-generated file" lib/             # client_renderer.dart + setup.sh 的模板（Phase 2b 待收敛）
+ls lib/sh/                                  # 只剩 build / clean / common / lib / open / project / setup
+grep -rn "package:w_tools/w.dart" lib/      # project_imports.dart 的 fallback + setup.sh 的模板（Phase 2b）
+grep -rn "Auto-generated file" lib/         # scaffolder / models_generator / client_renderer + setup.sh 模板
 ```
 
 外加一条业务侧验证：在任一真实项目跑

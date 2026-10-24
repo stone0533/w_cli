@@ -2,17 +2,20 @@
 
 ### Breaking
 
+- `lib/sh/api.sh` 删除：`init` / `models` / `generate` 全部由 Dart 实现（ADR-0002）。
+  直接调用脚本的用法改用 `ww api init` / `ww api models` / `ww api`
 - `ww api` 改为子命令写法，旧的 `--init` / `--models` / `--full` 不再支持（会报错并提示新写法）：
   | 旧写法 | 新写法 |
   |---|---|
   | `ww api --init` | `ww api init` |
   | `ww api --models` | `ww api models` |
   | `ww api --models --full` | `ww api models --force` |
-- `api.sh` 同样改为子命令：`api.sh <init|models> [--force]`，裸跑或缺子命令以 2 退出
 - 生成器自检 `verify_generated_models` 现在真的会检查重复 class（之前只查 import）
 
 ### Added
 
+- `ww api models` 不再需要 python3：JSON→Dart 渲染在 `lib/src/models/`
+- `ww api` 覆盖前检测手写成员，`--force` 才覆盖
 - `ww api generate`（别名 `g`）显式写法
 - `ww api -d/--debug` 可以传到脚本（之前会被参数解析拒绝）
 

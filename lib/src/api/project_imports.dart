@@ -11,7 +11,7 @@ import 'package:path/path.dart' as p;
 /// 1. [barrel] 存在且能从 pubspec 读到 `name` → `package:<name>/app/w/toolkit.dart`
 /// 2. 否则 → `package:w_tools/w.dart`（老的、还在用 meta 包的项目）
 ///
-/// 与 `api.sh` 的 `resolve_w_tools_import` 保持同一套规则，两条生成路径不能各说各话。
+/// 迁移前 `api.sh` 里有一份 shell 实现（已随 ADR-0002 删除），规则要保持一致。
 String resolveWtoolsImport({
   String projectRoot = '.',
   String barrel = 'lib/app/w/toolkit.dart',
