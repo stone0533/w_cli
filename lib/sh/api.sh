@@ -1182,7 +1182,7 @@ generate_model_class() {
   # 处理所有字段
   for field in $all_fields; do
     # 转换字段名（下划线转驼峰，并确保首字母小写）
-    local camel_field=$(echo "$field" | perl -pe 's/_([a-z])/\U$1/g' | awk '{print tolower(substr($0,1,1)) substr($0,2)}')
+    local camel_field=$(echo "$field" | sed 's/-/_/g' | perl -pe 's/_([a-zA-Z])/\U$1/g' | awk '{print tolower(substr($0,1,1)) substr($0,2)}')
     
     # 提取字段值
     local value=$(echo "$json_content" | python3 -c "import json, sys; data=json.load(sys.stdin); print(data.get('$field'))" 2>/dev/null || echo "")
