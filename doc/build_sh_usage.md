@@ -59,8 +59,8 @@
 | `--debug` | 启用调试模式，显示详细日志 |
 | `--version` | 显示脚本版本信息 |
 | `--help` | 显示帮助信息 |
-| `-name:<name>` | 指定输出文件名中的应用名称 |
-| `-export-options:<file>` | 指定 iOS 导出配置文件路径 |
+| `--name=<name>` | 指定输出文件名中的应用名称 |
+| `--export-options=<file>` | 指定 iOS 导出配置文件路径 |
 
 ## 6. 环境变量
 
@@ -140,7 +140,7 @@ PARALLEL_BUILD=true ./build.sh apk aab
 
 **命令**: 
 ```bash
-./build.sh apk -name:myapp
+./build.sh apk --name=myapp
 ```
 
 **输出文件名**:
@@ -153,7 +153,7 @@ PARALLEL_BUILD=true ./build.sh apk aab
 
 **命令**: 
 ```bash
-./build.sh ios -export-options:uat.plist
+./build.sh ios --export-options=uat.plist
 ```
 
 **说明**:
@@ -279,3 +279,8 @@ Flutter 应用打包脚本运行结束
 - 确保构建产物符合应用商店要求
 
 通过遵循本使用说明，开发者可以充分利用 `build.sh` 脚本的功能，为 Flutter 项目构建高质量的应用包。
+## 参数写法（2026-10 起）
+
+- `--name=<name>` / `--export-options=<file>`：等号写法，旧的单横线冒号写法
+  （`-name:xxx`）已移除，使用时会直接报错并提示新写法
+- 同一个平台写多次会被去重，只构建一次

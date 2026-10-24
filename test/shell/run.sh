@@ -296,6 +296,10 @@ ver_ge() { # 脚本 当前版本 要求版本
 assert_eq "version_ge 3.10.0 >= 3.9.0" 0 "$(ver_ge "$SH/build.sh" 3.10.0 3.9.0)"
 assert_eq "version_ge 3.9.0 < 3.10.0" 1 "$(ver_ge "$SH/build.sh" 3.9.0 3.10.0)"
 assert_eq "version_ge 1.0.0 >= 1.0.0" 0 "$(ver_ge "$SH/build.sh" 1.0.0 1.0.0)"
+assert_eq "version_ge 忽略 -pre 后缀" 0 "$(ver_ge "$SH/build.sh" 3.10.0-1.pre 3.10.0)"
+assert_eq "version_ge 忽略 +build 元数据" 0 "$(ver_ge "$SH/build.sh" 3.10.0+2 3.10.0)"
+esc="$(bash -c '. "$1"; escape_applescript "a\b\"c"' _ "$SH/build.sh" 2>/dev/null | tail -1)"
+assert_eq "AppleScript 转义反斜杠与引号" 'a\\b\"c' "$esc"
 
 vp() { # 脚本 参数...
   bash -c '. "$1"; shift; if validate_parameters "$@"; then echo 0; else echo 1; fi' _ "$@" 2>/dev/null | tail -1
@@ -371,7 +375,23 @@ assert_eq "产物已生成" "present" \
 assert_contains "构建日志已写入" "Built APK" \
   "$(cat "$build_root/demo/w_build/build.log" 2>/dev/null)"
 
-# 4) 失败清理不再动输出目录里的成品
+# 4) --name= 生效，旧写法 -name: 被拒绝
+run_build_sh apk --name=MyApp
+assert_eq "--name= 构建成功" 0 "$?"
+assert_eq "--name= 影响产物文件名" "present" \
+  "$([ -f "$build_root/demo/w_build/MyApp_live_1.2.3.apk" ] && echo present || echo gone)"
+run_build_sh apk -name:OldStyle
+assert_eq "旧写法 -name: 退出 2" 2 "$?"
+assert_contains "旧写法指路 --name=" "--name=<name>" \
+  "$( cd "$build_root/demo" && PATH="$build_root/bin:$PATH" bash "$SH/build.sh" apk -name:OldStyle 2>&1 )"
+
+# 5) 重复平台只构建一次
+run_build_sh apk apk
+assert_eq "重复平台退出 0" 0 "$?"
+assert_eq "重复平台只构建一次" 1 \
+  "$( cd "$build_root/demo" && PATH="$build_root/bin:$PATH" bash "$SH/build.sh" apk apk 2>&1 | grep -c '=== Building APK ===' )"
+
+# 6) 失败清理不再动输出目录里的成品
 head -c 100 /dev/zero > "$build_root/demo/w_build/keep_live_9.9.9.apk"
 ( cd "$build_root/demo" && bash -c ". '$SH/build.sh'; cleanup_failed_build apk" ) > /dev/null 2>&1
 assert_eq "失败清理保留输出目录里的成品" "present" \
