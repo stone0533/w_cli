@@ -391,7 +391,96 @@ assert_eq "重复平台退出 0" 0 "$?"
 assert_eq "重复平台只构建一次" 1 \
   "$( cd "$build_root/demo" && PATH="$build_root/bin:$PATH" bash "$SH/build.sh" apk apk 2>&1 | grep -c '=== Building APK ===' )"
 
-# 6) 失败清理不再动输出目录里的成品
+# 6) iOS：plist 取值不能把证书名里的空格压掉
+plist_dir="$(mktemp -d)"
+plist_fixture="$plist_dir/ios.plist"
+cat > "$plist_fixture" << 'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store</string>
+    <key>teamID</key>
+    <string>ABC123DEF4</string>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>Apple Distribution: My Company (GHI567JKL8)</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.example.demo</key>
+        <string>AppStore Profile</string>
+    </dict>
+</dict>
+</plist>
+PLIST
+plist_value() { # 文件 key
+  bash -c '. "$1"; get_plist_value "$2" "$3"' _ "$SH/build.sh" "$1" "$2" 2>/dev/null | tail -1
+}
+plist_valid() { # 文件
+  bash -c '. "$1"; validate_ios_plist "$2"' _ "$SH/build.sh" "$1" > /dev/null 2>&1
+  echo $?
+}
+assert_eq "证书名保留空格" "Apple Distribution: My Company (GHI567JKL8)" \
+  "$(plist_value "$plist_dir/ios.plist" signingCertificate)"
+assert_eq "method 取值正常" "app-store" "$(plist_value "$plist_dir/ios.plist" method)"
+assert_eq "手动签名配置校验通过" 0 "$(plist_valid "$plist_dir/ios.plist")"
+
+sed 's/ABC123DEF4//' "$plist_dir/ios.plist" > "$plist_dir/no_team.plist"
+assert_eq "缺 teamID 校验失败" 1 "$(plist_valid "$plist_dir/no_team.plist")"
+
+sed 's/My Company/YOUR_COMPANY_NAME/' "$plist_dir/ios.plist" > "$plist_dir/placeholder.plist"
+assert_eq "未替换的 YOUR_ 占位符校验失败" 1 "$(plist_valid "$plist_dir/placeholder.plist")"
+
+# 7) iOS 端到端：签名参数与导出流程（stub flutter + xcodebuild）
+ios_root="$(mktemp -d)"
+mkdir -p "$ios_root/bin" "$ios_root/demo/ios"
+cat > "$ios_root/bin/flutter" << 'STUB'
+#!/bin/bash
+case "$1" in
+  --version) echo "Flutter 3.24.0 • channel stable"; exit 0 ;;
+  build)
+    mkdir -p build/ios/iphoneos/Runner.app
+    printf 'plist\n' > build/ios/iphoneos/Runner.app/Info.plist
+    printf 'bin\n' > build/ios/iphoneos/Runner.app/Runner
+    exit 0 ;;
+  *) exit 0 ;;
+esac
+STUB
+cat > "$ios_root/bin/xcodebuild" << 'STUB'
+#!/bin/bash
+echo "xcodebuild $*" >> "$XCODE_LOG"
+if [ "$1" = "-exportArchive" ]; then
+  while [ $# -gt 0 ]; do
+    if [ "$1" = "-exportPath" ]; then mkdir -p "$2"; printf 'ipa\n' > "$2/Runner.ipa"; fi
+    shift
+  done
+fi
+exit 0
+STUB
+chmod +x "$ios_root/bin/flutter" "$ios_root/bin/xcodebuild"
+printf 'name: demo\nversion: 1.2.3\n' > "$ios_root/demo/pubspec.yaml"
+mkdir -p "$ios_root/demo/w_build"
+cp "$plist_fixture" "$ios_root/demo/w_build/ios.plist"
+
+run_ios() {
+  ( cd "$ios_root/demo" && XCODE_LOG="$ios_root/xcode.log" PATH="$ios_root/bin:$PATH" \
+      bash "$SH/build.sh" ios ) > /dev/null 2>&1
+}
+run_ios
+assert_eq "iOS 构建成功" 0 "$?"
+assert_eq "iOS 产物已生成" "present" \
+  "$([ -f "$ios_root/demo/w_build/demo_live_1.2.3.ipa" ] && echo present || echo gone)"
+assert_contains "手动签名把证书名原样传给 xcodebuild" \
+  "-codeSignIdentity Apple Distribution: My Company (GHI567JKL8)" \
+  "$(cat "$ios_root/xcode.log" 2>/dev/null)"
+assert_contains "导出使用 ios.plist" "-exportOptionsPlist w_build/ios.plist" \
+  "$(cat "$ios_root/xcode.log" 2>/dev/null)"
+assert_eq "archive 父目录已创建" "present" \
+  "$([ -d "$ios_root/demo/build/ios/archive" ] && echo present || echo gone)"
+rm -rf "$ios_root" "$plist_dir"
+
+# 8) 失败清理不再动输出目录里的成品
 head -c 100 /dev/zero > "$build_root/demo/w_build/keep_live_9.9.9.apk"
 ( cd "$build_root/demo" && bash -c ". '$SH/build.sh'; cleanup_failed_build apk" ) > /dev/null 2>&1
 assert_eq "失败清理保留输出目录里的成品" "present" \
