@@ -4,7 +4,7 @@
 #   bash test/shell/run.sh
 #
 # 覆盖：脚本退出码契约、脚本可被 source、lib.sh 的超时/版本、setup.sh 的
-# 目录保护、api.sh 的代码生成黄金文件、clean.sh 的参数校验。
+# 目录保护、clean.sh 的参数校验、build.sh 的纯函数与端到端。
 set -uo pipefail
 
 # dart/flutter 在受限环境（HOME 不可写）会因遥测文件写入失败而返回非零，
@@ -70,13 +70,13 @@ run_with_alarm() {
 }
 
 echo "== 1. 退出码契约 =="
-for script in api build clean common open project setup; do
+for script in build clean common open project setup; do
   assert_eq "$script.sh --help 退出 0" 0 "$(run_with_alarm bash "$SH/$script.sh" --help)"
   assert_eq "$script.sh --version 退出 0" 0 "$(run_with_alarm bash "$SH/$script.sh" --version)"
 done
 
 # build.sh 自己校验参数，语义是"运行失败"(1)；其余脚本把未知参数当用法错误(2)
-for script in api clean common open project setup; do
+for script in clean common open project setup; do
   if [ "$script" = "setup" ]; then
     # setup.sh 参数出错时会往当前目录写 setup_error.log，所以放到临时目录里跑，
     # 免得给仓库根留下垃圾文件
@@ -92,7 +92,7 @@ assert_eq "build.sh 未知参数退出 1" 1 "$(run_script build.sh --definitely-
 
 echo
 echo "== 2. 脚本可以被 source（不执行 main） =="
-for script in api clean common open project setup; do
+for script in clean common open project setup; do
   out=$(
     bash -c "set -eo pipefail; . '$SH/$script.sh'; echo sourced" 2>&1 | tail -1
   )
@@ -150,135 +150,6 @@ fi
 rm -rf "$tmp_work"
 
 echo
-echo "== 5. api.sh 代码生成（黄金文件） =="
-generated="$(mktemp)"
-bash -c ". '$SH/api.sh'; generate_model_class \"\$(cat '$FIXTURES/demo.json')\" Demo" \
-  > "$generated" 2>/dev/null
-# 比较的是渲染器的原始输出：与 dart 版本无关，确定性最好
-if diff -u "$FIXTURES/demo_model.expected" "$generated" > /dev/null 2>&1; then
-  pass "generate_model_class 与黄金文件一致"
-else
-  fail "generate_model_class 与黄金文件一致" "$(diff -u "$FIXTURES/demo_model.expected" "$generated" | head -8)"
-fi
-rm -f "$generated"
-
-# 键含单引号：不能把 python -c 打崩、也不能丢字段，生成的 Dart 必须合法
-quote_out="$(bash -c ". '$SH/api.sh'; generate_model_class \"{\\\"it's\\\":1,\\\"ok\\\":2}\" Quoted" 2>/dev/null)"
-assert_eq "键含单引号时字段不丢（2 个）" 2 "$(printf '%s' "$quote_out" | grep -c '@JsonKey(name:')"
-if command -v dart > /dev/null 2>&1; then
-  quote_file="$(mktemp)"
-  printf '%s\n' "$quote_out" > "$quote_file"
-  if dart format "$quote_file" > /dev/null 2>&1; then
-    pass "键含单引号时生成物合法"
-  else
-    fail "键含单引号时生成物合法" "$(dart format "$quote_file" 2>&1 | head -2)"
-  fi
-  rm -f "$quote_file"
-fi
-
-# 键含空格：一个键不能被拆成两个字段
-space_out="$(bash -c ". '$SH/api.sh'; generate_model_class \"{\\\"user name\\\":\\\"x\\\",\\\"ok\\\":1}\" Spaced" 2>/dev/null)"
-assert_eq "键含空格时字段数不变（2 个）" 2 "$(printf '%s' "$space_out" | grep -c '@JsonKey(name:')"
-assert_contains "键含空格时保留原始键名" "user name" "$space_out"
-
-# 嵌套对象与对象数组
-nested_out="$(bash -c ". '$SH/api.sh'; generate_model_class \"{\\\"profile\\\":{\\\"a\\\":1},\\\"roles\\\":[{\\\"code\\\":\\\"a\\\"}]}\" Foo" 2>/dev/null)"
-assert_contains "嵌套对象生成子类" "class FooProfile" "$nested_out"
-assert_contains "对象数组生成 List 子类" "List<FooRoles>" "$nested_out"
-
-# 端到端：--models 的文件装配（头部 + import + part）也要是合法 Dart
-if command -v dart > /dev/null 2>&1; then
-  e2e="$(mktemp -d)"
-  mkdir -p "$e2e/w_json" "$e2e/lib/app/data/models"
-  printf 'name: demo\ndependencies:\n  json_annotation: ^4.9.0\ndev_dependencies:\n  json_serializable: ^6.8.0\n  build_runner: ^2.4.0\n' > "$e2e/pubspec.yaml"
-  cat > "$e2e/w_json/tricky.json" << 'JSON'
-{"it's": true, "user name": "x", "ok": 2}
-JSON
-  ( cd "$e2e" && bash -c ". '$SH/api.sh'; run_build_runner() { :; }; generate_models" > /dev/null 2>&1 )
-  tricky_file="$e2e/lib/app/data/models/tricky.dart"
-  if [ -f "$tricky_file" ] && dart format --output=none "$tricky_file" > /dev/null 2>&1; then
-    pass "--models 产出的文件是合法 Dart"
-  else
-    fail "--models 产出的文件是合法 Dart" "$(cd "$e2e" && dart format --output=none "$tricky_file" 2>&1 | head -3)"
-  fi
-  assert_eq "--models 保留三个字段" 3 "$(grep -c '@JsonKey(name:' "$tricky_file" 2>/dev/null || echo 0)"
-  rm -rf "$e2e"
-fi
-
-# 批量落盘：N 个模型只起一次 dart format（性能回归）
-if command -v dart > /dev/null 2>&1; then
-  batch="$(mktemp -d)"
-  mkdir -p "$batch/w_json" "$batch/lib/app/data/models" "$batch/bin"
-  printf 'name: demo\ndependencies:\n  json_annotation: ^4.9.0\ndev_dependencies:\n  json_serializable: ^6.8.0\n  build_runner: ^2.4.0\n' > "$batch/pubspec.yaml"
-  for i in 1 2 3; do printf '{"id":%s}\n' "$i" > "$batch/w_json/m$i.json"; done
-  cat > "$batch/bin/dart" << EOF
-#!/bin/bash
-echo "\$1" >> "$batch/dart-calls.log"
-if [ "\$1" = "format" ]; then exec "$(command -v dart)" "\$@"; fi
-exit 0
-EOF
-  chmod +x "$batch/bin/dart"
-  ( cd "$batch" && PATH="$batch/bin:$PATH" bash -c ". '$SH/api.sh'; run_build_runner() { :; }; generate_models" > /dev/null 2>&1 )
-  assert_eq "3 个模型只调一次 dart format" 1 "$(grep -c '^format$' "$batch/dart-calls.log" 2>/dev/null || echo 0)"
-  assert_eq "批量落盘产出 3 个文件" 3 "$(ls "$batch/lib/app/data/models" | wc -l | tr -d ' ')"
-
-  # 其中一个模型生成的 Dart 非法时，整批都不落盘（不留下生成了一半的目录）
-  bad="$(mktemp -d)"
-  mkdir -p "$bad/w_json" "$bad/lib/app/data/models"
-  printf 'name: demo\ndependencies:\n  json_annotation: ^4.9.0\ndev_dependencies:\n  json_serializable: ^6.8.0\n  build_runner: ^2.4.0\n' > "$bad/pubspec.yaml"
-  printf '{"id":1}\n' > "$bad/w_json/ok1.json"
-  printf '{"id":2}\n' > "$bad/w_json/1bad.json"
-  ( cd "$bad" && bash -c ". '$SH/api.sh'; run_build_runner() { :; }; generate_models" > /dev/null 2>&1 )
-  bad_exit=$?
-  assert_eq "模型非法时退出非零" 1 "$bad_exit"
-  assert_eq "非法批次不留下任何产物" 0 "$(ls "$bad/lib/app/data/models" | wc -l | tr -d ' ')"
-  rm -rf "$batch" "$bad"
-fi
-
-# 独立类之间互相引用：两种声明顺序都要补 import
-for order in customer-first order-first; do
-  e2e="$(mktemp -d)"
-  mkdir -p "$e2e/w_json" "$e2e/lib/app/data/models"
-  printf 'name: demo\ndependencies:\n  json_annotation: ^4.9.0\ndev_dependencies:\n  json_serializable: ^6.8.0\n  build_runner: ^2.4.0\n' > "$e2e/pubspec.yaml"
-  cat > "$e2e/w_json/order.json" << 'JSON'
-{"data":{"order":{"id":1,"customer":{"cid":7,"name":"n"}}}}
-JSON
-  cat > "$e2e/w_json/customer.json" << 'JSON'
-{"data":{"customer":{"cid":7,"name":"n"}}}
-JSON
-  if [ "$order" = "customer-first" ]; then
-    printf '# Customer\ncustomer.json data.customer\n# Order\norder.json data.order\n' > "$e2e/w_json/w_json.config"
-  else
-    printf '# Order\norder.json data.order\n# Customer\ncustomer.json data.customer\n' > "$e2e/w_json/w_json.config"
-  fi
-  ( cd "$e2e" && bash -c ". '$SH/api.sh'; run_build_runner() { :; }; generate_models" > /dev/null 2>&1 )
-  order_file="$e2e/lib/app/data/models/order.dart"
-  if grep -qE '(^|[^A-Za-z])Customer\? customer' "$order_file" 2>/dev/null; then
-    pass "独立类引用命中（${order}）"
-  else
-    fail "独立类引用命中（${order}）" "order.dart 没有复用 Customer"
-  fi
-  if grep -q "import './customer.dart'" "$order_file" 2>/dev/null; then
-    pass "独立类引用补 import（${order}）"
-  else
-    fail "独立类引用补 import（${order}）" "order.dart 缺少 import"
-  fi
-  rm -rf "$e2e"
-done
-
-# 每个模型只起一次 python3（性能票的验收）
-py_dir="$(mktemp -d)"
-cat > "$py_dir/python3" << EOF
-#!/bin/bash
-echo x >> "$py_dir/calls.log"
-exec "$(command -v python3)" "\$@"
-EOF
-chmod +x "$py_dir/python3"
-PATH="$py_dir:$PATH" bash -c ". '$SH/api.sh'; generate_model_class \"{\\\"a\\\":1,\\\"b\\\":2,\\\"c\\\":3,\\\"d\\\":{\\\"e\\\":4}}\" Perf" > /dev/null 2>&1
-assert_eq "每个模型只起一次 python3" 1 "$(wc -l < "$py_dir/calls.log" | tr -d ' ')"
-rm -rf "$py_dir"
-
-echo
 echo "== 6. clean.sh 参数校验 =="
 assert_eq "--pod 与 android 同时使用退出 2" 2 "$(run_script clean.sh --pod android)"
 
@@ -310,23 +181,6 @@ assert_eq "validate_parameters 未知参数" 1 "$(vp "$SH/build.sh" bogus)"
 
 fn_out="$(bash -c '. "$1"; APP_NAME=demo; TIMESTAMP=2026_0101_010101; VERSION_FOR_FILENAME=1.0.0; UAT_MODE=false; generate_filename apk apk ""' _ "$SH/build.sh" 2>/dev/null | tail -1)"
 assert_eq "generate_filename 生产模式" "w_build/demo_live_1.0.0.apk" "$fn_out"
-
-echo
-echo "== 9. api.sh 子命令契约 =="
-assert_eq "api.sh 无子命令退出 2" 2 "$(run_script api.sh)"
-assert_eq "api.sh 未知子命令退出 2" 2 "$(run_script api.sh bogus)"
-assert_eq "api.sh 两个子命令退出 2" 2 "$(run_script api.sh init models)"
-assert_eq "api.sh --force 单独退出 2" 2 "$(run_script api.sh --force)"
-for old_flag in --init --models --full; do
-  assert_eq "api.sh $old_flag 已移除（退出 2）" 2 "$(run_script api.sh "$old_flag")"
-done
-assert_contains "api.sh 旧写法 --models 指路新写法" "api.sh models" \
-  "$( cd "$ROOT" && bash "$SH/api.sh" --models 2>&1 )"
-assert_contains "api.sh 旧写法 --full 指路 --force" "models --force" \
-  "$( cd "$ROOT" && bash "$SH/api.sh" --full 2>&1 )"
-assert_eq "api.sh generate 不被接受（退出 2）" 2 "$(run_script api.sh generate)"
-assert_contains "api.sh generate 指路 ww api generate" "ww api generate" \
-  "$( cd "$ROOT" && bash "$SH/api.sh" generate 2>&1 )"
 
 echo
 echo "== 10. build.sh 端到端（stub flutter） =="
@@ -511,10 +365,6 @@ rm -rf "$build_root"
 
 echo
 echo "== 11. init 已迁到 Dart（ww api init） =="
-assert_eq "api.sh init 已移除（退出 2）" 2 "$(run_script api.sh init)"
-assert_contains "api.sh init 指路 ww api init" "ww api init" \
-  "$( cd "$ROOT" && bash "$SH/api.sh" init 2>&1 )"
-
 scaffold_root="$(mktemp -d)"
 mkdir -p "$scaffold_root/bin" "$scaffold_root/demo/lib/app/w"
 printf '#!/bin/bash\nexit 0\n' > "$scaffold_root/bin/flutter"
@@ -556,25 +406,6 @@ assert_eq "ww api models 退出 0" 0 "$?"
 assert_eq "ww api models 产出模型文件" "present" \
   "$([ -f "$scaffold_root/demo/lib/app/data/models/user.dart" ] && echo present || echo gone)"
 rm -rf "$scaffold_root"
-
-echo
-echo "== 12. api.sh 生成自检（verify_generated_models） =="
-vgm_dir="$(mktemp -d)"
-vgm() { # 目录 -> 退出码
-  bash -c ". '$SH/api.sh'; verify_generated_models '$1'" > /dev/null 2>&1
-  echo $?
-}
-
-mkdir -p "$vgm_dir/clean" "$vgm_dir/dup_import" "$vgm_dir/dup_class"
-printf "import 'a.dart';\nimport 'b.dart';\n\nclass A {}\nclass B {}\n" > "$vgm_dir/clean/model.dart"
-printf "import 'a.dart';\nimport 'a.dart';\n\nclass A {}\n" > "$vgm_dir/dup_import/model.dart"
-printf "import 'a.dart';\n\nclass A {}\nclass A {}\n" > "$vgm_dir/dup_class/model.dart"
-
-assert_eq "自检：干净目录通过" 0 "$(vgm "$vgm_dir/clean")"
-assert_eq "自检：重复 import 被拦下" 1 "$(vgm "$vgm_dir/dup_import")"
-assert_eq "自检：重复 class 被拦下" 1 "$(vgm "$vgm_dir/dup_class")"
-assert_eq "自检：目录不存在时跳过" 0 "$(vgm "$vgm_dir/does-not-exist")"
-rm -rf "$vgm_dir"
 
 echo
 if [ "$FAILS" -eq 0 ]; then

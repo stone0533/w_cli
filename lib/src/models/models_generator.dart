@@ -5,7 +5,7 @@ import 'model_renderer.dart';
 
 /// `ww api models` 的 Dart 实现（ADR-0002 Phase 3）。
 ///
-/// 与 `api.sh models` 一一对应：依赖检查、独立类、增量判断、批量落盘、
+/// 与迁移前的 `api.sh models`（已删除，见 ADR-0002）一一对应：依赖检查、独立类、增量判断、批量落盘、
 /// 重复 import/class 自检、build_runner。产物必须与 shell 版本逐字节一致
 /// （`test/fixtures/models/raw/` 是闸门）。
 class ModelsGenerator {
@@ -494,7 +494,7 @@ class ModelsGenerator {
   static String _cap(String name) =>
       name.isEmpty ? name : name[0].toUpperCase() + name.substring(1);
 
-  /// 驼峰 → 蛇形，与 `api.sh` 的 snake_name 一致
+  /// 驼峰 → 蛇形，与迁移前 `api.sh` 的 snake_name 一致
   static String _snakeCase(String input) {
     final buffer = StringBuffer();
     for (var i = 0; i < input.length; i++) {
