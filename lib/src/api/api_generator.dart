@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'client_parser.dart';
 import 'client_renderer.dart';
+import 'project_imports.dart';
 
 /// 生成 `data_source_mixin.dart` 与 `repository.dart`。
 ///
@@ -64,6 +65,9 @@ class ApiGenerator {
       header: header,
       methods: methods,
       modelFiles: modelFiles,
+      // 探测本项目的 w_tools 入口：项目切到子包后 meta 包不在依赖里，
+      // 写死会导致生成的 repository.dart 编译不过。
+      wtoolsImport: resolveWtoolsImport(),
     );
 
     _writeAtomically(mixinPath, mixin);

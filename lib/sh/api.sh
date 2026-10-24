@@ -211,7 +211,9 @@ EOF
   if [[ ! -f "$remote_dir/data_source.dart" ]]; then
     log_info "创建文件: $remote_dir/data_source.dart"
     cat > "$remote_dir/data_source.dart" << 'EOF'
-import 'package:w_tools/w.dart';
+// <<<GENERATED w_tools import
+__W_TOOLS_IMPORT__
+// GENERATED>>>
 import '../client.dart';
 import '../paths.dart';
 import 'data_source_mixin.dart';
@@ -236,6 +238,9 @@ EOF
   else
     log_info "文件已存在: $remote_dir/data_source.dart"
   fi
+
+  # 导入行由 marker 段维护：新文件填占位符，老文件（有 marker）同步成本项目写法
+  sync_or_hint "$remote_dir/data_source.dart" "$(resolve_w_tools_import ".")"
   
   # 检查并创建 data_source_mixin.dart 文件
   if [[ ! -f "$remote_dir/data_source_mixin.dart" ]]; then
@@ -267,8 +272,9 @@ EOF
   if [[ ! -f "$sources_dir/repository.dart" ]]; then
     log_info "创建文件: $sources_dir/repository.dart"
     cat > "$sources_dir/repository.dart" << EOF
-$(generate_header_comment)
-import 'package:w_tools/w.dart';
+// 由 api.sh 生成的骨架：首次生成后由你维护，重跑不会覆盖手写部分。
+// w_tools 的导入行在 <<<GENERATED 段内，由工具维护。
+import '$(resolve_w_tools_import ".")';
 
 import 'remote/data_source.dart';
 import 'remote/data_source_mixin.dart';
@@ -304,6 +310,7 @@ EOF
   else
     log_info "文件已存在: $sources_dir/repository.dart"
   fi
+
   
   log_info "✅ 目录结构初始化完成！"
 }
@@ -319,6 +326,76 @@ generate_header_comment() {
 // Auto-generated file. Do not edit manually.
 // **************************************************************************
 EOF
+}
+
+# ── w_tools 导入：探测本项目的聚合入口，避免写死 meta 包 ─────────────────
+
+# 本项目聚合入口（相对项目根）；存在时优先用它
+W_TOOLS_BARREL="${W_TOOLS_BARREL:-lib/app/w/toolkit.dart}"
+
+# marker：生成器只维护这两个标记之间的内容，其余手写部分永不覆盖
+W_TOOLS_IMPORT_BEGIN='// <<<GENERATED w_tools import'
+W_TOOLS_IMPORT_END='// GENERATED>>>'
+
+# 解析本项目该用的 w_tools 导入 URI
+#   1) 聚合入口存在 → package:<pubspec.name>/app/w/toolkit.dart
+#   2) 否则          → package:w_tools/w.dart（meta 包）+ 告警
+resolve_w_tools_import() {
+  local project_root="${1:-.}"
+  local barrel="$project_root/$W_TOOLS_BARREL"
+
+  if [[ -f "$barrel" ]]; then
+    local pkg=""
+    pkg="$(awk '/^name:[[:space:]]*/{print $2; exit}' "$project_root/pubspec.yaml" 2>/dev/null)"
+    if [[ -n "$pkg" ]]; then
+      printf 'package:%s/%s' "$pkg" "${W_TOOLS_BARREL#lib/}"
+      return 0
+    fi
+  fi
+
+  log_warn "未找到 ${W_TOOLS_BARREL}，回退到 meta 包 package:w_tools/w.dart（建议先用 w_tools 的 init 生成聚合入口）" >&2
+  printf 'package:w_tools/w.dart'
+}
+
+# 把文件 marker 段里的导入同步成本项目的写法。
+# 返回：0 = 已同步或无需变化；3 = 文件存在但没有 marker（视为手写文件，跳过）
+sync_w_tools_import() {
+  local file="$1"
+  local uri="$2"
+
+  [[ -f "$file" ]] || return 0
+
+  python3 - "$file" "$uri" "$W_TOOLS_IMPORT_BEGIN" "$W_TOOLS_IMPORT_END" <<'PY'
+import pathlib
+import sys
+
+path, uri, begin, end = sys.argv[1:5]
+p = pathlib.Path(path)
+text = p.read_text()
+
+if begin not in text or end not in text:
+    sys.exit(3)
+
+head, rest = text.split(begin, 1)
+_, tail = rest.split(end, 1)
+block = f"{begin}（工具只维护下一行导入；本文件其余部分手写，不会被覆盖）\nimport '{uri}';\n{end}"
+new = head + block + tail
+
+if new != text:
+    p.write_text(new)
+PY
+}
+
+# 对已存在/刚创建的骨架同步导入；没有 marker 的老文件只提示、不改
+sync_or_hint() {
+  local file="$1"
+  local uri="$2"
+  local rc=0
+  sync_w_tools_import "$file" "$uri" || rc=$?
+  if [[ "$rc" -eq 3 ]]; then
+    log_info "  ↳ 未接管导入行（无 marker，视为手写文件）: $file"
+  fi
+  return 0
 }
 
 # 检查并添加必要的依赖项
