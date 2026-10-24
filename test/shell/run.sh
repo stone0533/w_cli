@@ -359,7 +359,20 @@ head -c 100 /dev/zero > "$build_root/demo/w_build/keep_live_9.9.9.apk"
 assert_eq "失败清理保留输出目录里的成品" "present" \
   "$([ -f "$build_root/demo/w_build/keep_live_9.9.9.apk" ] && echo present || echo gone)"
 
-# 9) 并行构建：Android 内部串行、失败会传播
+# 9) ww build 的参数透传：--name / 未知参数
+run_ww_build() { # 参数...（在 demo 工程里跑 ww build）
+  ( cd "$build_root/demo" && CI=true PATH="$build_root/bin:$PATH" \
+      "$(command -v dart)" run "$ROOT/bin/w_cli.dart" build "$@" ) > /dev/null 2>&1
+}
+rm -rf "$build_root/demo/w_build"
+run_ww_build apk --name=WwName
+assert_eq "ww build --name 退出 0" 0 "$?"
+assert_eq "ww build --name 进产物文件名" "present" \
+  "$([ -f "$build_root/demo/w_build/WwName_live_1.2.3.apk" ] && echo present || echo gone)"
+run_ww_build apk --bogus-option
+assert_eq "ww build 未知参数退出 2" 2 "$?"
+
+# 10) 并行构建：Android 内部串行、失败会传播
 run_build_parallel() { # 参数...（PARALLEL_BUILD=true）
   ( cd "$build_root/demo" && PARALLEL_BUILD=true PATH="$build_root/bin:$PATH" \
       bash "$SH/build.sh" "$@" ) > /dev/null 2>&1
@@ -372,7 +385,7 @@ assert_eq "并行构建两个产物都在" "present" \
 assert_contains "Android 内部串行提示" "Android 内部串行" \
   "$( cd "$build_root/demo" && PARALLEL_BUILD=true PATH="$build_root/bin:$PATH" bash "$SH/build.sh" apk aab 2>&1 )"
 
-# 10) MIN_BUILD_SIZE 可配：阈值超过产物大小时失败且不落产物
+# 11) MIN_BUILD_SIZE 可配：阈值超过产物大小时失败且不落产物
 rm -rf "$build_root/demo/w_build" "$build_root/demo/build"
 ( cd "$build_root/demo" && MIN_BUILD_SIZE=999999 PATH="$build_root/bin:$PATH" \
     bash "$SH/build.sh" apk ) > /dev/null 2>&1

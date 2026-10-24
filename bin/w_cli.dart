@@ -37,22 +37,19 @@ Future<void> main(List<String> arguments) async {
     }
   }
 
-  // 为 build 命令添加选项
-  final buildCommand = parser.commands['build'];
-  if (buildCommand != null) {
-    buildCommand
+  // 为 build 命令添加选项（必须在这里声明，否则 ArgParser 会直接拒绝）
+  for (final name in ['build', 'b']) {
+    final command = parser.commands[name];
+    if (command == null) {
+      continue;
+    }
+    command
       ..addFlag('uat', abbr: 'u', negatable: false)
       ..addFlag('clean', abbr: 'c', negatable: false)
-      ..addFlag('open', abbr: 'o', negatable: false);
-  }
-
-  // 为 b 命令（build 的别名）添加选项
-  final bCommand = parser.commands['b'];
-  if (bCommand != null) {
-    bCommand
-      ..addFlag('uat', abbr: 'u', negatable: false)
-      ..addFlag('clean', abbr: 'c', negatable: false)
-      ..addFlag('open', abbr: 'o', negatable: false);
+      ..addFlag('open', abbr: 'o', negatable: false)
+      ..addFlag('debug', abbr: 'd', negatable: false)
+      ..addOption('name')
+      ..addOption('export-options');
   }
 
   // 为 project 命令添加选项
@@ -121,6 +118,10 @@ Future<void> main(List<String> arguments) async {
           if (command['uat'] as bool) '--uat',
           if (command['clean'] as bool) '--clean',
           if (command['open'] as bool) '--open',
+          if (command['debug'] as bool) '--debug',
+          if (command['name'] != null) '--name=${command['name']}',
+          if (command['export-options'] != null)
+            '--export-options=${command['export-options']}',
         ];
         exitCode = await w.handleBuildCommand(buildArgs);
         break;
@@ -205,9 +206,12 @@ void showHelp() {
   print('  ww -h, --help                        # Show this help message');
   print('');
   print('Build Options:');
-  print('  --uat, -u      # Build in UAT mode with timestamp');
-  print('  --clean, -c    # Clear build directory before building');
-  print('  --open, -o     # Open output directory in Finder after build');
+  print('  --uat, -u              # Build in UAT mode with timestamp');
+  print('  --clean, -c            # Clear build directory before building');
+  print('  --open, -o             # Open output directory in Finder after build');
+  print('  --name=<name>          # App name used in output file names');
+  print('  --export-options=<f>   # iOS export options plist (default w_build/ios.plist)');
+  print('  --debug, -d            # Verbose debug logging');
   print('');
   print('Examples:');
   print('  # Create project');
