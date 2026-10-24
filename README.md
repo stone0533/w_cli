@@ -146,6 +146,9 @@ ww api models
 # Force full regeneration / 忽略增量，全量重新生成模型
 ww api models --force
 
+# Overwrite hand-written members / 检测到手写成员时仍然覆盖
+ww api --force
+
 # Debug logging (passed to the script) / 调试日志（传给脚本）
 ww api models --debug
 

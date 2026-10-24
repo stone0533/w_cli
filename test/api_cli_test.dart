@@ -36,13 +36,19 @@ void main() {
       expect(resolveApiArgs(['-d', 'models']).mode, ApiMode.models);
     });
 
-    test('--force 单独用是用法错误', () {
+    test('--force 单独用等价于 generate --force', () {
+      final invocation = resolveApiArgs(['--force']);
+      expect(invocation.mode, ApiMode.generate);
+      expect(invocation.force, isTrue);
+    });
+
+    test('--force 不能配合 init', () {
       expect(
-        () => resolveApiArgs(['--force']),
+        () => resolveApiArgs(['init', '--force']),
         throwsA(isA<ApiUsageError>().having(
           (error) => error.message,
           'message',
-          contains('只能配合 models'),
+          contains('不能配合 init'),
         )),
       );
     });

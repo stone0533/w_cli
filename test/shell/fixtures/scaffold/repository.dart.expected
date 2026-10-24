@@ -1,0 +1,34 @@
+// 由 api.sh 首次创建；之后的内容由 ww api 依据 client.dart 整份重写。
+// 直接在这里加方法会让 ww api 拒绝覆盖（它会提示用手写扩展或 --force）。
+import 'package:demo/app/w/toolkit.dart';
+
+import 'remote/data_source.dart';
+import 'remote/data_source_mixin.dart';
+
+class AppRepository extends BaseRepository<Null, AppRemoteDataSource>
+    implements IAppRemoteDataSource {
+  AppRepository() : super(remoteDataSource: AppRemoteDataSource());
+
+  static AppRepository? _instance;
+
+  static AppRepository _getInstance() {
+    _instance ??= AppRepository();
+    return _instance!;
+  }
+
+  static AppRepository get instance => _getInstance();
+
+  static bool destroyInstance() {
+    if (_instance == null) {
+      return false;
+    }
+    _instance = null;
+    return true;
+  }
+
+  // 认证相关
+  @override
+  Future<dynamic> login(Map<String, dynamic> body) {
+    return remoteDataSource!.login(body);
+  }
+}

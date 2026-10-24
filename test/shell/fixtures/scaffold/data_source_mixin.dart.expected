@@ -1,0 +1,19 @@
+// **************************************************************************
+// Auto-generated file. Do not edit manually.
+// **************************************************************************
+import '../client.dart';
+
+abstract class IAppRemoteDataSource {
+  // 认证相关
+  Future<dynamic> login(Map<String, dynamic> body);
+}
+
+mixin AppRemoteDataSourceMixin implements IAppRemoteDataSource {
+  late final ApiClient libRest;
+
+  // 认证相关
+  @override
+  Future<dynamic> login(Map<String, dynamic> body) {
+    return libRest.login(body);
+  }
+}

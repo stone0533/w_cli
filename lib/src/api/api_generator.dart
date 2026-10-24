@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'client_parser.dart';
+import 'generated_file_guard.dart';
 import 'client_renderer.dart';
 import 'project_imports.dart';
 
@@ -26,7 +27,9 @@ class ApiGenerator {
   final DateTime? _now;
 
   /// 返回进程退出码：0 成功，1 失败。
-  Future<int> generate() async {
+  ///
+  /// [force] 为 true 时忽略「检测到手写成员」的保护，直接覆盖。
+  Future<int> generate({bool force = false}) async {
     final clientFile = File(clientPath);
     if (!clientFile.existsSync()) {
       stderr.writeln('文件不存在: $clientPath');
@@ -70,12 +73,53 @@ class ApiGenerator {
       wtoolsImport: resolveWtoolsImport(),
     );
 
+    if (!force) {
+      final blocked = _handwritten(<String, String>{
+        mixinPath: mixin,
+        repositoryPath: repository,
+      });
+      if (blocked.isNotEmpty) {
+        _reportHandwritten(blocked);
+        return 1;
+      }
+    }
+
     _writeAtomically(mixinPath, mixin);
     _writeAtomically(repositoryPath, repository);
 
     stdout.writeln('已更新: $mixinPath');
     stdout.writeln('已更新: $repositoryPath');
     return 0;
+  }
+
+  /// 生成器不认识的成员（= 手写内容）；返回 路径 -> 成员名。
+  Map<String, Set<String>> _handwritten(Map<String, String> generated) {
+    final blocked = <String, Set<String>>{};
+
+    for (final entry in generated.entries) {
+      final file = File(entry.key);
+      if (!file.existsSync()) {
+        continue;
+      }
+
+      final added = handwrittenMembers(
+        existingContent: file.readAsStringSync(),
+        generatedContent: entry.value,
+      );
+      if (added.isNotEmpty) {
+        blocked[entry.key] = added;
+      }
+    }
+
+    return blocked;
+  }
+
+  void _reportHandwritten(Map<String, Set<String>> blocked) {
+    stderr.writeln('检测到手写成员，已拒绝覆盖（确认要覆盖请加 --force）：');
+    for (final entry in blocked.entries) {
+      stderr.writeln('  ${entry.key}: ${entry.value.join(', ')}');
+    }
+    stderr.writeln('建议把业务方法放进扩展（extension），或先备份再 --force 覆盖。');
   }
 
   Set<String> _existingMethods() {

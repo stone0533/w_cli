@@ -187,6 +187,9 @@ void showHelp() {
     '  ww api|a models --force              # Force full regeneration of models',
   );
   print(
+    '  ww api|a generate --force            # Overwrite hand-written members',
+  );
+  print(
     '  ww update|u                          # Update w_cli to the latest version',
   );
   print('  ww build|b [apk|aab|ios] [options]   # Build Flutter app');
@@ -216,6 +219,7 @@ void showHelp() {
   print('  ww api init                 # Initialize API directory structure');
   print('  ww api models               # Generate model files from JSON');
   print('  ww api models --force       # Force full regeneration of models');
+  print('  ww api --force              # 覆盖 repository.dart 中检测到的手写成员');
   print('');
   print('  # Build commands');
   print('  ww build apk                # Build APK in production mode');
