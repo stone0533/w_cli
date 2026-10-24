@@ -2,7 +2,7 @@
 
 ## 1. 脚本概述
 
-`api.sh` 负责 Flutter 项目 API 层的**两件事**：`--init` 初始化目录结构，`--models` 从 `w_json/*.json` 生成 Dart 模型。
+`api.sh` 负责 Flutter 项目 API 层的**两件事**：`init` 初始化目录结构，`models` 从 `w_json/*.json` 生成 Dart 模型。
 
 > **`client.dart` -> `data_source_mixin.dart` / `repository.dart` 已迁到 Dart**，
 > 请改用 `ww api`。原因与分阶段见 `docs/adr/0001-client-codegen-in-dart.md`。
@@ -61,9 +61,9 @@ w_json/    # 存储 JSON 文件，用于生成模型
 |------|------|
 | `-d, --debug` | 启用调试模式，显示详细的执行过程 |
 | `--version` | 显示脚本版本信息 |
-| `--init` | 初始化 API 目录结构和基础文件 |
-| `--models` | 从 JSON 文件生成模型文件（默认增量模式） |
-| `--full` | 配合 `--models` 使用，强制全量重新生成模型 |
+| `init` | 初始化 API 目录结构和基础文件 |
+| `models` | 从 JSON 文件生成模型文件（默认增量模式） |
+| `--force` | 配合 `models` 使用，忽略增量检查、全量重新生成 |
 | `--help` | 显示帮助信息 |
 
 ## 6. 使用示例
@@ -86,7 +86,7 @@ ww api            # 解析 client.dart，生成 data_source_mixin.dart 与 repos
 
 **命令**: 
 ```bash
-./api.sh --init
+./api.sh init
 ```
 
 **执行流程**:
@@ -101,12 +101,12 @@ ww api            # 解析 client.dart，生成 data_source_mixin.dart 与 repos
 
 **命令（增量模式，默认）**: 
 ```bash
-./api.sh --models
+./api.sh models
 ```
 
 **命令（全量模式）**: 
 ```bash
-./api.sh --models --full
+./api.sh models --force
 ```
 
 **执行流程**:
@@ -174,7 +174,7 @@ abstract class ApiClient {
 
 | 问题 | 解决方案 |
 |------|----------|
-| `client.dart` 文件不存在 | 执行 `./api.sh --init` 初始化目录结构和文件 |
+| `client.dart` 文件不存在 | 执行 `./api.sh init` 初始化目录结构和文件 |
 | 依赖项缺失 | 脚本会自动检查并添加必要的依赖项 |
 | 模型文件不存在 | 确保 `w_json` 目录中有对应的 JSON 文件，或手动创建模型文件 |
 | 代码生成失败 | 尝试使用 `--debug` 模式查看详细错误信息，或检查 `client.dart` 中的语法错误 |
@@ -184,7 +184,7 @@ abstract class ApiClient {
 ### 9.1 自定义模型生成
 
 1. 在 `w_json` 目录中创建 JSON 文件，例如 `user.json`
-2. 执行 `./api.sh --models` 生成对应的模型类
+2. 执行 `./api.sh models` 生成对应的模型类
 3. 在 `client.dart` 中使用生成的模型类作为返回类型
 
 ### 9.2 批量生成 API 代码
@@ -249,7 +249,7 @@ API 目录结构初始化结束 2026-03-23 10:00:00
 
 ## 11. 总结
 
-`api.sh` 现在只管两件事：初始化 API 目录结构（`--init`）与从 JSON 生成模型（`--models`）。
+`api.sh` 现在只管两件事：初始化 API 目录结构（`init`）与从 JSON 生成模型（`models`）。
 
 API 层代码的生成（`client.dart` -> `data_source_mixin.dart` / `repository.dart`）已经迁到 Dart，
 用 `ww api` 触发；解析与生成在同一处，解析失败会明确报错而不是写出半截文件。
@@ -257,7 +257,8 @@ API 层代码的生成（`client.dart` -> `data_source_mixin.dart` / `repository
 日常使用：
 
 ```bash
-ww api --init      # 搭好目录与模板
-ww api             # 生成 data_source_mixin.dart / repository.dart
-ww api --models    # w_json/*.json -> lib/app/data/models/*.dart
+ww api init             # 搭好目录与模板
+ww api                  # 生成 data_source_mixin.dart / repository.dart
+ww api models           # w_json/*.json -> lib/app/data/models/*.dart
+ww api models --force   # 忽略增量，全量重生成
 ```

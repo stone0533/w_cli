@@ -27,22 +27,14 @@ Future<void> main(List<String> arguments) async {
     ..addFlag('version', abbr: 'v', negatable: false)
     ..addFlag('help', abbr: 'h', negatable: false);
 
-  // 为 api 命令添加选项
-  final apiCommand = parser.commands['api'];
-  if (apiCommand != null) {
-    apiCommand
-      ..addFlag('init', negatable: false)
-      ..addFlag('models', negatable: false)
-      ..addFlag('full', negatable: false);
-  }
-
-  // 为 a 命令（api 的别名）添加选项
-  final aCommand = parser.commands['a'];
-  if (aCommand != null) {
-    aCommand
-      ..addFlag('init', negatable: false)
-      ..addFlag('models', negatable: false)
-      ..addFlag('full', negatable: false);
+  // api / a：子命令用位置参数（generate / init / models），这里只声明修饰符
+  for (final name in ['api', 'a']) {
+    final command = parser.commands[name];
+    if (command != null) {
+      command
+        ..addFlag('force', negatable: false)
+        ..addFlag('debug', abbr: 'd', negatable: false);
+    }
   }
 
   // 为 build 命令添加选项
@@ -112,7 +104,10 @@ Future<void> main(List<String> arguments) async {
         break;
       case 'api':
       case 'a':
-        exitCode = await w.handleApiCommand(command.arguments);
+        exitCode = await w.handleApiCommand(
+          command.arguments,
+          debug: command['debug'] as bool,
+        );
         break;
       case 'update':
       case 'u':
@@ -155,8 +150,14 @@ Future<void> main(List<String> arguments) async {
         exitCode = 2;
     }
   } on FormatException catch (e) {
-    // 参数解析失败（例如未知选项）属于用法错误，用 2 区分于运行时失败
-    print('Error: $e');
+    // 参数解析失败（例如未知选项）属于用法错误，用 2 区分于运行时失败。
+    // 旧写法（--init / --models / --full）在这里给一句指路，而不是原始异常。
+    final hint = w.legacyFlagHint(e.message);
+    if (hint != null) {
+      print(hint);
+    } else {
+      print('Error: $e');
+    }
     exitCode = 2;
   } catch (e) {
     print('Error: $e');
@@ -175,15 +176,15 @@ void showHelp() {
   print(
     '  ww create|c project|p name           # Create a new Flutter project',
   );
-  print('  ww api|a [options]                   # Generate API code');
+  print('  ww api|a [generate]                  # Generate API code');
   print(
-    '  ww api|a --init                      # Initialize API directory structure',
+    '  ww api|a init                        # Initialize API directory structure',
   );
   print(
-    '  ww api|a --models                    # Generate model files from JSON',
+    '  ww api|a models                      # Generate model files from JSON',
   );
   print(
-    '  ww api|a --models --full             # Force full regeneration of models',
+    '  ww api|a models --force              # Force full regeneration of models',
   );
   print(
     '  ww update|u                          # Update w_cli to the latest version',
@@ -212,8 +213,9 @@ void showHelp() {
   print('');
   print('  # API generation');
   print('  ww api                      # Generate API code');
-  print('  ww a --init                 # Initialize API directory structure');
-  print('  ww a --models               # Generate model files from JSON');
+  print('  ww api init                 # Initialize API directory structure');
+  print('  ww api models               # Generate model files from JSON');
+  print('  ww api models --force       # Force full regeneration of models');
   print('');
   print('  # Build commands');
   print('  ww build apk                # Build APK in production mode');
