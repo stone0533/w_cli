@@ -2,7 +2,7 @@
 
 ## 1. 脚本概述
 
-`api.sh` 负责 Flutter 项目 API 层的**两件事**：`init` 初始化目录结构，`models` 从 `w_json/*.json` 生成 Dart 模型。
+`api.sh` 现在只负责一件事：`models` —— 从 `w_json/*.json` 生成 Dart 模型。目录初始化（`init`）与代码生成（`generate`）已迁到 Dart，见 ADR-0002。
 
 > **`client.dart` -> `data_source_mixin.dart` / `repository.dart` 已迁到 Dart**，
 > 请改用 `ww api`。原因与分阶段见 `docs/adr/0001-client-codegen-in-dart.md`。
@@ -61,7 +61,7 @@ w_json/    # 存储 JSON 文件，用于生成模型
 |------|------|
 | `-d, --debug` | 启用调试模式，显示详细的执行过程 |
 | `--version` | 显示脚本版本信息 |
-| `init` | 初始化 API 目录结构和基础文件 |
+| `init`（已移除，改用 `ww api init`） | 初始化 API 目录结构和基础文件 |
 | `models` | 从 JSON 文件生成模型文件（默认增量模式） |
 | `--force` | 配合 `models` 使用，忽略增量检查、全量重新生成 |
 | `--help` | 显示帮助信息 |
@@ -86,7 +86,7 @@ ww api            # 解析 client.dart，生成 data_source_mixin.dart 与 repos
 
 **命令**: 
 ```bash
-./api.sh init
+ww api init
 ```
 
 **执行流程**:
@@ -174,7 +174,7 @@ abstract class ApiClient {
 
 | 问题 | 解决方案 |
 |------|----------|
-| `client.dart` 文件不存在 | 执行 `./api.sh init` 初始化目录结构和文件 |
+| `client.dart` 文件不存在 | 执行 `ww api init` 初始化目录结构和文件 |
 | 依赖项缺失 | 脚本会自动检查并添加必要的依赖项 |
 | 模型文件不存在 | 确保 `w_json` 目录中有对应的 JSON 文件，或手动创建模型文件 |
 | 代码生成失败 | 尝试使用 `--debug` 模式查看详细错误信息，或检查 `client.dart` 中的语法错误 |
