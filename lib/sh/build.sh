@@ -581,8 +581,15 @@ create_ipa() {
 get_plist_value() {
   local plist_file="$1"
   local key="$2"
-  # 使用 sed 提取 <key>key</key> 后面的 <string>value</string>
-  grep -A1 "<key>$key</key>" "$plist_file" | grep "<string>" | sed 's/<[^>]*>//g' | tr -d '[:space:]'
+  # 取 <key>key</key> 后面那一行的 <string>value</string>。
+  # 只去掉标签和首尾空白——证书名里带空格（"Apple Distribution: My Company (ABC)"），
+  # 以前用 tr -d '[:space:]' 会把它压成 "AppleDistribution:MyCompany(ABC)"，
+  # 传给 xcodebuild -codeSignIdentity 必然签不过。
+  grep -A1 "<key>$key</key>" "$plist_file" 2>/dev/null \
+    | grep "<string>" \
+    | head -1 \
+    | sed 's/<[^>]*>//g' \
+    | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
 }
 
 # 验证 ios.plist 文件
@@ -602,8 +609,11 @@ validate_ios_plist() {
   local has_signingcert=$(grep -c "^[[:space:]]*<key>signingCertificate</key>" "$plist_file")
   local has_provisioning=$(grep -c "^[[:space:]]*<key>provisioningProfiles</key>" "$plist_file")
   
-  # 获取 signingStyle 值（默认为 manual）
+  # 获取 signingStyle 值（缺省按 manual 处理，与 build_ios 保持一致）
   local signingstyle_value=$(get_plist_value "$plist_file" "signingStyle")
+  if [ "$has_signingstyle" -eq 0 ]; then
+    log_debug "ios.plist 未声明 signingStyle，按 manual 处理"
+  fi
   signingstyle_value=${signingstyle_value:-manual}
   
   # 检查必需字段
@@ -879,9 +889,9 @@ build_ios() {
   
   log_debug "xcodebuild 命令: ${xcodebuild_command[*]}"
   
-  # 获取签名方式
+  # 获取签名方式（缺省 manual，与 validate_ios_plist 一致）
   local signing_style=$(get_plist_value "$export_options_file" "signingStyle")
-  signing_style=${signing_style:-automatic}
+  signing_style=${signing_style:-manual}
   local team_id=$(get_plist_value "$export_options_file" "teamID")
   
   log_info "签名方式: $signing_style"
@@ -912,6 +922,9 @@ build_ios() {
     archive_command+=("-destination" "generic/platform=iOS")
   fi
   
+  # -archivePath 的父目录不会自动创建，缺了 xcodebuild 会直接失败
+  mkdir -p build/ios/archive
+
   log_info "创建 Xcode Archive..."
   log_debug "Archive 命令: ${archive_command[*]}"
   if ! ww::run_with_timeout "$timeout" "${archive_command[@]}" 2>&1 | sed 's/\x1B\[[0-9;]*[mK]//g'; then
@@ -920,6 +933,11 @@ build_ios() {
     return 1
   fi
   
+  # 自动签名导出让 Xcode 自己更新 profile
+  if [ "$signing_style" = "automatic" ]; then
+    xcodebuild_command+=("-allowProvisioningUpdates")
+  fi
+
   log_info "导出 IPA..."
   if ! ww::run_with_timeout "$timeout" "${xcodebuild_command[@]}" 2>&1 | sed 's/\x1B\[[0-9;]*[mK]//g'; then
     log_error "xcodebuild 导出 IPA 失败"
