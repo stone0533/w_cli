@@ -39,6 +39,8 @@
 
 ### Changed
 
+- `lib/sh/setup.sh` 删除：`ww create` 编排也迁到 Dart（`lib/src/project/`），
+  Windows 可用；assets 配置的兜底路径不再依赖 `sed -i ''`（只在 macOS 有效）
 - `ww create` 的生成文本全部迁到 Dart：`lib/src/project/project_templates.dart` +
   `ProjectScaffolder`（main.dart / home / routes / CI / .env / toolkit），
   `setup.sh` 只剩编排

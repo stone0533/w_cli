@@ -64,7 +64,7 @@
 | Phase 1 | `ww api init` 改 Dart 实现，`api.sh init` 移除并指路 | 五件产物与 golden 字节一致（`test/scaffold_test.dart`） | **已完成** |
 | Phase 2 | 删掉 shell 的模板与 `resolve_w_tools_import` / `snake_name` | `grep -rn "package:w_tools/w.dart" lib/sh/api.sh` 为空 | **已完成** |
 | Phase 2b | `ww create` 的生成文本全部交给 Dart：API 层 `ApiScaffolder`、工程文件 `ProjectScaffolder` | 产出与迁移前 shell 版本逐字节一致（包名与 API 层除外） | **已完成** |
-| Phase 3b | 删除 `lib/sh/setup.sh`（只剩编排） | `lib/sh/` 仅 build.sh / open.sh / lib.sh | 待做 |
+| Phase 3b | 删除 `lib/sh/setup.sh`：`ww create` 编排也迁 Dart | `lib/sh/` 仅 build.sh / open.sh / lib.sh | **已完成** |
 | Phase 3 | `models` 迁 Dart（`lib/src/models/`），`ww api models` 不再调脚本 | 七个 JSON fixture 与 shell 产物逐字节一致 + 独立类/增量/自检 | **已完成** |
 | Phase 3b | 删除 `lib/sh/api.sh`，同步测试 / 文档 / 注释 | `grep -rn "api\.sh" lib/ test/` 只剩历史注释 | **已完成** |
 

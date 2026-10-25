@@ -10,7 +10,7 @@ import 'src/api/scaffolder.dart';
 import 'src/models/models_generator.dart';
 import 'src/commands/clean_command.dart';
 import 'src/commands/project_command.dart';
-import 'src/project/project_scaffolder.dart';
+import 'src/project/project_creator.dart';
 import 'src/tools/build_runner.dart';
 
 /// 获取当前版本号
@@ -205,7 +205,7 @@ bool validateProjectName(String projectName) {
 
 /// 处理 create 命令
 /// [arguments] - 命令参数
-Future<int> handleCreateCommand(List<String> arguments) async {
+Future<int> handleCreateCommand(List<String> arguments, {bool force = false}) async {
   String subcommand;
   List<String> subArgs;
 
@@ -225,7 +225,7 @@ Future<int> handleCreateCommand(List<String> arguments) async {
       return 2;
     }
     final projectName = subArgs[0];
-    return await handleCreateProject(projectName);
+    return await handleCreateProject(projectName, force: force);
   } else {
     print('❌ Error: Unknown create subcommand: $subcommand');
     print('   Usage: ww create|c project|p name');
@@ -235,43 +235,14 @@ Future<int> handleCreateCommand(List<String> arguments) async {
 
 /// 处理项目创建
 /// [projectName] - 项目名称
-Future<int> handleCreateProject(String projectName) async {
-  // 验证项目名称
+Future<int> handleCreateProject(String projectName, {bool force = false}) async {
   if (!validateProjectName(projectName)) {
     return 2;
   }
 
   print('\n🚀 Creating Flutter project: $projectName');
   try {
-    // 工程骨架（flutter create / 依赖 / 目录 / main.dart / git / CI）仍由脚本编排
-    final status = await executeScript(
-      'setup.sh',
-      [projectName],
-      'Project created successfully!',
-      'Project creation failed',
-    );
-    if (status != 0) {
-      return status;
-    }
-
-    // 工程文件（main.dart / home / routes / CI / toolkit）由 Dart 写
-    print('\n🚀 Scaffolding project files');
-    final projectStatus = ProjectScaffolder(root: projectName).run();
-    if (projectStatus != 0) {
-      return projectStatus;
-    }
-
-    // API 层（client / paths / data_source / mixin / repository）由 Dart 生成，
-    // 与 `ww api init` 共用同一份模板（ADR-0002 Phase 2b）
-    print('\n🚀 Scaffolding API layer');
-    final scaffoldStatus = ApiScaffolder(root: projectName).run();
-    if (scaffoldStatus != 0) {
-      return scaffoldStatus;
-    }
-
-    // Retrofit 代码生成也走统一的 BuildRunner（setup.sh 里已不再直接跑）
-    print('\n🚀 Generating code');
-    return await BuildRunner(root: projectName).run();
+    return await ProjectCreator(name: projectName, force: force).run();
   } catch (e) {
     handleError(e, 'project creation');
     return 1;
