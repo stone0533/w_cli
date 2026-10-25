@@ -756,7 +756,7 @@ printf 'name: demo\nversion: 1.0.0\n' > "$frame_root/demo/pubspec.yaml"
 printf 'void main() {}\n' > "$frame_root/demo/lib/main.dart" 2>/dev/null || mkdir -p "$frame_root/demo/lib" && printf 'void main() {}\n' > "$frame_root/demo/lib/main.dart"
 
 frame_out="$( cd "$frame_root/demo" && CI=true "$(command -v dart)" run "$ROOT/bin/w_cli.dart" doctor 2>&1 )"
-assert_contains "有开始横幅" "=== ww doctor ===" "$frame_out"
+assert_contains "有开始横幅（含工程版本）" "=== ww doctor" "$frame_out"
 assert_eq "有结束横幅（成功或失败）" "yes" \
   "$(printf '%s' "$frame_out" | grep -Eq '=== (完成|失败)' && echo yes || echo no)"
 assert_eq "管道下不输出 ANSI 颜色" "0" \
@@ -959,6 +959,7 @@ mkdir -p "$scaffold_root/demo/bin"
 cat > "$scaffold_root/demo/bin/dart" << 'STUB'
 #!/bin/bash
 if [ "$1" = "format" ]; then exec "$REAL_DART" "$@"; fi
+echo "Built with build_runner in 2s; wrote 0 outputs."
 exit 0
 STUB
 chmod +x "$scaffold_root/demo/bin/dart"
@@ -970,14 +971,19 @@ assert_eq "ww api models 产出模型文件" "present" \
   "$([ -f "$scaffold_root/demo/lib/app/data/models/user.dart" ] && echo present || echo gone)"
 assert_eq "默认输出只剩一行汇总" "1" \
   "$(printf '%s\n' "$models_quiet" | grep -c '\[INFO\]')"
-assert_contains "有开始横幅" "=== ww api models ===" "$models_quiet"
+assert_contains "有开始横幅（含工程版本）" "=== ww api models" "$models_quiet"
+assert_eq "build_runner 输出不进终端" "0" \
+  "$(printf '%s' "$models_quiet" | grep -c 'Built with build_runner' || true)"
+assert_contains "build_runner 输出落盘" "Built with build_runner" \
+  "$(cat "$scaffold_root/demo/w_build/build-runner.log" 2>/dev/null)"
 assert_eq "有结束横幅（成功或失败）" "yes" \
   "$(printf '%s' "$models_quiet" | grep -Eq '=== (完成|失败)' && echo yes || echo no)"
 assert_contains "汇总里有文件数" "生成" "$models_quiet"
 
 models_loud="$( cd "$scaffold_root/demo" && CI=true REAL_DART="$(command -v dart)" \
     PATH="$scaffold_root/demo/bin:$scaffold_root/bin:$PATH" \
-    "$(command -v dart)" run "$ROOT/bin/w_cli.dart" api models -d 2>&1 )"
+    "$(command -v dart)" run "$ROOT/bin/w_cli.dart" api models --force -d 2>&1 )"
+assert_contains "-d 下显示 build_runner 结果" "Built with build_runner" "$models_loud"
 if [ "$(printf '%s\n' "$models_loud" | grep -c '\[INFO\]')" -gt 1 ]; then
   printf '  %s  %s\n' "ok  " "-d 显示明细（文件清单/增量原因）"
 else

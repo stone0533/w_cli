@@ -48,15 +48,19 @@ class Cli {
     stdout.writeln(_paint(_bold, '=== $title ==='));
   }
 
-  /// 命令结束：一行结果 + 耗时；失败时红色
+  /// 命令结束：一行结果 + 时刻（与 build.sh 的页脚一致）；失败时红色
   static void end({int code = 0}) {
     _watch.stop();
+    final now = DateTime.now();
+    String two(int value) => value.toString().padLeft(2, '0');
+    final clock = '${two(now.hour)}:${two(now.minute)}:${two(now.second)}';
     final elapsed = (_watch.elapsedMilliseconds / 1000).toStringAsFixed(1);
     final label = code == 0 ? '完成' : '失败（退出码 $code）';
     final painted = code == 0
-        ? _paint(_green, '=== $label（${elapsed}s）===')
-        : _paint(_red, '=== $label（${elapsed}s）===');
+        ? _paint(_green, '=== $label（$clock）===')
+        : _paint(_red, '=== $label（$clock）===');
     stdout.writeln(painted);
+    detail('耗时 ${elapsed}s');
   }
 
   static void step(String message) =>
