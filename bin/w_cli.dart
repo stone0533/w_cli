@@ -154,7 +154,7 @@ Future<void> main(List<String> arguments) async {
         break;
       case 'open':
       case 'o':
-        exitCode = await w.handleOpenCommand(command.arguments);
+        exitCode = await w.handleOpenCommand(command.rest);
         break;
       case 'common':
       case 'co':

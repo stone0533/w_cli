@@ -9,6 +9,7 @@ import 'src/api/api_generator.dart';
 import 'src/api/scaffolder.dart';
 import 'src/models/models_generator.dart';
 import 'src/commands/clean_command.dart';
+import 'src/commands/open_command.dart';
 import 'src/commands/project_command.dart';
 import 'src/project/project_creator.dart';
 import 'src/tools/build_runner.dart';
@@ -484,52 +485,7 @@ Future<int> handleProjectCommand(List<String> arguments) async {
 /// 处理打开命令
 /// [arguments] - 命令参数
 Future<int> handleOpenCommand(List<String> arguments) async {
-  if (arguments.isEmpty) {
-    print('❌ Error: No subcommand specified for open');
-    print('   Usage: ww open [ios|i|android|a|build|b|root|r]');
-    return 2;
-  }
-
-  final subcommand = arguments[0];
-  String target;
-
-  // 处理别名
-  switch (subcommand) {
-    case 'ios':
-    case 'i':
-      target = 'ios';
-      break;
-    case 'android':
-    case 'a':
-      target = 'android';
-      break;
-    case 'build':
-    case 'b':
-      target = 'build';
-      break;
-    case 'root':
-    case 'r':
-      target = 'root';
-      break;
-    default:
-      print('❌ Error: Unknown open subcommand: $subcommand');
-      print('   Usage: ww open [ios|i|android|a|build|b|root|r]');
-      return 2;
-  }
-
-  print('\n🚀 Opening $target');
-  try {
-    // 执行脚本并实时显示输出
-    return await executeScript(
-      'open.sh',
-      [target],
-      'Opened $target successfully!',
-      'Failed to open $target',
-    );
-  } catch (e) {
-    handleError(e, 'open $target');
-    return 1;
-  }
+  return OpenCommand().run(arguments);
 }
 
 /// 单元测试辅助函数

@@ -39,6 +39,8 @@
 
 ### Changed
 
+- `ww open` 改为 Dart 实现，`lib/sh/open.sh` 删除：支持 `i`/`a`/`b`/`r` 短别名，
+  打开失败返回非零（旧脚本永远退 0）
 - `lib/sh/setup.sh` 删除：`ww create` 编排也迁到 Dart（`lib/src/project/`），
   Windows 可用；assets 配置的兜底路径不再依赖 `sed -i ''`（只在 macOS 有效）
 - `ww create` 的生成文本全部迁到 Dart：`lib/src/project/project_templates.dart` +
