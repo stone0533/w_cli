@@ -31,6 +31,10 @@
 
 ### Fixed
 
+- `-d` / `--debug` 对所有命令生效（以前只有 `api` / `build` 声明了该 flag，
+  其余命令直接报 `Could not find an option`）；也支持全局写法 `ww -d <命令>`
+- 删除已无引用的 `handleProjectCommand`
+
 - `ww deps upgrade` 不再把 Gradle 无条件写成 8.0（Flutter 3.4x 模板是 9.1.0，
   旧行为等于降级）；Gradle 拆到 `ww deps gradle [--to=]`，默认只报告、拒绝对降级
 

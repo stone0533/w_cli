@@ -58,7 +58,7 @@ iOS 签名（优先级从高到低）:
   2. w_build/ios.plist（个人覆盖，不提交）
   3. ios/ExportOptions.plist（团队共用，可提交）
   4. 零配置：从 ios/Runner.xcodeproj 读 DEVELOPMENT_TEAM，按自动签名构建
-  -d, --debug             调试日志
+  -d, --debug             调试日志（所有命令都支持，也可写成 ww -d <命令>）
 
 环境变量: OUTPUT_DIR / PARALLEL_BUILD / MIN_BUILD_SIZE / ENABLE_NOTIFICATIONS''',
   'clean': '''

@@ -12,7 +12,9 @@ Future<void> main(List<String> arguments) async {
   // 初始化命令行参数解析器
   final parser = ArgParser()
     ..addFlag('version', abbr: 'v', negatable: false)
-    ..addFlag('help', abbr: 'h', negatable: false);
+    ..addFlag('help', abbr: 'h', negatable: false)
+    // 全局 -d：`ww -d <命令>` 与 `ww <命令> -d` 都支持
+    ..addFlag('debug', abbr: 'd', negatable: false);
 
   // 命令名、别名、flag/option 声明全部来自这一张表
   final specs = cli_spec.commandSpecs();
@@ -21,6 +23,10 @@ Future<void> main(List<String> arguments) async {
       final command = parser.addCommand(name);
       for (final flag in spec.flags) {
         flag.register(command);
+      }
+      // 所有命令都支持 -d / --debug（以前只有 api / build 声明了）
+      if (!spec.flags.any((flag) => flag.name == 'debug')) {
+        command.addFlag('debug', abbr: 'd', negatable: false);
       }
       for (final option in spec.options) {
         option.register(command);
@@ -68,8 +74,11 @@ Future<void> main(List<String> arguments) async {
       return;
     }
 
-    // -d / --debug 打开详细输出（所有命令共享一个开关）
-    if (command.options.contains('debug') && command['debug'] == true) {
+    // -d / --debug 打开详细输出：全局（ww -d …）或命令级（ww … -d）都算
+    final rootDebug = results.wasParsed('debug') && results['debug'] == true;
+    final commandDebug =
+        command.options.contains('debug') && command['debug'] == true;
+    if (rootDebug || commandDebug) {
       Cli.verbose = true;
     }
 

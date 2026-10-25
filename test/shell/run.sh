@@ -754,6 +754,28 @@ assert_eq "不再输出空的失败文案" "no" \
   "$(printf '%s' "$noteam_out" | grep -q 'with exit code' && echo yes || echo no)"
 rm -rf "$noteam_root"
 
+# 8.36b) -d / --debug 在所有命令上都能用（以前只有 api / build 声明了）
+debug_root="$(mktemp -d)"
+mkdir -p "$debug_root/demo/lib"
+printf 'name: demo\nversion: 1.0.0\n' > "$debug_root/demo/pubspec.yaml"
+printf 'void main() {}\n' > "$debug_root/demo/lib/main.dart"
+for cmd in "gen" "doctor" "deps" "clean" "open" "create x" "run"; do
+  out="$( cd "$debug_root/demo" && CI=true "$(command -v dart)" run "$ROOT/bin/w_cli.dart" $cmd -d 2>&1 )"
+  if printf '%s' "$out" | grep -q 'Could not find an option'; then
+    printf '  %s  %s\n' "FAIL" "ww $cmd -d 应该被接受"
+    FAILS=$((FAILS + 1))
+  else
+    printf '  %s  %s\n' "ok  " "ww $cmd -d 被接受"
+  fi
+  TOTAL=$((TOTAL + 1))
+done
+
+# 全局形式：ww -d <命令>
+global_out="$( cd "$debug_root/demo" && CI=true "$(command -v dart)" run "$ROOT/bin/w_cli.dart" -d doctor 2>&1 )"
+assert_eq "全局 ww -d <命令> 也被接受" "no" \
+  "$(printf '%s' "$global_out" | grep -q 'Could not find an option' && echo yes || echo no)"
+rm -rf "$debug_root"
+
 # 8.37) 输出约定：开始/结束横幅 + 颜色只在 TTY
 frame_root="$(mktemp -d)"
 mkdir -p "$frame_root/demo"
