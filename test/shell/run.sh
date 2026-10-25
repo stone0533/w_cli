@@ -794,6 +794,21 @@ missing_out="$( cd "$res_root/demo" && WW_SCRIPT_DIR="$res_root/nowhere" CI=true
 assert_contains "找不到时列出搜索过的路径" "搜索过" "$missing_out"
 rm -rf "$res_root"
 
+# 8.36d) 文档锚点检查：仓库通过，断链会失败
+doc_ok="$( cd "$ROOT" && CI=true "$(command -v dart)" run tool/check_doc_anchors.dart 2>&1 )"
+assert_eq "文档锚点检查在仓库上通过" 0 "$?"
+assert_contains "给出检查统计" "锚点检查通过" "$doc_ok"
+
+bad_doc="$(mktemp -d)"
+cat > "$bad_doc/bad.md" << 'MD'
+# 标题
+
+见 [不存在的章节](#missing-section)。
+MD
+( cd "$ROOT" && CI=true "$(command -v dart)" run tool/check_doc_anchors.dart "$bad_doc" ) > /dev/null 2>&1
+assert_eq "断链会让锚点检查失败" 1 "$?"
+rm -rf "$bad_doc"
+
 # 8.37) 输出约定：开始/结束横幅 + 颜色只在 TTY
 frame_root="$(mktemp -d)"
 mkdir -p "$frame_root/demo"

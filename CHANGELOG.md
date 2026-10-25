@@ -12,6 +12,11 @@
   | `ww api --models --full` | `ww api models --force` |
 - 生成器自检 `verify_generated_models` 现在真的会检查重复 class（之前只查 import）
 
+### Added
+
+- `tool/check_doc_anchors.dart` + CI 步骤：校验 Markdown 内部锚点，
+  防止「章节删了、链接还在」这类断链（`doc/commands.md` 就发生过一次）
+
 ### Changed
 
 - `Resources.readResource` 找不到脚本时列出所有搜索过的路径；新增 `WW_SCRIPT_DIR`
