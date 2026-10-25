@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:w_cli/src/cli/help.dart' as cli_help;
 import 'package:w_cli/src/commands/doctor_command.dart' as doctor;
+import 'package:w_cli/src/commands/project_command.dart' as project;
 import 'package:w_cli/src/commands/run_command.dart' as runcmd;
 import 'package:w_cli/src/commands/task_commands.dart' as tasks;
 import 'package:w_cli/w_cli.dart' as w;
@@ -160,12 +161,9 @@ List<CommandSpec> commandSpecs() => [
   CommandSpec(
     name: 'project',
     aliases: const ['p'],
-    usage: 'ww project|p --update             # 升级依赖与 Gradle',
+    usage: 'ww project|p --update             # 旧名，请改用 ww deps upgrade',
     flags: const [FlagSpec('update')],
-    run: (results) => w.handleProjectCommand([
-      ...results.rest,
-      if (_flag(results, 'update')) '--update',
-    ]),
+    run: (results) => _legacyProject(results),
   ),
   CommandSpec(
     name: 'self-update',
@@ -186,7 +184,9 @@ List<CommandSpec> commandSpecs() => [
   ),
   CommandSpec(
     name: 'deps',
-    usage: 'ww deps upgrade                   # 升级项目依赖与 Gradle',
+    usage: 'ww deps upgrade [--major]         # 升级 pub 依赖；gradle 单独一步',
+    flags: const [FlagSpec('major'), FlagSpec('dry-run'), FlagSpec('pod')],
+    options: const [OptionSpec('to')],
     run: (results) => _deps(results),
   ),
   // 内置短命令：把常用长命令收成 ww <动词>
@@ -267,6 +267,14 @@ Future<int> _iosSetup(ArgResults results) async {
   );
 }
 
+Future<int> _legacyProject(ArgResults results) async {
+  stderr.writeln(
+    '提示：`ww project --update` 已拆成 `ww deps upgrade`（依赖）与 '
+    '`ww deps gradle`（Gradle），旧名将在下个版本移除',
+  );
+  return project.ProjectCommand().pubUpgrade();
+}
+
 Future<int> _deps(ArgResults results) async {
   if (results.rest.isEmpty) {
     final help = cli_help.commandHelp('deps');
@@ -275,12 +283,27 @@ Future<int> _deps(ArgResults results) async {
     }
     return 0;
   }
-  if (results.rest.first != 'upgrade') {
-    stderr.writeln('未知子命令: ${results.rest.first}');
-    stderr.writeln('用法: ww deps upgrade');
-    return 2;
+
+  final sub = results.rest.first;
+  final command = project.ProjectCommand();
+
+  if (sub == 'gradle') {
+    return command.gradle(
+      to: results['to'] as String?,
+      force: _flag(results, 'force'),
+    );
   }
-  return w.handleProjectCommand(['--update']);
+  if (sub == 'upgrade') {
+    return command.pubUpgrade(
+      major: _flag(results, 'major'),
+      dryRun: _flag(results, 'dry-run'),
+      pod: _flag(results, 'pod'),
+    );
+  }
+  stderr.writeln('未知子命令: $sub');
+  stderr.writeln('用法: ww deps upgrade [--major] [--dry-run] [--pod]');
+  stderr.writeln('      ww deps gradle [--to=<版本>] [--force]');
+  return 2;
 }
 
 /// 旧命令名：跑完提醒一次新写法。

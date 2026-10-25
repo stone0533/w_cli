@@ -31,6 +31,9 @@
 
 ### Fixed
 
+- `ww deps upgrade` 不再把 Gradle 无条件写成 8.0（Flutter 3.4x 模板是 9.1.0，
+  旧行为等于降级）；Gradle 拆到 `ww deps gradle [--to=]`，默认只报告、拒绝对降级
+
 - **`ww build` / `ww create` / `ww project` 无法运行**：脚本被提取成临时文件后没有可执行位，
   而三个脚本里有「检查执行权限」的守卫，直接退出。守卫已删除（`ww` 一律用 `bash` 调用），
   并加了「不可执行的副本也能跑」的回归测试
