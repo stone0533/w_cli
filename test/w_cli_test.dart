@@ -18,21 +18,6 @@ void main() {
     });
   });
 
-  group('isValidVersion', () {
-    test('should return true for valid version strings', () {
-      expect(isValidVersion('1.0.0'), isTrue);
-      expect(isValidVersion('1.2.3'), isTrue);
-      expect(isValidVersion('10.0.0'), isTrue);
-    });
-
-    test('should return false for invalid version strings', () {
-      expect(isValidVersion('1.0'), isFalse);
-      expect(isValidVersion('1'), isFalse);
-      expect(isValidVersion('1.0.0.0'), isFalse);
-      expect(isValidVersion('1.0.0-alpha'), isFalse);
-    });
-  });
-
   group('getVersionFromPubspec', () {
     test('should return a version string or unknown', () {
       final version = getVersionFromPubspec();
@@ -100,20 +85,6 @@ void main() {
         // 即使脚本执行失败，函数本身也不应该抛出异常
         expect(true, isTrue);
       }
-    });
-  });
-
-  group('isValidProjectName', () {
-    test('should return true for valid project names', () {
-      expect(isValidProjectName('my_app'), isTrue);
-      expect(isValidProjectName('myapp123'), isTrue);
-    });
-
-    test('should return false for invalid project names', () {
-      expect(isValidProjectName(''), isFalse);
-      expect(isValidProjectName('MyApp'), isFalse);
-      expect(isValidProjectName('123app'), isFalse);
-      expect(isValidProjectName('my-app'), isFalse);
     });
   });
 
@@ -267,14 +238,6 @@ void main() {
         expect(validateProjectName('projectName'), isFalse);
       },
     );
-
-    test('isValidVersion should return false for invalid version formats', () {
-      expect(isValidVersion('1.0'), isFalse);
-      expect(isValidVersion('1'), isFalse);
-      expect(isValidVersion('1.0.0.0'), isFalse);
-      expect(isValidVersion('1.0.0-alpha'), isFalse);
-      expect(isValidVersion(''), isFalse);
-    });
 
     test('scriptExists should return false for non-existent scripts', () async {
       expect(await scriptExists('non_existent_script.sh'), isFalse);

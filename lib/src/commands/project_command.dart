@@ -1,13 +1,15 @@
 import 'dart:io';
+import '../cli/process.dart';
 
 /// `ww project`（原 `lib/sh/project.sh`）。
 ///
 /// 目前只有一个动作：`--update` = `flutter pub upgrade` + 把 Gradle wrapper
 /// 指向推荐的 8.0 版本。改成 Dart 后 Windows 也能用（原来依赖 bash）。
 class ProjectCommand {
-  ProjectCommand({this.root = '.'});
+  ProjectCommand({this.root = '.', this.runner = const SystemProcessRunner()});
 
   final String root;
+  final ProcessRunner runner;
 
   static const String recommendedGradleVersion = '8.0';
 
@@ -47,7 +49,7 @@ class ProjectCommand {
   }
 
   Future<int> _update() async {
-    if (!_available('flutter')) {
+    if (!runner.which('flutter')) {
       stderr.writeln('Flutter 未安装，请先安装 Flutter');
       return 1;
     }
@@ -122,34 +124,16 @@ class ProjectCommand {
   }
 
   Future<String> _flutterVersion() async {
-    final result = await Process.run(
-      'flutter',
-      ['--version'],
-      workingDirectory: root,
-      runInShell: true,
-    );
+    final result = await runner.run('flutter', [
+      '--version',
+    ], workingDirectory: root);
     final firstLine = result.stdout.toString().split('\n').first;
     final parts = firstLine.split(' ');
     return parts.length > 1 ? parts[1] : '未知';
   }
 
   Future<int> _run(String executable, List<String> args) async {
-    final process = await Process.start(
-      executable,
-      args,
-      workingDirectory: root,
-      runInShell: true,
-      mode: ProcessStartMode.inheritStdio,
-    );
-    return process.exitCode;
-  }
-
-  static bool _available(String name) {
-    try {
-      return Process.runSync('which', [name], runInShell: true).exitCode == 0;
-    } on ProcessException {
-      return false;
-    }
+    return runner.start(executable, args, workingDirectory: root);
   }
 
   void printVersion() {

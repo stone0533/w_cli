@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../cli/process.dart';
 
 /// `ww clean`（原 `lib/sh/clean.sh`）。
 ///
@@ -6,9 +7,10 @@ import 'dart:io';
 /// 然后 `flutter clean` + `flutter pub get`。改成 Dart 后 `--lock` / `--pod`
 /// 这些参数才真正能从 `ww` 传进来（以前 ArgParser 直接拒绝）。
 class CleanCommand {
-  CleanCommand({this.root = '.'});
+  CleanCommand({this.root = '.', this.runner = const SystemProcessRunner()});
 
   final String root;
+  final ProcessRunner runner;
   static const int maxPodRetries = 30;
 
   Future<int> run(List<String> args) async {
@@ -51,11 +53,11 @@ class CleanCommand {
       return 2;
     }
 
-    if (!_available('flutter')) {
+    if (!runner.which('flutter')) {
       stderr.writeln('flutter 命令不可用，请确保已正确安装');
       return 1;
     }
-    if ((platform == 'ios' || platform == 'all') && !_available('pod')) {
+    if ((platform == 'ios' || platform == 'all') && !runner.which('pod')) {
       stdout.writeln('pod 命令不可用，相关操作可能会失败');
     }
 
@@ -165,22 +167,11 @@ class CleanCommand {
     List<String> args, {
     String? workingDirectory,
   }) async {
-    final process = await Process.start(
+    return runner.start(
       executable,
       args,
       workingDirectory: workingDirectory ?? root,
-      runInShell: true,
-      mode: ProcessStartMode.inheritStdio,
     );
-    return process.exitCode;
-  }
-
-  static bool _available(String name) {
-    try {
-      return Process.runSync('which', [name], runInShell: true).exitCode == 0;
-    } on ProcessException {
-      return false;
-    }
   }
 
   void _printFooter() {
