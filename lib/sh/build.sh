@@ -838,7 +838,7 @@ write_synthesized_options() {
 }
 
 # 解析签名配置：CLI > w_build/ios.plist（个人覆盖）> ios/ExportOptions.plist（可提交）
-# > 自动探测（automatic + development）。结果写入全局 $export_options_file。
+# > 自动探测（automatic + development）。结果写入全局 ${export_options_file}。
 resolve_export_options() {
   # 1) 显式 --export-options 最优先
   if [ -n "$EXPORT_OPTIONS_PLIST" ]; then
@@ -921,7 +921,7 @@ resolve_export_options() {
   log_info "三种做法（任选其一）:"
   log_info "  ww build ios --team=ABC123DEF4                    # 只用自动签名"
   log_info "  ww build ios --method=app-store --team=... --bundle-id=... --cert=... --profile=..."
-  log_info "  编辑 $template_path（或提交 ios/ExportOptions.plist 给团队共用）"
+  log_info "  编辑 ${template_path}（或提交 ios/ExportOptions.plist 给团队共用）"
   return 1
 }
 
@@ -992,6 +992,87 @@ autodetect_signing() {
   fi
   DETECTED_PROFILE="${profiles[0]}"
   log_info "自动探测到证书与 Profile: $DETECTED_CERT / $DETECTED_PROFILE"
+  return 0
+}
+
+# 生成一份可提交的签名配置（ios/ExportOptions.plist）
+save_signing_config() {
+  local team bundle style method
+  team="${CLI_TEAM:-$(xcodeproj_value DEVELOPMENT_TEAM || true)}"
+  bundle="${CLI_BUNDLE_ID:-$(xcodeproj_value PRODUCT_BUNDLE_IDENTIFIER || true)}"
+  style="${CLI_SIGNING_STYLE:-automatic}"
+  method="${CLI_METHOD:-development}"
+
+  if [ -z "$team" ]; then
+    log_error "读不到 DEVELOPMENT_TEAM，请加 --team=<10 位 Team ID>"
+    return 1
+  fi
+
+  local cert="$CLI_CERT" profile="$CLI_PROFILE"
+  if [ "$style" = "manual" ]; then
+    if [ -z "$cert" ] || [ -z "$profile" ]; then
+      DETECTED_CERT=""
+      DETECTED_PROFILE=""
+      autodetect_signing || true
+      [ -z "$cert" ] && cert="$DETECTED_CERT"
+      [ -z "$profile" ] && profile="$DETECTED_PROFILE"
+    fi
+    if [ -z "$cert" ] || [ -z "$profile" ] || [ -z "$bundle" ]; then
+      log_error "手动签名需要 --cert / --profile / bundle id，且要能在本机探测或显式提供"
+      log_info "  --cert=\"Apple Distribution: 公司名 (ID)\""
+      log_info "  --profile=\"Profile 名称\""
+      log_info "  --bundle-id=com.example.app"
+      return 1
+    fi
+  fi
+
+  local target="ios/ExportOptions.plist"
+  local tmp
+  tmp=$(mktemp)
+  {
+    printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>'
+    printf '%s\n' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+    printf '%s\n' '<plist version="1.0">'
+    printf '%s\n' '<dict>'
+    printf '    <key>method</key>\n    <string>%s</string>\n' "$method"
+    printf '    <key>signingStyle</key>\n    <string>%s</string>\n' "$style"
+    printf '    <key>teamID</key>\n    <string>%s</string>\n' "$team"
+    if [ "$style" = "manual" ]; then
+      printf '    <key>signingCertificate</key>\n    <string>%s</string>\n' "$cert"
+      printf '    <key>provisioningProfiles</key>\n    <dict>\n'
+      printf '        <key>%s</key>\n        <string>%s</string>\n' "$bundle" "$profile"
+      printf '    </dict>\n'
+    fi
+    printf '%s\n' '</dict>'
+    printf '%s\n' '</plist>'
+  } > "$tmp"
+
+  printf '\n将写入 %s:\n' "$target"
+  sed 's/^/    /' "$tmp"
+  printf '\n'
+
+  if [ "$DRY_RUN" = "true" ]; then
+    log_info "--dry-run：未写入任何文件"
+    rm -f "$tmp"
+    return 0
+  fi
+
+  if [ -f "$target" ] && [ "$FORCE_SAVE" != "true" ]; then
+    log_error "$target 已存在，加 --force 覆盖（或先 --dry-run 看看会写成什么）"
+    rm -f "$tmp"
+    return 1
+  fi
+
+  if [ ! -d ios ]; then
+    log_error "当前目录没有 ios/，请确认在 Flutter 工程根目录"
+    rm -f "$tmp"
+    return 1
+  fi
+
+  cp "$tmp" "$target" || { rm -f "$tmp"; log_error "写入失败: $target"; return 1; }
+  rm -f "$tmp"
+  log_info "已写入 ${target}（可提交给团队共用）"
+  log_info "之后 ww build ios 会优先使用它；改动用 ww build ios --show-config 确认"
   return 0
 }
 
@@ -1354,7 +1435,7 @@ validate_parameters() {
         ;;
       --method=*|--team=*|--bundle-id=*|--cert=*|--profile=*)
         ;;
-      --automatic|--manual|--show-config)
+      --automatic|--manual|--show-config|--save-config|--dry-run|--force)
         ;;
       *)
         if is_valid_platform "$arg"; then
@@ -1424,6 +1505,9 @@ parse_args() {
   CLI_PROFILE=""
   CLI_SIGNING_STYLE=""
   SHOW_CONFIG=false
+  SAVE_CONFIG=false
+  DRY_RUN=false
+  FORCE_SAVE=false
   for arg in "$@"; do
     case "$arg" in
       "apk"|"aab"|"ios")
@@ -1486,6 +1570,15 @@ parse_args() {
         ;;
       --show-config )
         SHOW_CONFIG=true
+        ;;
+      --save-config )
+        SAVE_CONFIG=true
+        ;;
+      --dry-run )
+        DRY_RUN=true
+        ;;
+      --force )
+        FORCE_SAVE=true
         ;;
       --automatic )
         CLI_SIGNING_STYLE="automatic"
@@ -1691,6 +1784,12 @@ main() {
 
   if [[ "$ARGS_HANDLED" = true ]]; then
     return 0
+  fi
+
+  # --save-config：生成可提交的 ios/ExportOptions.plist
+  if [ "$SAVE_CONFIG" = "true" ]; then
+    save_signing_config
+    return $?
   fi
 
   # --show-config：只打印生效的签名配置，不构建

@@ -704,6 +704,39 @@ assert_eq "--show-config 不建输出目录" "absent" \
   "$([ -d "$cfg_root/demo/w_build" ] && echo present || echo absent)"
 rm -rf "$cfg_root"
 
+# 8.35) ww ios setup：生成可提交的签名配置
+setup_root="$(mktemp -d)"
+mkdir -p "$setup_root/demo/ios/Runner.xcodeproj"
+printf 'name: demo\nversion: 1.0.0\n' > "$setup_root/demo/pubspec.yaml"
+printf 'DEVELOPMENT_TEAM = ABC123DEF4;\nPRODUCT_BUNDLE_IDENTIFIER = com.example.demo;\n' \
+  > "$setup_root/demo/ios/Runner.xcodeproj/project.pbxproj"
+
+ww_ios_setup() { # 参数...
+  ( cd "$setup_root/demo" && CI=true "$(command -v dart)" run "$ROOT/bin/w_cli.dart" ios setup "$@" ) > /dev/null 2>&1
+}
+
+ww_ios_setup --dry-run
+assert_eq "ios setup --dry-run 退出 0" 0 "$?"
+assert_eq "--dry-run 不写文件" "absent" \
+  "$([ -f "$setup_root/demo/ios/ExportOptions.plist" ] && echo present || echo absent)"
+
+ww_ios_setup
+assert_eq "ios setup 退出 0" 0 "$?"
+assert_contains "写出的配置带 teamID" "ABC123DEF4" \
+  "$(cat "$setup_root/demo/ios/ExportOptions.plist" 2>/dev/null)"
+assert_contains "写出的配置是自动签名" "automatic" \
+  "$(cat "$setup_root/demo/ios/ExportOptions.plist" 2>/dev/null)"
+
+ww_ios_setup
+assert_eq "ios setup 已存在时拒绝覆盖" 1 "$?"
+ww_ios_setup --force
+assert_eq "ios setup --force 可覆盖" 0 "$?"
+
+# 写完之后 build --show-config 应报「配置文件」
+show_after="$( cd "$setup_root/demo" && bash "$SH/build.sh" ios --show-config 2>&1 )"
+assert_contains "show-config 报告配置文件来源" "ios/ExportOptions.plist" "$show_after"
+rm -rf "$setup_root"
+
 # 8.4) 日志精简：子进程输出进 build.log，终端只留关键行
 quiet_root="$(mktemp -d)"
 mkdir -p "$quiet_root/bin" "$quiet_root/demo/android" "$quiet_root/demo/w_build"

@@ -196,6 +196,20 @@ ww build ios --method=app-store --team=ABC123DEF4 \
              --bundle-id=com.x.y --cert="Apple Distribution: X (ID)" --profile="Profile 名"
 ```
 
+### 生成一份可提交的配置
+
+```bash
+ww ios setup --dry-run     # 先看会写成什么
+ww ios setup               # 写入 ios/ExportOptions.plist（已存在则拒绝，--force 覆盖）
+```
+
+值优先取命令行，其次自动探测：
+
+```bash
+ww ios setup --method=app-store --manual      # 用本机探测到的证书与 profile
+ww ios setup --method=ad-hoc --team=ABC123DEF4
+```
+
 配置文件格式就是 Xcode 的 ExportOptions.plist：
 
 ```xml
