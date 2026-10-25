@@ -3,6 +3,7 @@ import 'dart:io';
 import '../api/scaffolder.dart';
 import '../tools/build_runner.dart';
 import 'project_scaffolder.dart';
+import 'pubspec_editor.dart';
 
 /// `ww create project <name>` 的完整实现（ADR-0002：`lib/sh/setup.sh` 的最后一块）。
 ///
@@ -95,7 +96,8 @@ class ProjectCreator {
     stdout.writeln('使用 flutter create 创建项目...');
     final createCode = await _runDirect(
       'flutter',
-      ['create', '--org', _org, '-i', 'swift', '-a', 'kotlin', name],
+      // `-i swift` 已废弃（Swift 是唯一选项），带上只会多一条 deprecation 警告
+      ['create', '--org', _org, '-a', 'kotlin', name],
     );
     if (createCode != 0) {
       stderr.writeln('flutter create 失败（退出码 $createCode）');
@@ -225,92 +227,17 @@ class ProjectCreator {
     return true;
   }
 
-  /// 在 `flutter:` 段落后补 assets 配置。
-  /// 旧脚本的兜底路径用 `sed -i ''`，Linux 上直接报错，这里改成纯 Dart 重写。
+  /// 在 `flutter:` 配置段里补 assets（纯函数在 pubspec_editor.dart，便于单测）。
   void _ensureAssetsConfig() {
     final pubspec = File('$name/pubspec.yaml');
     if (!pubspec.existsSync()) {
       return;
     }
-
-    final lines = pubspec.readAsLinesSync();
-    final hasFlutter = lines.any((line) => line.trim() == 'flutter:');
-    final hasAssets = lines.any(
-      (line) => RegExp(r'^\s+assets:\s*$').hasMatch(line),
-    );
-
-    if (hasAssets) {
-      final updated = <String>[];
-      var inAssets = false;
-      var inserted = false;
-      const wanted = ['- .env', '- assets/', '- assets/images/'];
-
-      for (final line in lines) {
-        final isAssetsHeader = RegExp(r'^\s+assets:\s*$').hasMatch(line);
-        if (isAssetsHeader && !inserted) {
-          updated.add(line);
-          inAssets = true;
-          continue;
-        }
-        if (inAssets) {
-          if (!RegExp(r'^\s+-\s').hasMatch(line)) {
-            for (final item in wanted) {
-              updated.add('    $item');
-            }
-            inserted = true;
-            inAssets = false;
-            updated.add(line);
-            continue;
-          }
-          continue; // 丢弃旧的 assets 条目，统一重写
-        }
-        updated.add(line);
-      }
-      if (inAssets && !inserted) {
-        for (final item in wanted) {
-          updated.add('    $item');
-        }
-      }
-      pubspec.writeAsStringSync('${updated.join('\n')}\n');
-      stdout.writeln('已重写 assets 配置');
-      return;
+    final updated = ensureAssets(pubspec.readAsStringSync());
+    if (updated != pubspec.readAsStringSync()) {
+      pubspec.writeAsStringSync(updated);
+      stdout.writeln('已补充 assets 配置');
     }
-
-    if (!hasFlutter) {
-      pubspec.writeAsStringSync(
-        '${pubspec.readAsStringSync()}\nflutter:\n'
-        '  assets:\n    - .env\n    - assets/\n    - assets/images/\n',
-      );
-      stdout.writeln('已追加 assets 配置');
-      return;
-    }
-
-    // 在 flutter: 段末尾插入
-    final updated = <String>[];
-    var inFlutter = false;
-    var inserted = false;
-    for (final line in lines) {
-      if (line.trim() == 'flutter:') {
-        inFlutter = true;
-        updated.add(line);
-        continue;
-      }
-      if (inFlutter && line.isNotEmpty && !line.startsWith(' ')) {
-        if (!inserted) {
-          updated.addAll(['  assets:', '    - .env', '    - assets/',
-            '    - assets/images/']);
-          inserted = true;
-        }
-        inFlutter = false;
-      }
-      updated.add(line);
-    }
-    if (!inserted) {
-      updated.addAll(['  assets:', '    - .env', '    - assets/',
-        '    - assets/images/']);
-    }
-    pubspec.writeAsStringSync('${updated.join('\n')}\n');
-    stdout.writeln('已添加 assets 配置');
   }
 
   void _updateAnalysisOptions() {

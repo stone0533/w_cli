@@ -160,11 +160,36 @@ cat > "$create_work/bin/flutter" << 'STUB'
 #!/bin/bash
 case "$1" in
   --version) echo "Flutter 3.24.0 • channel stable"; exit 0 ;;
-  create) name="${@: -1}"; mkdir -p "$name/lib"; printf 'name: %s\n' "$name" > "$name/pubspec.yaml"; exit "${CREATE_EXIT:-0}" ;;
+  create)
+    name="${@: -1}"; mkdir -p "$name/lib"
+    # 真实的 flutter create 会写一个「dependencies 里有 flutter 依赖」的 pubspec，
+    # assets 必须插到顶部 flutter: 配置段，而不是这个依赖里
+    cat > "$name/pubspec.yaml" << YAML
+name: $name
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+YAML
+    printf 'include: package:flutter_lints/flutter.yaml\n' > "$name/analysis_options.yaml"
+    exit "${CREATE_EXIT:-0}" ;;
   *) exit 0 ;;
 esac
 STUB
-chmod +x "$create_work/bin/flutter"
+cat > "$create_work/bin/dart" << 'STUB'
+#!/bin/bash
+exit 0
+STUB
+cat > "$create_work/bin/git" << 'STUB'
+#!/bin/bash
+exit 0
+STUB
+chmod +x "$create_work/bin/flutter" "$create_work/bin/dart" "$create_work/bin/git"
 
 run_create() { # 参数...
   ( cd "$create_work" && CI=true PATH="$create_work/bin:$PATH" \
@@ -174,6 +199,16 @@ run_create() { # 参数...
 run_create demo
 assert_eq "已存在目录且没有 --force 时退出非零" 1 "$?"
 assert_eq "已存在的目录被保留" "precious" "$(cat "$create_work/demo/keep.txt" 2>/dev/null)"
+
+run_create ok_app
+assert_eq "正常创建退出 0" 0 "$?"
+assert_eq "assets 落在 flutter 配置段（不在 dependencies 里）" "present" \
+  "$(awk '/^flutter:$/{influtter=1} influtter && /^  assets:$/{found=1} END{exit !found}' \
+      "$create_work/ok_app/pubspec.yaml" && echo present || echo absent)"
+assert_eq "flutter 依赖没被动过" "present" \
+  "$(grep -q 'sdk: flutter' "$create_work/ok_app/pubspec.yaml" && echo present || echo absent)"
+assert_eq "analysis_options 插入了 analyzer" "present" \
+  "$(grep -q 'analyzer:' "$create_work/ok_app/analysis_options.yaml" && echo present || echo absent)"
 
 CREATE_EXIT=1 run_create fresh_app
 assert_eq "flutter create 失败时退出非零" 1 "$?"
