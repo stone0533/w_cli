@@ -46,6 +46,9 @@
 
 ### Added
 
+- 新增内置动词 `ww watch`（build_runner watch，不限时）、`ww add <包> [--dev]`、
+  `ww fix`（dart fix --apply）、`ww doctor`（环境自检）
+- `WW_TASK_TIMEOUT=0` 表示不限时；`ww watch` 默认就不限时
 - 新增内置动词 `ww test` / `ww l10n` / `ww outdated`
 - `ww fmt --check`：只检查不修改，格式不一致退出 1（CI 用）
 - 内置动词支持额外参数：位置参数替换默认目标（`ww fmt lib/app`），flag 写在 `--` 后原样转发

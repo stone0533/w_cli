@@ -131,7 +131,11 @@ void showHelp() {
   );
   print('  ww gen [-- <flags>]                  # Run build_runner');
   print('  ww fmt [--check] | get | pod         # 常用长命令的短写法');
+  print('  ww add <包> [--dev]                  # flutter pub add');
   print('  ww analyze | test | l10n | outdated  # 同上（flutter 侧）');
+  print(
+    '  ww fix | watch | doctor              # dart fix / build_runner watch / 环境检查',
+  );
   print('  ww run [任务名]                      # 执行 .ww/tasks 里的任务');
   print('  ww clean|cl [options] [platform]     # Clean Flutter project');
   print('  ww -v, --version                     # Show version information');
@@ -193,10 +197,6 @@ void showHelp() {
   print('  ww o i                      # Open iOS project (using alias)');
   print('  ww o a                      # Open Android project (using alias)');
   print('');
-  print('  # Common commands');
-  print('  ww common drbb              # Run build_runner build');
-  print('  ww co drbb --debug          # Run with debug mode');
-  print('');
   print('  # Clean commands');
   print('  ww clean all                # Clean all platforms');
   print('  ww clean android            # Clean Android build files');
@@ -205,20 +205,16 @@ void showHelp() {
   print('  ww clean ios --pod          # Clean iOS with Pods');
   print('  ww cl                       # Clean all platforms (using alias)');
   print('');
-  print('Aliases:');
-  print('  create    -> c');
-  print('  update    -> u');
-  print('  build     -> b');
-  print('  project   -> p');
-  print('  open      -> o');
-  print('  api       -> a');
-  print('  common    -> co');
-  print('  clean     -> cl');
-  print('  ios       -> i');
-  print('  android   -> a');
-  print('  build     -> b');
-  print('  root      -> r');
+  print('Aliases（命令）:');
+  print('  create -> c    api -> a       build -> b     clean -> cl');
+  print('  open   -> o    project -> p   update -> u    self-update -> su');
   print('');
-  print('Default behaviors:');
-  print('  ww create     -> ww create project');
+  print('Aliases（目标）:');
+  print('  ww open:  ios/i  android/a  build/b  root/r');
+  print('');
+  print('无参数时:');
+  print('  ww 或 ww <命令> 都打印对应帮助；ww clean 需要显式写 all 才会清理');
+  print(
+    '  快捷命令: fmt get add pod analyze fix test l10n outdated gen watch doctor',
+  );
 }
