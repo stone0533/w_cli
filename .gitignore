@@ -34,5 +34,12 @@ w
 # macOS
 .DS_Store
 
+# IDE
+.idea/
+
+# 跑工具时在当前目录留下的产物
+w_build/
+w_json/
+
 # setup.sh 运行失败时写下的日志
 setup_error.log

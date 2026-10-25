@@ -18,25 +18,6 @@ dev_dependencies:
   lints: ^6.0.0
   test: ^1.25.6
 
-# Include additional files in the published package
-files:
-  - bin/**
-  - lib/**
-  - CHANGELOG.md
-  - LICENSE
-  - README.md
-
-# 声明资源文件
-resources:
-  - lib/sh/lib.sh
-  - lib/sh/api.sh
-  - lib/sh/build.sh
-  - lib/sh/open.sh
-  - lib/sh/setup.sh
-  - lib/sh/project.sh
-  - lib/sh/common.sh
-  - lib/sh/clean.sh
-
 # Define executable name
 executables:
   ww: w_cli

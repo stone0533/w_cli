@@ -1,0 +1,12 @@
+# 发布包里不需要的东西（pub 只认 .pubignore，pubspec 里的 files: 不生效）
+.idea/
+.github/
+.dart_tool/
+build/
+w_build/
+w_json/
+tool/
+test/
+.shellcheckrc
+AGENTS.md
+lib/app/
