@@ -315,16 +315,31 @@ class ProjectCreator {
     if (!Directory(name).existsSync()) {
       return;
     }
+
     if (_available('trae')) {
       stdout.writeln('使用 trae 打开项目');
       Process.runSync('trae', [name], runInShell: true);
-    } else if (_available('studio')) {
+      return;
+    }
+    if (_available('studio')) {
       stdout.writeln('使用 Android Studio 打开项目');
       Process.runSync('studio', [name], runInShell: true);
-    } else {
-      stdout.writeln('未找到 trae / studio，跳过打开项目');
+      return;
     }
+    // macOS 上 Android Studio 通常只有 .app，没有命令行入口（旧脚本也走这条兜底）
+    if (Platform.isMacOS &&
+        Directory('/Applications/Android Studio.app').existsSync()) {
+      stdout.writeln('使用 macOS 打开 Android Studio');
+      Process.runSync(
+        'open',
+        ['-a', 'Android Studio', name],
+        runInShell: true,
+      );
+      return;
+    }
+    stdout.writeln('未找到 trae / studio，跳过打开项目');
   }
+
 
   Future<int> _runInProject(String executable, List<String> args) {
     return _runDirect(executable, args, workingDirectory: name);
