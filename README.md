@@ -30,7 +30,7 @@ dart pub global activate w_cli
 |------|------|
 | macOS | 完整支持（开发和验证都在 macOS 上） |
 | Linux | 支持（CI 在 Ubuntu 上跑全部测试） |
-| Windows | 除 `ww build` 外全部可用（`create` / `api` / `clean` / `open` / `project` / `common` 都是纯 Dart）。`build` 仍是 bash 脚本，需要 Git Bash 或 WSL，否则会给出明确提示 |
+| Windows | 除 `ww build` 外全部可用（`create` / `api` / `clean` / `open` / `deps` 都是纯 Dart）。`build` 仍是 bash 脚本，需要 Git Bash 或 WSL，否则会给出明确提示 |
 
 ## Usage / 使用方法
 
@@ -60,10 +60,10 @@ ww build aab
 ww build ios
 
 # Update w_cli to latest version / 将 w_cli 更新到最新版本
-ww update
+ww self-update
 
 # Update Flutter project dependencies and configuration / 更新 Flutter 项目依赖和配置
-ww project --update
+ww deps upgrade
 
 # Open Flutter project / 打开 Flutter 项目
 ww open ios
@@ -72,7 +72,7 @@ ww open build
 ww open root
 
 # Clean Flutter project / 清理 Flutter 项目
-ww clean
+ww clean all
 ww clean android
 ww clean ios
 ```
@@ -83,7 +83,7 @@ ww clean ios
 # Main commands / 主命令
 ww create   → ww c
 ww api      → ww a
-ww update   → ww u
+ww self-update → ww su
 ww build    → ww b
 ww project  → ww p
 ww open     → ww o
@@ -120,11 +120,11 @@ ww b apk --uat
 ww o i  # Open iOS project / 打开 iOS 项目
 ww o r  # Open root directory / 打开根目录
 
-# Update project using alias / 使用别名更新项目
-ww p --update  # Update Flutter project dependencies and configuration / 更新 Flutter 项目依赖和配置
+# Update dependencies / 更新依赖
+ww deps upgrade
 
 # Clean project using alias / 使用别名清理项目
-ww cl          # Clean all platforms / 清理所有平台
+ww cl all      # Clean all platforms / 清理所有平台
 ww cl ios      # Clean iOS platform / 清理 iOS 平台
 ```
 
@@ -212,30 +212,33 @@ ww open root
 
 ```bash
 # Run build_runner build with delete-conflicting-outputs / 运行 build_runner build 并删除冲突输出
-ww common drbb
+ww gen
 
 # Run with debug mode / 使用调试模式运行
-ww common drbb --debug
+ww gen -d
 
 # Using full path (if needed) / 使用完整路径（如果需要）
-ww common drbb
+ww gen
 ```
 
 ### Project Management / 项目管理
 
 ```bash
-# Update Flutter project dependencies and configuration / 更新 Flutter 项目依赖和配置
-ww project --update
+# Update pub dependencies / 升级 pub 依赖
+ww deps upgrade
+ww deps upgrade --major          # 连同大版本 / include major versions
+ww deps upgrade --dry-run        # 只看看能升什么 / preview only
 
-# Using alias / 使用别名
-ww p --update
+# Gradle wrapper is a separate, opt-in step / Gradle 是独立的一步
+ww deps gradle                   # 只报告当前版本 / report only
+ww deps gradle --to=9.1.0        # 显式升级 / upgrade explicitly
 ```
 
 ### Project Cleaning / 项目清理
 
 ```bash
 # Clean all platforms / 清理所有平台
-ww clean
+ww clean all
 
 # Clean specific platform / 清理特定平台
 ww clean android    # Clean Android build files / 清理 Android 构建文件
