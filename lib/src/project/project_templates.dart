@@ -169,3 +169,13 @@ jobs:
     - name: Build app
       run: flutter build apk
 ''';
+
+/// `ww create` 生成的默认快捷键（项目可以自由增删）
+const String wwTasksTemplate =
+    r'''# .ww/tasks —— ww run <名字> 执行的命令（提交到仓库，团队/CI 共用）
+# 一行一条 `名字 = 命令`，`#` 开头是注释
+
+gen = dart run build_runner build --delete-conflicting-outputs
+fmt = dart format .
+get = flutter pub get
+''';

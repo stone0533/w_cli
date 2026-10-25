@@ -37,6 +37,7 @@ class ProjectScaffolder {
     _write('.github/workflows/ci.yml', ciTemplate);
     // toolkit 只在缺失时兜底：w_tools_cli:init 生成的版本更完整，别覆盖
     _writeIfMissing('lib/app/w/toolkit.dart', toolkitTemplate);
+    _writeIfMissing('.ww/tasks', wwTasksTemplate);
 
     return 0;
   }

@@ -12,6 +12,7 @@
 | [`ww deps`](#ww-deps) | Dart | 升级依赖与 Gradle |
 | [`ww gen`](#ww-gen) | Dart | 跑 build_runner |
 | [`ww fmt`](#内置短命令-fmt--get--pod--analyze) / `get` / `pod` / `analyze` | Dart | 常用长命令的短写法 |
+| [`ww run`](#ww-run) | Dart | 执行 `.ww/tasks` 里的自定义任务 |
 | [`ww build`](#ww-build) | **bash** | 打包 APK / AAB / IPA |
 
 > 除 `build` 外全部是纯 Dart，Windows 可直接用；`build` 需要 bash（Git Bash / WSL）。
@@ -141,6 +142,29 @@ Formatted 38 files (0 changed) in 0.05 seconds.
 ```
 
 项目特有的命令用 `.ww/tasks` + `ww run`（见下一节）。
+
+## ww run
+
+项目特有的命令写在 `.ww/tasks`（`ww create` 会生成一份默认的），提交到仓库即可团队/CI 共用：
+
+```ini
+# .ww/tasks —— 一行一条 `名字 = 命令`
+map = dart run w_tools_cli:map
+gen = dart run build_runner build --delete-conflicting-outputs
+fmt = dart format .
+```
+
+```bash
+ww run               # 列出所有任务
+ww run map           # 执行
+ww run map --dry-run # 只打印命令，不执行
+```
+
+- 按**第一个** `=` 切分，命令里可以继续有 `=`（`--define=FOO=1`）
+- 名字只允许字母/数字/`_`/`-`；坏行会被跳过并提示行号；重名保留第一条
+- 命令走 `bash -c`（Windows 用 `cmd /c`），所以 `&&`、`cd`、管道都能用
+- 在项目根执行，退出码原样透传
+- 没有 `.ww/tasks` 时：`ww run` 打印用法（退出 0），`ww run <名字>` 报错（退出 1）
 
 ## ww deps
 

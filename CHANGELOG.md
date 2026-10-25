@@ -46,6 +46,9 @@
 
 ### Added
 
+- `ww run [任务名]` + `.ww/tasks`：项目自定义快捷键（一行一条 `名字 = 命令`，
+  可提交到仓库给团队/CI 共用）；`ww run` 列任务、`--dry-run` 只打印
+- `ww create` 会生成一份默认 `.ww/tasks`（gen / fmt / get）
 - 四个内置短命令：`ww fmt`（dart format .）、`ww get`（flutter pub get）、
   `ww pod`（pod install --project-directory=ios）、`ww analyze`（flutter analyze）
 

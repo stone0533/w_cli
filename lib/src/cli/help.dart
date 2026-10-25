@@ -74,6 +74,11 @@ const Map<String, String> _help = {
   android, a    Android Studio 打开 android/
   build, b      文件管理器打开 w_build/
   root, r       文件管理器打开项目根目录''',
+  'run': '''
+用法: ww run [任务名] [--dry-run]
+
+读取项目根的 .ww/tasks（一行一条 `名字 = 命令`），列出或执行任务。
+命令走 bash -c（Windows 是 cmd /c），支持 && / cd / 管道；退出码原样透传。''',
   'fmt': '''
 用法: ww fmt
 
