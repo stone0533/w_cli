@@ -156,6 +156,14 @@ w_build/
 | 3 | `ios/ExportOptions.plist` | 团队共用，可提交到仓库 |
 | 4 | 自动探测 `DEVELOPMENT_TEAM` | 零配置，自动签名 |
 
+手动签名（`--manual`）且没给 `--cert`/`--profile` 时，会**自动探测本机**：
+
+- 证书：`security find-identity -v -p codesigning`，只认 `Apple Distribution` / `Apple Development`
+- Profile：`~/Library/MobileDevice/Provisioning Profiles/*.mobileprovision`，按 bundle id 过滤
+
+**唯一匹配才自动采用**；多个候选会列出来，要求用 `--cert=` / `--profile=` 指定。
+非 macOS 或探测不到时，退回「请填写」的提示。
+
 ```bash
 ww build ios                                        # 本地/测试，无需配置
 ww build ios --method=ad-hoc                        # 换分发方式

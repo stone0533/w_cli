@@ -48,6 +48,9 @@
 
 - iOS 产物多一份 `<app>_<version>.dSYMs.zip`（符号化/上传用），并输出一行构建摘要
   （签名方式 / method / team / bundle / 用时）
+- 手动签名自动探测：`--manual` 未给 `--cert`/`--profile` 时，从本机钥匙串与
+  `~/Library/MobileDevice/Provisioning Profiles` 里找唯一匹配（证书按 Apple Distribution/Development，
+  profile 按 bundle id）
 - iOS 零配置构建：从 `ios/Runner.xcodeproj` 读 `DEVELOPMENT_TEAM`，按自动签名直接出包，
   不再需要先生成再手填 `ios.plist`
 - `ww build ios` 新增签名覆盖参数：`--method=` `--team=` `--bundle-id=` `--cert=`

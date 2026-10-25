@@ -856,6 +856,22 @@ resolve_export_options() {
     # 没显式给的，仍然从 Xcode 工程推断
     SYNTH_TEAM="${CLI_TEAM:-$(xcodeproj_value DEVELOPMENT_TEAM || true)}"
     SYNTH_BUNDLE_ID="${CLI_BUNDLE_ID:-$(xcodeproj_value PRODUCT_BUNDLE_IDENTIFIER || true)}"
+
+    # 签名方式只由 --automatic / --manual 决定；--method 只换分发方式。
+    # 默认自动签名（Xcode 自己能处理 development/ad-hoc/app-store）。
+    SYNTH_STYLE="${CLI_SIGNING_STYLE:-automatic}"
+
+    # 手动签名但没给证书/profile：先试试本机探测（唯一匹配才采用）
+    if [ "$SYNTH_STYLE" = "manual" ]; then
+      if [ -z "$CLI_CERT" ] || [ -z "$CLI_PROFILE" ]; then
+        DETECTED_CERT=""
+        DETECTED_PROFILE=""
+        if autodetect_signing; then
+          [ -z "$CLI_CERT" ] && CLI_CERT="$DETECTED_CERT"
+          [ -z "$CLI_PROFILE" ] && CLI_PROFILE="$DETECTED_PROFILE"
+        fi
+      fi
+    fi
     local options_dir
     options_dir=$(mktemp -d)
     TEMP_DIRS+=("$options_dir")
@@ -904,6 +920,76 @@ resolve_export_options() {
   log_info "  ww build ios --method=app-store --team=... --bundle-id=... --cert=... --profile=..."
   log_info "  编辑 $template_path（或提交 ios/ExportOptions.plist 给团队共用）"
   return 1
+}
+
+# 探测本机的分发证书与匹配的 Provisioning Profile
+# 只在「唯一匹配」时采用；多个候选时打印出来，让用户用 --cert / --profile 指定
+autodetect_signing() {
+  command_available security || return 1
+  command_available plutil || return 1
+
+  local bundle_id="${CLI_BUNDLE_ID:-${SYNTH_BUNDLE_ID:-}}"
+  if [ -z "$bundle_id" ]; then
+    bundle_id=$(xcodeproj_value PRODUCT_BUNDLE_IDENTIFIER || true)
+  fi
+
+  # 证书：优先 Apple Distribution，其次 Apple Development
+  local -a certs=()
+  local cert
+  while IFS= read -r cert; do
+    [ -n "$cert" ] && certs+=("$cert")
+  done < <(security find-identity -v -p codesigning 2>/dev/null \
+    | sed -n 's/.*"\(Apple Distribution[^"]*\)"/\1/p; s/.*"\(Apple Development[^"]*\)"/\1/p' \
+    | sort -u)
+
+  if [ ${#certs[@]} -eq 0 ]; then
+    log_debug "没有找到 Apple Distribution / Development 证书"
+    return 1
+  fi
+  if [ ${#certs[@]} -gt 1 ]; then
+    log_warn "找到多个签名证书，请用 --cert= 指定（或只保留一个有效的）:"
+    local item
+    for item in "${certs[@]}"; do
+      log_warn "  - $item"
+    done
+    return 1
+  fi
+  DETECTED_CERT="${certs[0]}"
+
+  # Profile：按 bundle id 过滤（拿不到 bundle id 时只用证书）
+  local profile_dir="$HOME/Library/MobileDevice/Provisioning Profiles"
+  local -a profiles=()
+  if [ -z "$bundle_id" ]; then
+    log_debug "不知道 bundle id，跳过 profile 探测"
+    return 0
+  fi
+  if [ -d "$profile_dir" ]; then
+    local file name file_bundle
+    for file in "$profile_dir"/*.mobileprovision; do
+      [ -f "$file" ] || continue
+      name=$(security cms -D -i "$file" 2>/dev/null | plutil -extract Name raw -o - - 2>/dev/null) || continue
+      file_bundle=$(security cms -D -i "$file" 2>/dev/null | plutil -extract Entitlements.application-identifier raw -o - - 2>/dev/null) || continue
+      case "$file_bundle" in
+        *."$bundle_id") profiles+=("$name") ;;
+      esac
+    done
+  fi
+
+  if [ ${#profiles[@]} -eq 0 ]; then
+    log_warn "没有找到匹配 $bundle_id 的 Provisioning Profile"
+    return 0
+  fi
+  if [ ${#profiles[@]} -gt 1 ]; then
+    log_warn "找到多个匹配的 Profile，请用 --profile= 指定:"
+    local item
+    for item in "${profiles[@]}"; do
+      log_warn "  - $item"
+    done
+    return 0
+  fi
+  DETECTED_PROFILE="${profiles[0]}"
+  log_info "自动探测到证书与 Profile: $DETECTED_CERT / $DETECTED_PROFILE"
+  return 0
 }
 
 # 构建 iOS
