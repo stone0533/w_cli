@@ -177,12 +177,11 @@ class AppRemoteDataSource extends BaseRemoteDataSource
     with AppRemoteDataSourceMixin {
   AppRemoteDataSource() {
     libRest = ApiClient(
-      DioUtil.instance(
+      DioRegistry.forBaseUrl(
         ApiPath.baseUrl,
         interceptors: [
           WTokenInterceptor(),
           WLogInterceptor(),
-          WErrorInterceptor(),
         ],
       ).dio,
     );
