@@ -79,9 +79,10 @@ const Map<String, String> _help = {
 读取项目根的 .ww/tasks（一行一条 `名字 = 命令`），列出或执行任务。
 命令走 bash -c（Windows 是 cmd /c），支持 && / cd / 管道；退出码原样透传。''',
   'fmt': '''
-用法: ww fmt
+用法: ww fmt [路径...] [--check]
 
-执行 dart format .（在项目根目录）。''',
+执行 dart format（默认 `.`）。
+给路径则只格式化那些路径；`--check` 只检查不改文件（CI 用）。''',
   'get': '''
 用法: ww get
 
@@ -92,9 +93,22 @@ const Map<String, String> _help = {
 执行 pod install --project-directory=ios（仅 macOS / Linux 有意义）。
 不需要手动 cd 到 ios/。''',
   'analyze': '''
-用法: ww analyze
+用法: ww analyze [-- <flags>]
 
-执行 flutter analyze。''',
+执行 flutter analyze。额外 flag 写在 `--` 之后，例如 `ww analyze -- --fatal-infos`。''',
+  'test': '''
+用法: ww test [目标...] [-- <flags>]
+
+执行 flutter test（默认跑全部；给路径则只跑那些文件）。
+额外 flag 写在 `--` 之后，例如 `ww test -- --coverage`。''',
+  'l10n': '''
+用法: ww l10n
+
+执行 flutter gen-l10n。''',
+  'outdated': '''
+用法: ww outdated
+
+执行 flutter pub outdated。''',
   'deps': '''
 用法: ww deps upgrade
 

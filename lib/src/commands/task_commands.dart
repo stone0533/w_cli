@@ -14,7 +14,8 @@ class BuiltinTask {
     required this.usage,
     required this.executable,
     required this.arguments,
-    this.acceptsTarget = false,
+    this.replaceLastArg = false,
+    this.flagNames = const [],
     this.timeout = const Duration(minutes: 10),
     this.availableOnAllPlatforms = true,
     this.requiresDirectory,
@@ -25,8 +26,12 @@ class BuiltinTask {
   final String executable;
   final List<String> arguments;
 
-  /// 是否接受位置参数替换默认目标：`ww fmt lib/app` → `dart format lib/app`
-  final bool acceptsTarget;
+  /// 位置参数是否替换最后一个默认参数（`ww fmt lib` → `dart format lib`）。
+  /// 为 false 时位置参数追加在末尾（`ww test test/foo.dart` → `flutter test test/foo.dart`）。
+  final bool replaceLastArg;
+
+  /// 该动词自己支持的 flag（目前只有 fmt 的 --check）
+  final List<String> flagNames;
   final Duration timeout;
 
   /// `pod` 只在 macOS/Linux 上有意义
@@ -44,7 +49,8 @@ const List<BuiltinTask> builtinTasks = [
     usage: 'ww fmt [路径...]   # dart format（默认 .）',
     executable: 'dart',
     arguments: ['format', '.'],
-    acceptsTarget: true,
+    replaceLastArg: true,
+    flagNames: ['check'],
   ),
   BuiltinTask(
     name: 'get',
@@ -64,6 +70,24 @@ const List<BuiltinTask> builtinTasks = [
     usage: 'ww analyze [-- <flags>]  # flutter analyze',
     executable: 'flutter',
     arguments: ['analyze'],
+  ),
+  BuiltinTask(
+    name: 'test',
+    usage: 'ww test [目标...]  # flutter test',
+    executable: 'flutter',
+    arguments: ['test'],
+  ),
+  BuiltinTask(
+    name: 'l10n',
+    usage: 'ww l10n          # flutter gen-l10n',
+    executable: 'flutter',
+    arguments: ['gen-l10n'],
+  ),
+  BuiltinTask(
+    name: 'outdated',
+    usage: 'ww outdated      # flutter pub outdated',
+    executable: 'flutter',
+    arguments: ['pub', 'outdated'],
   ),
   BuiltinTask(
     name: 'gen',
@@ -90,7 +114,11 @@ class TaskRunner {
   final ProcessRunner runner;
 
   /// 返回进程退出码（0 成功、1 工具不可用、其余透传）。
-  Future<int> run(BuiltinTask task, {List<String> extra = const []}) async {
+  Future<int> run(
+    BuiltinTask task, {
+    List<String> extra = const [],
+    bool check = false,
+  }) async {
     final required = task.requiresDirectory;
     if (required != null && !Directory('$root/$required').existsSync()) {
       stderr.writeln('当前项目没有 $required 目录，ww ${task.name} 不适用');
@@ -106,7 +134,15 @@ class TaskRunner {
       return 1;
     }
 
-    final args = _argsFor(task, extra);
+    var args = _argsFor(task, extra);
+    if (check && task.name == 'fmt') {
+      args = [
+        'format',
+        '--output=none',
+        '--set-exit-if-changed',
+        ...args.skip(1),
+      ];
+    }
     stdout.writeln('\$ ${task.executable} ${args.join(' ')}');
     return runner.start(
       task.executable,
@@ -124,7 +160,7 @@ class TaskRunner {
 
     final args = [...task.arguments];
     if (positionals.isNotEmpty) {
-      if (task.acceptsTarget && args.isNotEmpty) {
+      if (task.replaceLastArg && args.isNotEmpty) {
         args.removeLast();
       }
       args.addAll(positionals);

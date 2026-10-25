@@ -169,7 +169,12 @@ List<CommandSpec> commandSpecs() => [
     CommandSpec(
       name: task.name,
       usage: task.usage,
-      run: (results) => tasks.TaskRunner().run(task, extra: results.rest),
+      flags: [for (final flag in task.flagNames) FlagSpec(flag)],
+      run: (results) => tasks.TaskRunner().run(
+        task,
+        extra: results.rest,
+        check: _flag(results, 'check'),
+      ),
     ),
   CommandSpec(
     name: 'run',
@@ -209,4 +214,6 @@ Future<int> _deprecated(
   return run();
 }
 
-bool _flag(ArgResults results, String name) => results[name] == true;
+/// 读取已声明的 flag；未声明时返回 false（而不是让 args 包抛 ArgumentError）
+bool _flag(ArgResults results, String name) =>
+    results.options.contains(name) && results[name] == true;

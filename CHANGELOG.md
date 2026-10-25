@@ -46,6 +46,8 @@
 
 ### Added
 
+- 新增内置动词 `ww test` / `ww l10n` / `ww outdated`
+- `ww fmt --check`：只检查不修改，格式不一致退出 1（CI 用）
 - 内置动词支持额外参数：位置参数替换默认目标（`ww fmt lib/app`），flag 写在 `--` 后原样转发
 - 内置动词统一超时（默认 10 分钟，`WW_TASK_TIMEOUT` 覆盖，超时 124）；`ww gen` 30 分钟
 - `ww pod` 在没有 `ios/` 目录时直接给中文提示而不是 CocoaPods 报错
