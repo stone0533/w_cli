@@ -261,7 +261,7 @@ Future<int> handleCreateProject(String projectName) async {
 
     // Retrofit 代码生成也走统一的 BuildRunner（setup.sh 里已不再直接跑）
     print('\n🚀 Generating code');
-    return BuildRunner(root: projectName).run();
+    return await BuildRunner(root: projectName).run();
   } catch (e) {
     handleError(e, 'project creation');
     return 1;
