@@ -70,24 +70,20 @@ run_with_alarm() {
 }
 
 echo "== 1. 退出码契约 =="
-for script in build open; do
-  assert_eq "$script.sh --help 退出 0" 0 "$(run_with_alarm bash "$SH/$script.sh" --help)"
-  assert_eq "$script.sh --version 退出 0" 0 "$(run_with_alarm bash "$SH/$script.sh" --version)"
-done
+assert_eq "build.sh --help 退出 0" 0 "$(run_with_alarm bash "$SH/build.sh" --help)"
+assert_eq "build.sh --version 退出 0" 0 "$(run_with_alarm bash "$SH/build.sh" --version)"
 
-# build.sh 自己校验参数，语义是"运行失败"(1)；open.sh 把未知参数当用法错误(2)
-assert_eq "open.sh 未知参数退出 2" 2 "$(run_script open.sh --definitely-not-an-option)"
+# build.sh 自己校验参数，语义是"运行失败"(1)
+assert_eq "build.sh 未知参数退出 1" 1 "$(run_script build.sh --definitely-not-an-option)"
 assert_eq "build.sh 未知参数退出 1" 1 "$(run_script build.sh --definitely-not-an-option)"
 
 echo
 echo "== 2. 脚本不以可执行文件身份运行也能工作（ww 用 bash 调用） =="
 noexec_dir="$(mktemp -d)"
-cp "$SH/lib.sh" "$SH/build.sh" "$SH/open.sh" "$noexec_dir/"
+cp "$SH/lib.sh" "$SH/build.sh" "$noexec_dir/"
 chmod -x "$noexec_dir"/*.sh
-for script in build open; do
-  ( cd "$noexec_dir" && bash "$script.sh" --version ) > /dev/null 2>&1
-  assert_eq "不可执行的 $script.sh --version 退出 0" 0 "$?"
-done
+( cd "$noexec_dir" && bash build.sh --version ) > /dev/null 2>&1
+assert_eq "不可执行的 build.sh --version 退出 0" 0 "$?"
 rm -rf "$noexec_dir"
 
 echo
@@ -132,10 +128,7 @@ assert_eq "lib/sh 不再写任何 .dart" "absent" \
 
 echo
 echo "== 5. 脚本可以被 source（不执行 main） =="
-out=$(
-  bash -c "set -eo pipefail; . '$SH/open.sh'; echo sourced" 2>&1 | tail -1
-)
-assert_eq "open.sh 可 source" "sourced" "$out"
+
 
 echo
 echo "== 6. lib.sh 单元 =="

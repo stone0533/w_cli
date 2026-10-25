@@ -25,7 +25,7 @@ single-context — one `GLOSSARY.md` at the repo root, architecture decisions in
 | `lib/src/project/project_creator.dart` | `ww create` 全流程编排（flutter create / pub add / git / 目录 / 健康检查） | 不写模板，只调各 scaffolder |
 
 改模板/导入/头部这类「生成文本」时，记得 `grep -rn "要改的那段文本" lib/`——
-生成文本已经全部在 Dart；`lib/sh/` 只剩 build.sh / open.sh / lib.sh，都不写生成文本。
+生成文本已经全部在 Dart；`lib/sh/` 只剩 build.sh / lib.sh，都不写生成文本。
 判定规则只有一份：`lib/src/api/project_imports.dart` 的 `resolveWtoolsImport`。
 
 ### 生成器改动约定（models）
