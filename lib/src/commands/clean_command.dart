@@ -1,4 +1,6 @@
 import 'dart:io';
+
+import '../cli/output.dart';
 import '../cli/process.dart';
 
 /// `ww clean`（原 `lib/sh/clean.sh`）。
@@ -41,27 +43,25 @@ class CleanCommand {
           platform = arg;
           break;
         default:
-          stderr.writeln('未知参数: $arg');
+          Cli.error('未知参数: $arg');
           printHelp(asError: true);
           return 2;
       }
     }
 
     if (pod && platform == 'android') {
-      stderr.writeln('--pod 选项只能用于 iOS 平台');
+      Cli.error('--pod 选项只能用于 iOS 平台');
       printHelp(asError: true);
       return 2;
     }
 
     if (!runner.which('flutter')) {
-      stderr.writeln('flutter 命令不可用，请确保已正确安装');
+      Cli.error('flutter 命令不可用，请确保已正确安装');
       return 1;
     }
     if ((platform == 'ios' || platform == 'all') && !runner.which('pod')) {
-      stdout.writeln('pod 命令不可用，相关操作可能会失败');
+      Cli.info('pod 命令不可用，相关操作可能会失败');
     }
-
-    print('${'=' * 54}\nFlutter 应用清理脚本运行开始\n${'=' * 54}');
 
     if (lock) {
       _cleanLockFiles(platform);
@@ -85,7 +85,7 @@ class CleanCommand {
       }
     }
 
-    stdout.writeln('✅ 清理完成！');
+    Cli.info('✅ 清理完成！');
     _printFooter();
     return 0;
   }
@@ -108,57 +108,57 @@ class CleanCommand {
     final file = File(path);
     final name = path.split('/').last;
     if (!file.existsSync()) {
-      stdout.writeln('$name 文件不存在，跳过删除');
+      Cli.info('$name 文件不存在，跳过删除');
       return;
     }
-    stdout.writeln('删除 $name 文件...');
+    Cli.info('删除 $name 文件...');
     file.deleteSync();
-    stdout.writeln('$name 文件删除成功');
+    Cli.info('$name 文件删除成功');
   }
 
   void _deleteDirectory(String path) {
     final dir = Directory(path);
     final name = path.split('/').last;
     if (!dir.existsSync()) {
-      stdout.writeln('$name 目录不存在，跳过删除');
+      Cli.info('$name 目录不存在，跳过删除');
       return;
     }
-    stdout.writeln('删除 $name 目录...');
+    Cli.info('删除 $name 目录...');
     dir.deleteSync(recursive: true);
-    stdout.writeln('$name 目录删除成功');
+    Cli.info('$name 目录删除成功');
   }
 
   Future<bool> _flutter(List<String> args) async {
-    stdout.writeln('执行 flutter ${args.join(' ')}...');
+    Cli.info('执行 flutter ${args.join(' ')}...');
     final status = await _run('flutter', args);
     if (status != 0) {
-      stderr.writeln('flutter ${args.join(' ')} 执行失败');
+      Cli.error('flutter ${args.join(' ')} 执行失败');
       return false;
     }
-    stdout.writeln('flutter ${args.join(' ')} 执行成功');
+    Cli.info('flutter ${args.join(' ')} 执行成功');
     return true;
   }
 
   Future<bool> _podUpdate() async {
     final iosDir = Directory('$root/ios');
     if (!iosDir.existsSync()) {
-      stderr.writeln('未找到 ios 目录，跳过 pod update');
+      Cli.error('未找到 ios 目录，跳过 pod update');
       return true;
     }
 
     for (var attempt = 1; attempt <= maxPodRetries; attempt++) {
-      stdout.writeln(
+      Cli.info(
         attempt == 1 ? '执行 pod update...' : '执行 pod update（第 $attempt 次重试）...',
       );
       final code = await _run('pod', ['update'], workingDirectory: iosDir.path);
       if (code == 0) {
-        stdout.writeln('pod update 执行成功');
+        Cli.info('pod update 执行成功');
         return true;
       }
-      stderr.writeln('pod update 执行失败');
+      Cli.error('pod update 执行失败');
     }
 
-    stderr.writeln('pod update 多次执行失败，已达到最大重试次数');
+    Cli.error('pod update 多次执行失败，已达到最大重试次数');
     return false;
   }
 
@@ -174,9 +174,7 @@ class CleanCommand {
     );
   }
 
-  void _printFooter() {
-    print('${'=' * 54}\nFlutter 应用清理脚本运行结束\n${'=' * 54}');
-  }
+  void _printFooter() {}
 
   void printVersion() {
     print('ww clean');

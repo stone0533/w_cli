@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import '../cli/output.dart';
+
 import '../cli/process.dart';
 import '../version.dart';
 
@@ -15,8 +17,8 @@ class DoctorCommand {
 
   Future<int> run() async {
     var ok = true;
-    stdout.writeln('ww $version');
-    stdout.writeln('');
+    Cli.info('ww $version');
+    Cli.info('');
 
     ok &= _checkTool('flutter', required: true);
     ok &= _checkTool('dart', required: true);
@@ -39,12 +41,12 @@ class DoctorCommand {
     _checkFile('.ww/tasks', required: false, hint: '没有 .ww/tasks，ww run 无任务可用');
     _reportSigningSource();
 
-    stdout.writeln('');
+    Cli.info('');
     if (!ok) {
-      stderr.writeln('有必需项缺失，请先修复上面标 ✗ 的项');
+      Cli.error('有必需项缺失，请先修复上面标 ✗ 的项');
       return 1;
     }
-    stdout.writeln('环境检查通过');
+    Cli.info('环境检查通过');
     return 0;
   }
 
@@ -56,7 +58,7 @@ class DoctorCommand {
     ];
     for (final (path, label) in candidates) {
       if (File('$root/$path').existsSync()) {
-        stdout.writeln('✓ iOS 签名：$label（$path）');
+        Cli.info('✓ iOS 签名：$label（$path）');
         return;
       }
     }
@@ -68,29 +70,29 @@ class DoctorCommand {
         r'DEVELOPMENT_TEAM = ([A-Z0-9]+);',
       ).firstMatch(content)?.group(1);
       if (team != null) {
-        stdout.writeln('✓ iOS 签名：零配置（自动探测 team $team）');
+        Cli.info('✓ iOS 签名：零配置（自动探测 team $team）');
       } else {
-        stdout.writeln('- iOS 签名：未配置（需 --team= 或 ios/ExportOptions.plist）');
+        Cli.info('- iOS 签名：未配置（需 --team= 或 ios/ExportOptions.plist）');
       }
       return;
     }
-    stdout.writeln('- iOS 签名：无 ios 工程，跳过');
+    Cli.info('- iOS 签名：无 ios 工程，跳过');
   }
 
   bool _checkTool(String name, {required bool required, String? hint}) {
     final present = runner.which(name);
-    stdout.writeln('${present ? '✓' : (required ? '✗' : '-')} $name');
+    Cli.info('${present ? '✓' : (required ? '✗' : '-')} $name');
     if (!present && hint != null) {
-      stdout.writeln('    提示: $hint');
+      Cli.info('    提示: $hint');
     }
     return present || !required;
   }
 
   bool _checkFile(String path, {required bool required, required String hint}) {
     final present = File('$root/$path').existsSync();
-    stdout.writeln('${present ? '✓' : (required ? '✗' : '-')} $path');
+    Cli.info('${present ? '✓' : (required ? '✗' : '-')} $path');
     if (!present) {
-      stdout.writeln('    提示: $hint');
+      Cli.info('    提示: $hint');
     }
     return present || !required;
   }
@@ -101,9 +103,9 @@ class DoctorCommand {
     required String hint,
   }) {
     final present = Directory('$root/$path').existsSync();
-    stdout.writeln('${present ? '✓' : (required ? '✗' : '-')} $path/');
+    Cli.info('${present ? '✓' : (required ? '✗' : '-')} $path/');
     if (!present) {
-      stdout.writeln('    提示: $hint');
+      Cli.info('    提示: $hint');
     }
   }
 }

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'output.dart';
 import 'package:args/args.dart';
 import 'package:w_cli/src/cli/help.dart' as cli_help;
 import 'package:w_cli/src/commands/doctor_command.dart' as doctor;
@@ -111,7 +111,7 @@ List<CommandSpec> commandSpecs() => [
     ],
     run: (results) {
       if (_flag(results, 'clean') && !_flag(results, 'fresh')) {
-        stderr.writeln('提示：`--clean` 已更名为 `--fresh`（清输出目录），旧名将在下个版本移除');
+        Cli.error('提示：`--clean` 已更名为 `--fresh`（清输出目录），旧名将在下个版本移除');
       }
       return w.handleBuildCommand([
         ...results.rest.where(
@@ -268,7 +268,7 @@ Future<int> _iosSetup(ArgResults results) async {
 }
 
 Future<int> _legacyProject(ArgResults results) async {
-  stderr.writeln(
+  Cli.error(
     '提示：`ww project --update` 已拆成 `ww deps upgrade`（依赖）与 '
     '`ww deps gradle`（Gradle），旧名将在下个版本移除',
   );
@@ -300,9 +300,9 @@ Future<int> _deps(ArgResults results) async {
       pod: _flag(results, 'pod'),
     );
   }
-  stderr.writeln('未知子命令: $sub');
-  stderr.writeln('用法: ww deps upgrade [--major] [--dry-run] [--pod]');
-  stderr.writeln('      ww deps gradle [--to=<版本>] [--force]');
+  Cli.error('未知子命令: $sub');
+  Cli.error('用法: ww deps upgrade [--major] [--dry-run] [--pod]');
+  Cli.error('      ww deps gradle [--to=<版本>] [--force]');
   return 2;
 }
 
@@ -313,7 +313,7 @@ Future<int> _deprecated(
   String replacement,
   Future<int> Function() run,
 ) async {
-  stderr.writeln('提示：`ww $oldName` 已更名为 `$replacement`（$what），旧名将在下个版本移除');
+  Cli.error('提示：`ww $oldName` 已更名为 `$replacement`（$what），旧名将在下个版本移除');
   return run();
 }
 

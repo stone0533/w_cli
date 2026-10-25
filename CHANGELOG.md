@@ -29,6 +29,13 @@
   - `main.dart` 模板改用 w_tools_app 1.x 的 `WApp.start()`：去掉已不存在的
     `designWidth` / `envFileName`（屏幕适配与 `.env` 由插件负责）
 
+### Changed
+
+- 抽出 `lib/src/cli/capture.dart`（`runCaptured` / `captureTail` / `captureLastLine`），
+  合并 `BuildRunner` / `ProjectCommand` / `TaskRunner` 三份「收集输出 + 落盘 + 失败尾巴」
+- 剩余命令（clean / open / doctor / run / api / models / update）的输出统一走 `Cli`，
+  并去掉 `open` / `clean` 自带的 `====` 横幅（Dart 侧已统一打）
+
 ### Fixed
 
 - `-d` / `--debug` 对所有命令生效（以前只有 `api` / `build` 声明了该 flag，

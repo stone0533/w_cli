@@ -55,8 +55,8 @@ Future<int> handleCreateCommand(
   }
 
   if (rest.isEmpty) {
-    print('❌ Error: Project name is required');
-    print('   Usage: ww create|c [project|p] <name>');
+    Cli.error('Project name is required');
+    Cli.info('   Usage: ww create|c [project|p] <name>');
     return 2;
   }
 
@@ -92,16 +92,16 @@ Future<int> handleApiCommand(
   try {
     invocation = resolveApiArgs(arguments);
   } on ApiUsageError catch (error) {
-    stderr.writeln(error.message);
+    Cli.error(error.message);
     return 2;
   }
 
   // 在非工程目录里跑会在仓库根长出 lib/app/ —— 直接拒绝，别留垃圾
   if (invocation.mode != ApiMode.models && !_isFlutterProject()) {
-    stderr.writeln(
+    Cli.error(
       '当前目录不是 Flutter 工程（没有 pubspec.yaml 的 flutter: 段，也没有 lib/main.dart）',
     );
-    stderr.writeln('  请在工程根目录执行，或先 ww create <name>');
+    Cli.error('  请在工程根目录执行，或先 ww create <name>');
     return 1;
   }
 
@@ -138,7 +138,7 @@ Future<int> handleApiCommand(
 
 /// 处理更新命令
 Future<int> handleUpdateCommand() async {
-  print('\n🚀 Updating w_cli...');
+  Cli.info('Updating w_cli...');
   try {
     // 升级到最新版本
     final process = await Process.start('dart', [
@@ -152,14 +152,14 @@ Future<int> handleUpdateCommand() async {
     final stdoutDone = process.stdout
         .transform(const Utf8Decoder(allowMalformed: true))
         .forEach((chunk) {
-          print(chunk.trimRight());
+          Cli.info(chunk.trimRight());
         });
 
     // 实时显示错误输出
     final stderrDone = process.stderr
         .transform(const Utf8Decoder(allowMalformed: true))
         .forEach((chunk) {
-          print('Error: ${chunk.trimRight()}');
+          Cli.error(chunk.trimRight());
         });
 
     // 等待进程完成并获取退出码
@@ -168,19 +168,19 @@ Future<int> handleUpdateCommand() async {
     await stderrDone;
 
     if (exitCode == 0) {
-      print('\n✅ Update completed successfully!');
-      print('   Current version: ${getVersionFromPubspec()}');
+      Cli.ok('Update completed successfully');
+      Cli.info('   Current version: ${getVersionFromPubspec()}');
       print(
         '   Note: You may need to restart your terminal for the changes to take effect.',
       );
     } else {
-      print('\n❌ Update failed with exit code: $exitCode');
-      print('   Please try again or check your internet connection.');
+      Cli.error('Update failed with exit code: $exitCode');
+      Cli.info('   Please try again or check your internet connection.');
     }
     return exitCode;
   } catch (e) {
     handleError(e, 'update');
-    print('   Please try again or check your internet connection.');
+    Cli.info('   Please try again or check your internet connection.');
     return 1;
   }
 }

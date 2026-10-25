@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import '../cli/output.dart';
+
 import '../cli/process.dart';
 
 /// `.ww/tasks` 里的一条任务。
@@ -82,13 +84,13 @@ class RunCommand {
         printHelp();
         return 0;
       }
-      stderr.writeln('未找到 $tasksPath（在项目根目录创建它，一行一条 `名字 = 命令`）');
+      Cli.error('未找到 $tasksPath（在项目根目录创建它，一行一条 `名字 = 命令`）');
       return 1;
     }
 
     final parsed = parseTasks(file.readAsStringSync());
     for (final warning in parsed.warnings) {
-      stderr.writeln(warning);
+      Cli.error(warning);
     }
 
     if (names.isEmpty) {
@@ -96,24 +98,24 @@ class RunCommand {
       return 0;
     }
     if (names.length > 1) {
-      stderr.writeln('一次只能跑一个任务，收到: ${names.join(' ')}');
+      Cli.error('一次只能跑一个任务，收到: ${names.join(' ')}');
       return 2;
     }
 
     final name = names.single;
     final task = parsed.tasks.where((task) => task.name == name).firstOrNull;
     if (task == null) {
-      stderr.writeln('未知任务: $name');
+      Cli.error('未知任务: $name');
       _list(parsed.tasks);
       return 2;
     }
 
     if (dryRun) {
-      stdout.writeln(task.command);
+      Cli.info(task.command);
       return 0;
     }
 
-    stdout.writeln('\$ ${task.command}');
+    Cli.info('\$ ${task.command}');
     final (executable, arguments) = _shellFor(task.command);
     return runner.start(executable, arguments, workingDirectory: root);
   }
@@ -128,18 +130,18 @@ class RunCommand {
 
   void _list(List<RunTask> tasks) {
     if (tasks.isEmpty) {
-      stdout.writeln('$tasksPath 里还没有任务');
+      Cli.info('$tasksPath 里还没有任务');
       return;
     }
-    stdout.writeln('$tasksPath 里的任务：');
+    Cli.info('$tasksPath 里的任务：');
     final width = tasks
         .map((task) => task.name.length)
         .reduce((a, b) => a > b ? a : b);
     for (final task in tasks) {
-      stdout.writeln('  ${task.name.padRight(width)}  ${task.command}');
+      Cli.info('  ${task.name.padRight(width)}  ${task.command}');
     }
-    stdout.writeln('');
-    stdout.writeln('用法: ww run <任务名> [--dry-run]');
+    Cli.info('');
+    Cli.info('用法: ww run <任务名> [--dry-run]');
   }
 
   void printHelp() {

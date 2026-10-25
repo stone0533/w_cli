@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../cli/capture.dart';
 import '../cli/output.dart';
 import '../cli/process.dart';
 
@@ -41,9 +42,15 @@ class ProjectCommand {
 
     Cli.info(major ? '升级依赖（含大版本）...' : '升级依赖...');
     final args = <String>['pub', 'upgrade', if (major) '--major-versions'];
-    final output = await _runCaptured('flutter', args, log: 'deps.log');
+    final output = await runCaptured(
+      runner,
+      'flutter',
+      args,
+      root: root,
+      logName: 'deps.log',
+    );
     if (output.code != 0) {
-      _printTail(output.text);
+      captureTail(output.text);
       return output.code;
     }
 
@@ -52,12 +59,15 @@ class ProjectCommand {
 
     if (pod && File('$root/ios/Podfile').existsSync()) {
       Cli.info('刷新 iOS Pods...');
-      final podCode = await _runCaptured('pod', [
-        'install',
-        '--project-directory=ios',
-      ], log: 'pod.log');
+      final podCode = await runCaptured(
+        runner,
+        'pod',
+        ['install', '--project-directory=ios'],
+        root: root,
+        logName: 'pod.log',
+      );
       if (podCode.code != 0) {
-        _printTail(podCode.text);
+        captureTail(podCode.text);
         return podCode.code;
       }
       Cli.ok('Pods 已刷新');
@@ -123,12 +133,15 @@ class ProjectCommand {
 
   Future<int> _reportOutdated() async {
     Cli.info('检查可升级的依赖（不修改任何文件）...');
-    final output = await _runCaptured('flutter', [
-      'pub',
-      'outdated',
-    ], log: 'outdated.log');
+    final output = await runCaptured(
+      runner,
+      'flutter',
+      ['pub', 'outdated'],
+      root: root,
+      logName: 'outdated.log',
+    );
     if (output.code != 0) {
-      _printTail(output.text);
+      captureTail(output.text);
       return output.code;
     }
     for (final line in output.text.split('\n').take(20)) {
@@ -141,32 +154,6 @@ class ProjectCommand {
   int _countChanged(String text) {
     final pattern = RegExp(r'^\s*[>+]\s+\S+\s+\S+.*\(was ', multiLine: true);
     return pattern.allMatches(text).length;
-  }
-
-  Future<({int code, String text})> _runCaptured(
-    String executable,
-    List<String> args, {
-    required String log,
-  }) async {
-    if (Cli.verbose) {
-      final code = await runner.start(executable, args, workingDirectory: root);
-      return (code: code, text: '');
-    }
-
-    final result = await runner.run(executable, args, workingDirectory: root);
-    final text = '${result.stdout}${result.stderr}';
-    final file = File('$root/w_build/$log');
-    file.parent.createSync(recursive: true);
-    file.writeAsStringSync(text, mode: FileMode.append);
-    return (code: result.exitCode, text: text);
-  }
-
-  void _printTail(String text) {
-    final lines = text.trimRight().split('\n');
-    final start = lines.length > 10 ? lines.length - 10 : 0;
-    for (final line in lines.skip(start)) {
-      Cli.error('    $line');
-    }
   }
 
   String _distributionLine(String content) {
