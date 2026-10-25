@@ -20,12 +20,12 @@ test/
 
 ## 文档锚点检查
 
-`tool/check_doc_anchors.dart` 校验 Markdown 里的 `[x](#anchor)` 是否能对上标题。
+`tool/check_docs.dart` 校验 Markdown 的内部锚点、相对链接，以及是否还在教人用已删除的命令。
 CI 里跑；`docs/commands.md` 的章节被误删过、链接却还在，肉眼看不出。
 
 ```bash
-dart run tool/check_doc_anchors.dart          # 检查整个仓库
-dart run tool/check_doc_anchors.dart doc      # 只检查某个目录
+dart run tool/check_docs.dart          # 检查整个仓库
+dart run tool/check_docs.dart doc      # 只检查某个目录
 ```
 
 ## 怎么跑

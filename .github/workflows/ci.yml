@@ -23,7 +23,7 @@ jobs:
       - name: 单元测试
         run: dart test
       - name: 文档锚点检查
-        run: dart run tool/check_doc_anchors.dart
+        run: dart run tool/check_docs.dart
       - name: 发布检查
         run: dart pub publish --dry-run
 
