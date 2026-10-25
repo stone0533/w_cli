@@ -45,7 +45,8 @@ $ ww api models
 - 前缀固定 `[INFO]` / `[WARN]` / `[ERROR]`；`INFO` 绿、`WARN` 黄、`ERROR` 红
 - 颜色只在终端下输出；`NO_COLOR=1` 关闭，`CLICOLOR_FORCE=1` 强制开（CI 想看颜色时）
 - 默认只留关键行；明细用 `-d` / `--debug` 打开
-- 子进程输出默认落盘：build → `w_build/build.log`，build_runner → `w_build/build-runner.log`
+- 子进程输出默认落盘：build → `w_build/build.log`，build_runner → `w_build/build-runner.log`，
+  `ww gen` → `w_build/gen.log`；`ww create` 的子进程输出默认不打印（失败才给尾巴）
 
 要点：
 

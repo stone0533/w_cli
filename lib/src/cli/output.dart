@@ -54,10 +54,9 @@ class Cli {
     String two(int value) => value.toString().padLeft(2, '0');
     final clock = '${two(now.hour)}:${two(now.minute)}:${two(now.second)}';
     final elapsed = (_watch.elapsedMilliseconds / 1000).toStringAsFixed(1);
-    final label = code == 0 ? '完成' : '失败（退出码 $code）';
     final painted = code == 0
-        ? _paint(_green, '=== $label（$clock）===')
-        : _paint(_red, '=== $label（$clock）===');
+        ? _paint(_green, '=== 完成（$clock）===')
+        : _paint(_red, '=== 失败（$clock，退出码 $code）===');
     stdout.writeln(painted);
     detail('耗时 ${elapsed}s');
   }

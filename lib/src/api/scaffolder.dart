@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../cli/output.dart';
 import 'project_imports.dart';
 
 /// `ww api init` 的 Dart 实现（ADR-0002 Phase 1）。
@@ -44,9 +45,9 @@ class ApiScaffolder {
     ]) {
       final directory = Directory(dir);
       if (directory.existsSync()) {
-        stdout.writeln('目录已存在: $dir');
+        Cli.detail('目录已存在: $dir');
       } else {
-        stdout.writeln('创建目录: $dir');
+        Cli.detail('创建目录: $dir');
         directory.createSync(recursive: true);
       }
     }
@@ -58,7 +59,7 @@ class ApiScaffolder {
     final base = root == '.' ? '' : '$root/';
     final pubspec = File('${base}pubspec.yaml');
     if (!pubspec.existsSync()) {
-      stderr.writeln('文件不存在: ${pubspec.path}');
+      Cli.error('文件不存在: ${pubspec.path}');
       return;
     }
 
@@ -70,13 +71,13 @@ class ApiScaffolder {
       if (!content.contains('retrofit_generator:')) 'retrofit_generator',
     ];
     if (missing.isEmpty) {
-      stdout.writeln('所有必要的依赖项已存在');
+      Cli.detail('所有必要的依赖项已存在');
       return;
     }
 
     for (final dep in missing) {
       final isDev = dep != 'retrofit';
-      stdout.writeln('添加 $dep 依赖...');
+      Cli.detail('添加 $dep 依赖...');
       final result = Process.runSync(
         'flutter',
         ['pub', 'add', if (isDev) '--dev', dep],
@@ -84,7 +85,7 @@ class ApiScaffolder {
         runInShell: true,
       );
       if (result.exitCode != 0) {
-        stderr.writeln(
+        Cli.error(
           '添加 $dep 失败，请手动执行: flutter pub add ${isDev ? '--dev ' : ''}$dep',
         );
       }
@@ -94,10 +95,10 @@ class ApiScaffolder {
   void _writeIfMissing(String path, String content) {
     final file = File(path);
     if (file.existsSync()) {
-      stdout.writeln('文件已存在: $path');
+      Cli.detail('文件已存在: $path');
       return;
     }
-    stdout.writeln('创建文件: $path');
+    Cli.detail('创建文件: $path');
     file.parent.createSync(recursive: true);
     file.writeAsStringSync(content);
   }
@@ -106,7 +107,7 @@ class ApiScaffolder {
   /// 新文件写完整内容；老文件只同步 marker 段，没有 marker 就一个字都不改。
   void _syncDataSource(File file, String uri) {
     if (!file.existsSync()) {
-      stdout.writeln('创建文件: ${file.path}');
+      Cli.detail('创建文件: ${file.path}');
       file.parent.createSync(recursive: true);
       file.writeAsStringSync(dataSourceTemplate(uri));
       return;
@@ -116,11 +117,11 @@ class ApiScaffolder {
     final synced = syncWtoolsImport(existing, uri);
 
     if (synced == null) {
-      stdout.writeln('  ↳ 未接管导入行（无 marker，视为手写文件）: ${file.path}');
+      Cli.detail('  ↳ 未接管导入行（无 marker，视为手写文件）: ${file.path}');
       return;
     }
     if (synced != existing) {
-      stdout.writeln('同步 w_tools 导入: ${file.path}');
+      Cli.detail('同步 w_tools 导入: ${file.path}');
       file.writeAsStringSync(synced);
     }
   }

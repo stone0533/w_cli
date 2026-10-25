@@ -246,8 +246,13 @@ CREATE_EXIT=0 run_create plain_name
 assert_eq "ww create <name> 省略 project 也能用" 0 "$?"
 assert_eq "已存在的目录被保留" "precious" "$(cat "$create_work/demo/keep.txt" 2>/dev/null)"
 
-run_create ok_app
+create_quiet="$( cd "$create_work" && CI=true PATH="$create_work/bin:$PATH" \
+    "$(command -v dart)" run "$ROOT/bin/w_cli.dart" create project ok_app 2>&1 )"
 assert_eq "正常创建退出 0" 0 "$?"
+assert_contains "create 有开始横幅" "=== ww create project ok_app ===" "$create_quiet"
+assert_contains "create 有结束横幅" "=== 完成" "$create_quiet"
+assert_eq "create 默认输出不超过 10 行" "yes" \
+  "$([ "$(printf '%s\n' "$create_quiet" | grep -c '' )" -le 10 ] && echo yes || echo no)"
 assert_eq "assets 落在 flutter 配置段（不在 dependencies 里）" "present" \
   "$(awk '/^flutter:$/{influtter=1} influtter && /^  assets:$/{found=1} END{exit !found}' \
       "$create_work/ok_app/pubspec.yaml" && echo present || echo absent)"
