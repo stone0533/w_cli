@@ -41,12 +41,22 @@ void main() {
     });
   });
 
+  // 脚本清单从仓库目录动态取：删掉一个脚本时测试自动跟随，
+  // 不再依赖「pub cache 里还留着旧版本」这种本地假象
+  final repoScripts = Directory('lib/sh')
+      .listSync()
+      .whereType<File>()
+      .map((file) => file.uri.pathSegments.last)
+      .where((name) => name.endsWith('.sh'))
+      .toList()
+    ..sort();
+
   group('scriptExists', () {
     test('should return true for existing scripts', () async {
-      expect(await scriptExists('build.sh'), isTrue);
-      expect(await scriptExists('clean.sh'), isTrue);
-      expect(await scriptExists('open.sh'), isTrue);
-      expect(await scriptExists('setup.sh'), isTrue);
+      expect(repoScripts, isNotEmpty);
+      for (final name in repoScripts) {
+        expect(await scriptExists(name), isTrue, reason: name);
+      }
     });
 
     test('should return false for non-existent scripts', () async {
@@ -56,7 +66,7 @@ void main() {
 
   group('getScriptPath', () {
     test('should return a valid path for existing scripts', () async {
-      final path = await getScriptPath('clean.sh');
+      final path = await getScriptPath(repoScripts.first);
       expect(path, isNotEmpty);
       expect(File(path).existsSync(), isTrue);
     });

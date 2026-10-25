@@ -52,6 +52,14 @@ Future<void> main(List<String> arguments) async {
       ..addOption('export-options');
   }
 
+  // clean / cl：声明 --lock / --pod / --debug，其余交给 Dart 实现
+  for (final name in ['clean', 'cl']) {
+    parser.commands[name]
+      ?..addFlag('lock', negatable: false)
+      ..addFlag('pod', negatable: false)
+      ..addFlag('debug', abbr: 'd', negatable: false);
+  }
+
   // common / co：只声明 --debug（其余参数直接拒绝）
   for (final name in ['common', 'co']) {
     parser.commands[name]?.addFlag('debug', abbr: 'd', negatable: false);
@@ -152,7 +160,12 @@ Future<void> main(List<String> arguments) async {
         break;
       case 'clean':
       case 'cl':
-        exitCode = await w.handleCleanCommand(command.arguments);
+        exitCode = await w.handleCleanCommand(<String>[
+          ...command.rest,
+          if (command['lock'] as bool) '--lock',
+          if (command['pod'] as bool) '--pod',
+          if (command['debug'] as bool) '--debug',
+        ]);
         break;
       default:
         print('Error: Unknown command: ${command.name}');

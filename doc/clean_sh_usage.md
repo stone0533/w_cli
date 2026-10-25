@@ -1,238 +1,27 @@
-# clean.sh - Flutter 应用清理脚本使用说明
+# ww clean 使用说明
 
-## 1. 脚本概述
+清理 Flutter 构建产物，然后重新 `flutter pub get`。
 
-`clean.sh` 是一个用于 Flutter 应用的清理脚本，用于清理构建文件并执行 `flutter pub get`，确保项目环境的干净和依赖的更新。
+> 2026-10 起由 Dart 实现（`lib/src/commands/clean_command.dart`），`lib/sh/clean.sh` 已删除。
+> 变化：`--lock` / `--pod` 以前会被 ww 的参数解析拒绝，现在能真正传进来；Windows 可用。
 
-### 版本信息
-- **版本**: 随 w_cli 包版本（`ww --version`）
-- **作者**: Stone
+## 用法
 
-## 2. 功能特点
-
-- **多平台支持**: 支持清理 Android、iOS 和所有平台的构建文件
-- **锁文件清理**: 支持清理 `pubspec.lock` 和 `Podfile.lock` 文件
-- **iOS Pods 清理**: 支持清理 iOS Pods 目录
-- **依赖更新**: 自动执行 `flutter pub get` 更新依赖
-- **跨平台兼容**: 支持 macOS 与 Linux；Windows 需要 bash（Git Bash / WSL）
-- **详细日志**: 提供详细的清理过程日志和错误处理
-- **调试模式**: 支持启用调试模式，显示更详细的执行信息
-
-## 3. 安装和设置
-
-### 前提条件
-- Flutter 环境已安装
-- iOS 构建需要安装 CocoaPods（仅 macOS）
-
-### 安装步骤
-1. 将 `clean.sh` 与共享库 `lib.sh` 一起复制到项目的 `lib/sh` 目录中（脚本会 source 同目录下的 `lib.sh`，少了它无法运行）
-2. 赋予脚本执行权限：
-   ```bash
-   chmod +x lib/sh/lib.sh lib/sh/clean.sh
-   ```
-
-## 4. 目录结构
-
-脚本会清理以下目录和文件：
-
-```
-项目根目录/
-├── build/             # Flutter 构建目录（会被清理）
-├── ios/Pods/          # iOS Pods 目录（可选清理）
-├── pubspec.lock       # Dart 依赖锁文件（可选清理）
-└── ios/Podfile.lock   # iOS 依赖锁文件（可选清理）
-```
-
-## 5. 命令行参数
-
-| 参数 | 描述 |
-|------|------|
-| `android` | 清理 Android 构建文件 |
-| `ios` | 清理 iOS 构建文件 |
-| `all` | 清理所有平台构建文件（默认） |
-| `--help` | 显示帮助信息 |
-| `--version` | 显示脚本版本信息 |
-| `--debug` | 启用调试模式 |
-| `--lock` | 清理锁文件（pubspec.lock 或 Podfile.lock） |
-| `--pod` | 清理 iOS Pods（仅适用于 iOS 平台） |
-
-## 6. 配置选项
-
-| 配置项 | 描述 | 默认值 |
-|--------|------|--------|
-| `MAX_RETRIES` | Pod update 最大重试次数 | 30 |
-
-## 7. 使用示例
-
-### 7.1 清理所有平台构建文件
-
-**功能**: 清理所有平台的构建文件并更新依赖
-
-**命令**: 
 ```bash
-./clean.sh all
+ww clean                 # 清理所有平台的构建文件
+ww clean android         # 只清 Android
+ww clean ios             # 只清 iOS
+ww clean --lock          # 额外删除 pubspec.lock（iOS 时还会删 Podfile.lock）
+ww clean ios --pod       # 删除 ios/Pods 与 Podfile.lock，然后 pod update
+ww cl --lock             # ww clean 的别名
 ```
 
-**执行流程**:
-1. 检查构建环境
-2. 执行 `flutter clean` 清理构建文件
-3. 执行 `flutter pub get` 更新依赖
-4. 显示清理结果
+## 行为
 
-### 7.2 清理 Android 构建文件
+1. `--lock`：按平台删 `pubspec.lock` / `ios/Podfile.lock`
+2. `--pod`：删 `ios/Pods` 与 `ios/Podfile.lock`（`--pod` + `android` 会直接报错退出 2）
+3. `flutter clean`
+4. `flutter pub get`
+5. 需要时执行 `pod update`（最多重试 30 次，与旧脚本一致）
 
-**功能**: 只清理 Android 平台的构建文件并更新依赖
-
-**命令**: 
-```bash
-./clean.sh android
-```
-
-### 7.3 清理 iOS 构建文件
-
-**功能**: 只清理 iOS 平台的构建文件并更新依赖
-
-**命令**: 
-```bash
-./clean.sh ios
-```
-
-### 7.4 清理锁文件
-
-**功能**: 清理依赖锁文件并更新依赖
-
-**命令**: 
-```bash
-./clean.sh --lock
-```
-
-### 7.5 清理 iOS Pods
-
-**功能**: 清理 iOS Pods 目录、Podfile.lock 文件并更新依赖
-
-**命令**: 
-```bash
-./clean.sh ios --pod
-```
-
-### 7.6 组合使用
-
-**功能**: 清理所有平台的构建文件、锁文件，并更新依赖
-
-**命令**: 
-```bash
-./clean.sh all --lock
-```
-
-### 7.7 使用调试模式
-
-**功能**: 启用调试模式，显示详细的执行过程
-
-**命令**: 
-```bash
-./clean.sh --debug
-```
-
-**执行流程**:
-1. 启用调试模式
-2. 检查构建环境
-3. 执行 `flutter clean` 清理构建文件
-4. 执行 `flutter pub get` 更新依赖
-5. 显示详细的清理过程和结果
-
-## 8. 常见问题和解决方案
-
-| 问题 | 解决方案 |
-|------|----------|
-| Flutter 未安装 | 安装 Flutter 并添加到 PATH |
-| CocoaPods 未安装 | 安装 CocoaPods（`gem install cocoapods`） |
-| 权限不足 | 确保当前用户有删除文件和目录的权限 |
-| pod update 失败 | 脚本会自动重试，最多重试 30 次 |
-| 依赖更新失败 | 检查网络连接和 `pubspec.yaml` 文件的正确性 |
-
-## 9. 高级用法
-
-### 9.1 自定义重试次数
-
-**功能**: 自定义 Pod update 的最大重试次数
-
-**命令**: 
-```bash
-MAX_RETRIES=50 ./clean.sh ios --pod
-```
-
-## 10. 输出示例
-
-### 清理所有平台输出
-
-```
-======================================================
-Flutter 应用清理脚本运行开始
-======================================================
-[INFO] 检查构建环境...
-[INFO] 操作系统: macos
-[INFO] 执行 flutter clean 命令...
-[INFO] flutter clean 执行成功
-[INFO] 执行 flutter pub get...
-[INFO] flutter pub get 执行成功
-[INFO] 执行 pod update...
-[INFO] pod update 执行成功
-[INFO] ✅ 清理完成！
-======================================================
-Flutter 应用清理脚本运行结束
-======================================================
-```
-
-### 清理 iOS Pods 输出
-
-```
-======================================================
-Flutter 应用清理脚本运行开始
-======================================================
-[INFO] 检查构建环境...
-[INFO] 操作系统: macos
-[INFO] 删除 Pods 目录...
-[INFO] Pods 目录删除成功
-[INFO] 删除 Podfile.lock 文件...
-[INFO] Podfile.lock 文件删除成功
-[INFO] 执行 flutter clean 命令...
-[INFO] flutter clean 执行成功
-[INFO] 执行 flutter pub get...
-[INFO] flutter pub get 执行成功
-[INFO] 执行 pod update...
-[INFO] pod update 执行成功
-[INFO] ✅ 清理完成！
-======================================================
-Flutter 应用清理脚本运行结束
-======================================================
-```
-
-### 调试模式输出示例
-
-```
-======================================================
-Flutter 应用清理脚本运行开始
-======================================================
-[INFO] 检查构建环境...
-[INFO] 操作系统: macos
-[DEBUG] 调试模式已启用
-[INFO] 执行 flutter clean 命令...
-[INFO] flutter clean 执行成功
-[INFO] 执行 flutter pub get...
-[INFO] flutter pub get 执行成功
-[INFO] ✅ 清理完成！
-======================================================
-Flutter 应用清理脚本运行结束
-======================================================
-```
-
-## 11. 总结
-
-`clean.sh` 脚本是一个实用的 Flutter 应用清理工具，通过清理构建文件和更新依赖，确保项目环境的干净和一致性。使用此脚本可以：
-
-- 快速清理构建文件，解决构建过程中的各种问题
-- 确保依赖的一致性，避免依赖冲突
-- 清理 iOS Pods，解决 iOS 构建中的依赖问题
-- 跨平台使用，适用于不同的开发环境
-
-通过遵循本使用说明，开发者可以充分利用 `clean.sh` 脚本的功能，保持 Flutter 项目的整洁和稳定。
+任何一步失败退出码为 1；参数错误为 2。

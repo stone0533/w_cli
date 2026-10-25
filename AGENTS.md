@@ -24,7 +24,7 @@ single-context — one `GLOSSARY.md` at the repo root, architecture decisions in
 | `lib/sh/setup.sh` | `ww create` 的工程编排 + `main.dart`/home/routes/CI 模板 | API 层与 build_runner 已交给 Dart；其余模板仍在脚本里 |
 
 改模板/导入/头部这类「生成文本」时，记得 `grep -rn "要改的那段文本" lib/`：
-`lib/sh/setup.sh` 里还留着一份工程模板，只改 Dart 会让新老项目产物不一致。
+`lib/sh/setup.sh` 里还留着一份工程模板（main.dart / home / routes / CI），只改 Dart 会让新老项目产物不一致。
 判定规则只有一份：`lib/src/api/project_imports.dart` 的 `resolveWtoolsImport`。
 
 ### 生成器改动约定（models）

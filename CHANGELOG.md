@@ -39,6 +39,8 @@
 
 ### Changed
 
+- `ww clean` / `ww project` 改为 Dart 实现，`lib/sh/clean.sh`、`lib/sh/project.sh` 删除：
+  `--lock` / `--pod` 以前会被 ww 的参数解析拒绝，现在可用；Windows 也可用
 - `ww common drbb` 改为 Dart 实现（`lib/src/tools/build_runner.dart`），`lib/sh/common.sh` 删除：
   统一 30 分钟超时、超时退出码 124、Windows 可用
 - `ww common drbb --debug` / `-d` 之前会被 ArgParser 拒绝，现在可用

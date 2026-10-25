@@ -8,6 +8,8 @@ export 'src/api/api_cli.dart';
 import 'src/api/api_generator.dart';
 import 'src/api/scaffolder.dart';
 import 'src/models/models_generator.dart';
+import 'src/commands/clean_command.dart';
+import 'src/commands/project_command.dart';
 import 'src/tools/build_runner.dart';
 
 /// 获取当前版本号
@@ -497,19 +499,7 @@ Future<int> handleBuildCommand(List<String> arguments) async {
 /// 处理项目管理命令
 /// [arguments] - 命令参数
 Future<int> handleProjectCommand(List<String> arguments) async {
-  print('\n🚀 Managing Flutter project');
-  try {
-    // 执行脚本并实时显示输出
-    return await executeScript(
-      'project.sh',
-      arguments,
-      'Project operation completed successfully!',
-      'Project operation failed',
-    );
-  } catch (e) {
-    handleError(e, 'project');
-    return 1;
-  }
+  return ProjectCommand().run(arguments);
 }
 
 /// 处理打开命令
@@ -613,19 +603,7 @@ Future<int> handleCommonCommand(
 /// 处理 clean 命令
 /// [arguments] - 命令参数
 Future<int> handleCleanCommand(List<String> arguments) async {
-  print('\n🚀 Running Flutter clean');
-  try {
-    // 执行脚本并实时显示输出
-    return await executeScript(
-      'clean.sh',
-      arguments,
-      'Clean completed successfully!',
-      'Clean failed',
-    );
-  } catch (e) {
-    handleError(e, 'clean');
-    return 1;
-  }
+  return CleanCommand().run(arguments);
 }
 
 /// 单元测试辅助函数
