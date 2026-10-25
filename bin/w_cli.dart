@@ -37,6 +37,11 @@ Future<void> main(List<String> arguments) async {
     }
   }
 
+  // create / c：--force 覆盖已存在的目标目录
+  for (final name in ['create', 'c']) {
+    parser.commands[name]?.addFlag('force', negatable: false);
+  }
+
   // 为 build 命令添加选项（必须在这里声明，否则 ArgParser 会直接拒绝）
   for (final name in ['build', 'b']) {
     final command = parser.commands[name];
@@ -110,7 +115,7 @@ Future<void> main(List<String> arguments) async {
     switch (command.name) {
       case 'create':
       case 'c':
-        exitCode = await w.handleCreateCommand(command.arguments);
+        exitCode = await w.handleCreateCommand(command.arguments, force: command['force'] as bool);
         break;
       case 'api':
       case 'a':

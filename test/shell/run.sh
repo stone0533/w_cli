@@ -3,7 +3,7 @@
 #
 #   bash test/shell/run.sh
 #
-# 覆盖：脚本退出码契约、脚本可被 source、lib.sh 的超时/版本、setup.sh 的
+# 覆盖：脚本退出码契约、脚本可被 source、lib.sh 的超时/版本、
 # 目录保护、clean.sh 的参数校验、build.sh 的纯函数与端到端。
 set -uo pipefail
 
@@ -70,32 +70,21 @@ run_with_alarm() {
 }
 
 echo "== 1. 退出码契约 =="
-for script in build open setup; do
+for script in build open; do
   assert_eq "$script.sh --help 退出 0" 0 "$(run_with_alarm bash "$SH/$script.sh" --help)"
   assert_eq "$script.sh --version 退出 0" 0 "$(run_with_alarm bash "$SH/$script.sh" --version)"
 done
 
-# build.sh 自己校验参数，语义是"运行失败"(1)；其余脚本把未知参数当用法错误(2)
-for script in open setup; do
-  if [ "$script" = "setup" ]; then
-    # setup.sh 参数出错时会往当前目录写 setup_error.log，所以放到临时目录里跑，
-    # 免得给仓库根留下垃圾文件
-    tmp_dir="$(mktemp -d)"
-    status="$(run_script_in "$tmp_dir" setup.sh --definitely-not-an-option)"
-    rm -rf "$tmp_dir"
-  else
-    status="$(run_script "$script.sh" --definitely-not-an-option)"
-  fi
-  assert_eq "$script.sh 未知参数退出 2" 2 "$status"
-done
+# build.sh 自己校验参数，语义是"运行失败"(1)；open.sh 把未知参数当用法错误(2)
+assert_eq "open.sh 未知参数退出 2" 2 "$(run_script open.sh --definitely-not-an-option)"
 assert_eq "build.sh 未知参数退出 1" 1 "$(run_script build.sh --definitely-not-an-option)"
 
 echo
 echo "== 2. 脚本不以可执行文件身份运行也能工作（ww 用 bash 调用） =="
 noexec_dir="$(mktemp -d)"
-cp "$SH/lib.sh" "$SH/build.sh" "$SH/open.sh" "$SH/setup.sh" "$noexec_dir/"
+cp "$SH/lib.sh" "$SH/build.sh" "$SH/open.sh" "$noexec_dir/"
 chmod -x "$noexec_dir"/*.sh
-for script in build open setup; do
+for script in build open; do
   ( cd "$noexec_dir" && bash "$script.sh" --version ) > /dev/null 2>&1
   assert_eq "不可执行的 $script.sh --version 退出 0" 0 "$?"
 done
@@ -137,20 +126,16 @@ assert_eq "ww common 缺子命令退出 2" 2 "$?"
 rm -rf "$common_root"
 
 echo
-echo "== 4. 生成模板只有一份（setup.sh 不再写 API 层） =="
-for file in client.dart paths.dart data_source.dart data_source_mixin.dart repository.dart; do
-  assert_eq "setup.sh 不再写 $file" "absent" \
-    "$(grep -q "cat > .*$file" "$SH/setup.sh" && echo present || echo absent)"
-done
+echo "== 4. 生成文本只在 Dart（lib/sh 里没有 cat > *.dart） =="
+assert_eq "lib/sh 不再写任何 .dart" "absent" \
+  "$(grep -lq 'cat > .*\.dart' "$SH"/*.sh && echo present || echo absent)"
 
 echo
 echo "== 5. 脚本可以被 source（不执行 main） =="
-for script in open setup; do
-  out=$(
-    bash -c "set -eo pipefail; . '$SH/$script.sh'; echo sourced" 2>&1 | tail -1
-  )
-  assert_eq "$script.sh 可 source" "sourced" "$out"
-done
+out=$(
+  bash -c "set -eo pipefail; . '$SH/open.sh'; echo sourced" 2>&1 | tail -1
+)
+assert_eq "open.sh 可 source" "sourced" "$out"
 
 echo
 echo "== 6. lib.sh 单元 =="
@@ -174,33 +159,34 @@ assert_eq "失败后透传退出码 3" 3 "$(
 )"
 
 echo
-echo "== 4. setup.sh 不会删除已存在的目录 =="
-tmp_work="$(mktemp -d)"
-mkdir -p "$tmp_work/demo"
-printf 'precious\n' > "$tmp_work/demo/keep.txt"
-(
-  cd "$tmp_work" || exit 1
-  PATH="$STUBS:$PATH" bash "$SH/setup.sh" demo > /dev/null 2>&1
-)
-guard_exit=$?
-assert_eq "已存在目录时退出非零" 1 "$guard_exit"
-assert_eq "已存在目录被保留" "precious" "$(cat "$tmp_work/demo/keep.txt" 2>/dev/null)"
-rm -rf "$tmp_work"
+echo "== 7. ww create 的目录保护与失败清理（Dart 实现） =="
+create_work="$(mktemp -d)"
+mkdir -p "$create_work/bin" "$create_work/demo"
+printf 'precious\n' > "$create_work/demo/keep.txt"
+cat > "$create_work/bin/flutter" << 'STUB'
+#!/bin/bash
+case "$1" in
+  --version) echo "Flutter 3.24.0 • channel stable"; exit 0 ;;
+  create) name="${@: -1}"; mkdir -p "$name/lib"; printf 'name: %s\n' "$name" > "$name/pubspec.yaml"; exit "${CREATE_EXIT:-0}" ;;
+  *) exit 0 ;;
+esac
+STUB
+chmod +x "$create_work/bin/flutter"
 
-# 失败时应该清理本次创建的项目目录（依赖安装由 stub 故意失败）
-tmp_work="$(mktemp -d)"
-(
-  cd "$tmp_work" || exit 1
-  PATH="$STUBS:$PATH" bash "$SH/setup.sh" demo > /dev/null 2>&1
-)
-create_exit=$?
-assert_eq "中途失败时退出非零" 1 "$create_exit"
-if [ -d "$tmp_work/demo" ]; then
-  fail "失败时清理本次创建的项目目录" "demo 仍然存在"
-else
-  pass "失败时清理本次创建的项目目录"
-fi
-rm -rf "$tmp_work"
+run_create() { # 参数...
+  ( cd "$create_work" && CI=true PATH="$create_work/bin:$PATH" \
+      "$(command -v dart)" run "$ROOT/bin/w_cli.dart" create project "$@" ) > /dev/null 2>&1
+}
+
+run_create demo
+assert_eq "已存在目录且没有 --force 时退出非零" 1 "$?"
+assert_eq "已存在的目录被保留" "precious" "$(cat "$create_work/demo/keep.txt" 2>/dev/null)"
+
+CREATE_EXIT=1 run_create fresh_app
+assert_eq "flutter create 失败时退出非零" 1 "$?"
+assert_eq "失败时清理本次创建的目录" "gone" \
+  "$([ -d "$create_work/fresh_app" ] && echo present || echo gone)"
+rm -rf "$create_work"
 
 echo
 echo "== 8. build.sh 可 source 与纯函数 =="

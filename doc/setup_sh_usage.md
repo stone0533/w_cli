@@ -1,233 +1,46 @@
-# setup.sh - Flutter 项目初始化脚本使用说明
+# ww create 使用说明
 
-## 1. 脚本概述
+从零创建一个符合本工具约定结构的 Flutter 工程。
 
-`setup.sh` 是一个用于 Flutter 项目的初始化脚本，用于自动完成 Flutter 项目的初始化、依赖安装和核心文件创建，简化项目的搭建过程。
+> 2026-10 起由 Dart 实现（`lib/src/project/`），`lib/sh/setup.sh` 已删除。
+> 变化：Windows 可用、无需 bash；失败时只清理本次创建的目录。
 
-### 版本信息
-- **版本**: 随 w_cli 包版本（`ww --version`）
-- **作者**: Stone
+## 用法
 
-## 2. 功能特点
-
-- **自动检测操作系统**: 支持 macOS 与 Linux；Windows 需要 bash（Git Bash / WSL）
-- **Flutter 环境检查**: 检查 Flutter 安装状态和版本
-- **完整目录结构**: 创建完整的项目目录结构
-- **依赖管理**: 安装必要的依赖包
-- **核心文件创建**: 创建核心数据层文件和配置文件
-- **代码生成**: 生成 Retrofit 代码和序列化代码
-- **Git 初始化**: 初始化 Git 仓库并配置 .gitignore
-- **CI/CD 配置**: 创建 GitHub Actions 配置文件
-- **项目健康检查**: 检查项目文件和目录结构
-
-## 3. 安装和设置
-
-### 前提条件
-- Flutter 环境已安装
-- Git 已安装（用于初始化 Git 仓库）
-- Python 3（用于生成模型文件）
-
-### 安装步骤
-1. 将 `setup.sh` 与共享库 `lib.sh` 一起复制到项目的 `lib/sh` 目录中（脚本会 source 同目录下的 `lib.sh`，少了它无法运行）
-2. 赋予脚本执行权限：
-   ```bash
-   chmod +x lib/sh/lib.sh lib/sh/setup.sh
-   ```
-
-## 4. 目录结构
-
-执行脚本后，会创建以下目录结构：
-
-```
-项目名称/
-├── assets/             # 资源目录
-│   ├── fonts/          # 字体资源
-│   └── images/         # 图片资源
-├── lib/                # 源代码目录
-│   ├── app/            # 应用代码
-│   │   ├── components/ # 组件
-│   │   ├── utils/      # 工具类
-│   │   ├── services/   # 服务
-│   │   ├── data/       # 数据层
-│   │   │   ├── models/     # 数据模型
-│   │   │   └── sources/    # 数据源
-│   │   │       ├── remote/  # 远程数据源
-│   │   ├── modules/     # 功能模块
-│   │   └── routes/      # 路由配置
-├── test/               # 测试目录
-├── .github/workflows/  # CI/CD 配置
-├── w_json/             # JSON 文件目录（用于生成模型）
-├── .env                # 环境配置文件
-├── pubspec.yaml        # 项目依赖配置
-└── .gitignore          # Git 忽略文件
-```
-
-## 5. 命令行参数
-
-| 参数 | 描述 |
-|------|------|
-| `[project_name]` | 可选，指定项目名称 |
-| `--force` | 目标目录已存在时覆盖它（默认拒绝，避免误删） |
-| `--help` | 显示帮助信息 |
-| `--version` | 显示脚本版本信息 |
-
-> 目标目录已存在时脚本会报错退出并保留原目录；确认要覆盖时必须显式加 `--force`。
-> 运行失败时只会清理**本次运行自己创建**的目录，不会动你已有的文件。
-
-## 6. 使用示例
-
-### 6.1 基本使用
-
-**功能**: 使用默认项目名称初始化 Flutter 项目
-
-**命令**: 
 ```bash
-./setup.sh
+ww create project my_app     # 完整写法
+ww c p my_app                # 别名 + 简写
+ww create project my_app --force   # 覆盖已存在的同名目录（默认拒绝）
 ```
 
-**执行流程**:
-1. 检查执行权限
-2. 检测操作系统
-3. 检查 Flutter 安装状态
-4. 询问项目名称（使用默认名称）
-5. 检查项目目录
-6. 创建 Flutter 项目
-7. 安装依赖包
-8. 创建目录结构
-9. 配置项目依赖
-10. 创建核心文件
-11. 生成代码
-12. 格式化代码
-13. 初始化测试
-14. 初始化 Git 仓库
-15. 创建 CI/CD 配置
-16. 执行项目健康检查
-17. 打开项目
+项目名必须小写字母开头，只含小写字母、数字、下划线；不合法时退出 2。
 
-### 6.2 自定义项目名称
+## 它做了什么
 
-**功能**: 使用指定的项目名称初始化 Flutter 项目
+| # | 步骤 | 具体动作 |
+|---|---|---|
+| 1 | 环境检查 | 找 `flutter`，打印版本 |
+| 2 | 目录检查 | 已存在且无 `--force` → 退出 1；有 `--force` → 先删 |
+| 3 | `flutter create` | `--org com.sampras -i swift -a kotlin` |
+| 4 | 依赖 | `get dio flutter_screenutil flutter_form_builder form_builder_validators json_annotation:^4.9.0`、`retrofit:4.9.0`、dev: `build_runner json_serializable retrofit_generator:^9.7.0 w_tools_cli` |
+| 5 | 目录 | `assets/{fonts,images}`、`lib/app/{components,utils,services}`、`lib/app/data/{models,sources,sources/remote}`、`test`、`.github/workflows`、`w_json` |
+| 6 | w_tools 分包 | `pub add w_tools_{core,app,form,ui,api,toast,qr}:^1.0.0`（不含 `w_tools_map`），dev 加 `w_tools_cli`；补 `assets` 配置 |
+| 7 | 接入骨架 | `dart run w_tools_cli:init`；不可用时兜底写 `lib/app/w/toolkit.dart` |
+| 8 | 工程文件 | `main.dart` / home 三件套 / `app_pages` / `app_routes` / `.env` / `widget_test` / CI / toolkit |
+| 9 | API 层 | `ww api init` 的同一套模板（client / paths / data_source / mixin / repository） |
+| 10 | build_runner | 统一走 `BuildRunner`（30 分钟超时） |
+| 11 | 格式化 | `dart format .` |
+| 12 | analysis_options | 插入 `analyzer.exclude`（排除自动生成的 routes） |
+| 13 | git | `git init`、`.gitignore` 补 `w_build/`、首次提交 |
+| 14 | 健康检查 | pubspec + 目录是否存在 |
+| 15 | 打开项目 | `trae` → `studio` → 跳过 |
 
-**命令**: 
-```bash
-./setup.sh my_app
-```
+## 失败时的行为
 
-## 7. 配置说明
+- `flutter create` 或后续步骤失败 → 退出非零，并**删除本次创建的目录**
+- 目标目录是原来就有的 → 永远不会被删（除非显式 `--force`）
 
-### 7.1 核心配置
+## 生成文本在哪
 
-| 配置项 | 描述 | 默认值 |
-|--------|------|--------|
-| `DEFAULT_PROJECT_NAME` | 默认项目名称 | `my_flutter_app` |
-| `DEFAULT_API_BASE_URL` | 默认 API 基础 URL | `https://api.example.com` |
-| `DEFAULT_W_TOOLS_PATH` | w_tools 本地路径 | `/Users/lei0533/flutter/github_w_tools` |
-
-### 7.2 环境配置文件
-
-脚本会创建 `.env` 文件，包含以下配置：
-
-```
-# API 基础 URL
-API_BASE_URL=https://api.example.com
-
-# 其他配置
-DEBUG=true
-```
-
-## 8. 常见问题和解决方案
-
-| 问题 | 解决方案 |
-|------|----------|
-| Flutter 未安装 | 安装 Flutter 并添加到 PATH |
-| Git 未安装 | 安装 Git 并添加到 PATH |
-| 权限不足 | 确保当前用户有写入目录的权限 |
-| 依赖安装失败 | 检查网络连接，确保 pub 服务器可访问 |
-| 代码生成失败 | 检查依赖配置，确保 retrofit 相关依赖已正确安装 |
-| 项目名称无效 | 项目名称只能包含小写字母、数字和下划线 |
-
-## 9. 输出示例
-
-### 初始化项目输出
-
-```
-=== 开始初始化项目 ===
-[INFO] 检测到操作系统: macos
-[INFO] 检查 Flutter 是否已安装...
-[INFO] Flutter 已安装
-[INFO] Flutter 版本: 3.10.0
-[INFO] 检查权限...
-[INFO] 权限检查通过
-请输入项目名称: my_app
-[INFO] 检查项目目录...
-[INFO] 删除已存在的项目目录: my_app
-[INFO] 项目目录检查通过
-[INFO] 使用 flutter create 创建项目...
-[INFO] 项目创建完成
-[INFO] 安装项目依赖包...
-[INFO] 依赖包安装完成
-[INFO] 创建目录结构...
-[INFO] 目录结构创建完成
-[INFO] 配置项目依赖...
-[INFO] 项目依赖配置完成
-[INFO] 创建核心文件...
-[INFO] 核心文件创建完成
-[INFO] 生成代码...
-[INFO] 代码生成完成
-[INFO] 格式化代码...
-[INFO] 代码格式化完成
-[INFO] 初始化测试...
-[INFO] 测试文件初始化完成
-[INFO] 初始化 Git 仓库...
-[INFO] Git 仓库初始化完成
-[INFO] 创建 CI/CD 配置...
-[INFO] CI/CD 配置创建完成
-[INFO] 执行项目健康检查...
-[INFO] ✓ pubspec.yaml 存在
-[INFO] ✓ lib/app/data/sources/paths.dart 存在
-[INFO] ✓ lib/app/data/sources/client.dart 存在
-[INFO] ✓ lib/app/data/sources/remote/data_source.dart 存在
-[INFO] ✓ lib/app/data/sources/repository.dart 存在
-[INFO] ✓ assets/fonts 目录存在
-[INFO] ✓ assets/images 目录存在
-[INFO] ✓ lib/app/components 目录存在
-[INFO] ✓ lib/app/utils 目录存在
-[INFO] ✓ lib/app/services 目录存在
-[INFO] ✓ lib/app/data/models 目录存在
-[INFO] ✓ lib/app/data/sources 目录存在
-[INFO] ✓ lib/app/data/sources/remote 目录存在
-[INFO] ✓ test 目录存在
-[INFO] 项目健康检查完成
-=== 项目初始化完成 ===
-项目已成功初始化，包含以下内容：
-1. 使用 flutter create 创建了 Flutter 项目
-2. 安装了必要的依赖包
-3. 创建了完整的目录结构
-4. 添加了 w_tools 本地依赖
-5. 创建了核心数据层文件
-6. 生成了 Retrofit 代码
-7. 格式化了代码
-8. 初始化了测试文件
-9. 初始化了 Git 仓库
-10. 创建了 CI/CD 配置
-11. 执行了项目健康检查
-
-接下来需要：
-1. 根据实际需求修改 API 路径和接口
-2. 实现具体的业务逻辑
-3. 编写测试用例
-4. 配置 CI/CD 流程
-5. 部署项目
-```
-
-## 10. 总结
-
-`setup.sh` 脚本是一个功能强大的 Flutter 项目初始化工具，通过自动化的方式完成项目的搭建和配置。使用此脚本可以：
-
-- 快速创建 Flutter 项目，避免手动搭建的繁琐过程
-- 确保项目目录结构的一致性和规范性
-- 自动安装必要的依赖包，减少手动配置的错误
-- 生成核心数据层文件，为 API 开发做好准备
-- 初始化 Git 仓库和 CI/CD 配置，为团队协作和持续集成做好准备
-
-通过遵循本使用说明，开发者可以充分利用 `setup.sh` 脚本的功能，快速搭建高质量的 Flutter 项目。
+全部在 Dart：`lib/src/project/project_templates.dart`（工程文件）+
+`lib/src/api/scaffolder.dart`（API 层）。`lib/sh/` 里已经没有生成文本。
