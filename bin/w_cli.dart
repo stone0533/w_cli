@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:w_cli/w_cli.dart' as w;
 import 'package:w_cli/src/cli/command_spec.dart' as cli_spec;
+import 'package:w_cli/src/cli/output.dart';
 import 'package:w_cli/src/cli/help.dart' as cli_help;
 import 'package:w_cli/src/resources.dart' as resources;
 
@@ -65,6 +66,11 @@ Future<void> main(List<String> arguments) async {
       }
       exitCode = 2;
       return;
+    }
+
+    // -d / --debug 打开详细输出（所有命令共享一个开关）
+    if (command.options.contains('debug') && command['debug'] == true) {
+      Cli.verbose = true;
     }
 
     // 按命令表分派：每个 handler 返回子进程退出码

@@ -939,12 +939,26 @@ if [ "$1" = "format" ]; then exec "$REAL_DART" "$@"; fi
 exit 0
 STUB
 chmod +x "$scaffold_root/demo/bin/dart"
-( cd "$scaffold_root/demo" && CI=true REAL_DART="$(command -v dart)" \
+models_quiet="$( cd "$scaffold_root/demo" && CI=true REAL_DART="$(command -v dart)" \
     PATH="$scaffold_root/demo/bin:$scaffold_root/bin:$PATH" \
-    "$(command -v dart)" run "$ROOT/bin/w_cli.dart" api models ) > /dev/null 2>&1
+    "$(command -v dart)" run "$ROOT/bin/w_cli.dart" api models 2>&1 )"
 assert_eq "ww api models 退出 0" 0 "$?"
 assert_eq "ww api models 产出模型文件" "present" \
   "$([ -f "$scaffold_root/demo/lib/app/data/models/user.dart" ] && echo present || echo gone)"
+assert_eq "默认输出只剩一行汇总" "1" \
+  "$(printf '%s\n' "$models_quiet" | grep -c '\[INFO\]')"
+assert_contains "汇总里有文件数" "生成" "$models_quiet"
+
+models_loud="$( cd "$scaffold_root/demo" && CI=true REAL_DART="$(command -v dart)" \
+    PATH="$scaffold_root/demo/bin:$scaffold_root/bin:$PATH" \
+    "$(command -v dart)" run "$ROOT/bin/w_cli.dart" api models -d 2>&1 )"
+if [ "$(printf '%s\n' "$models_loud" | grep -c '\[INFO\]')" -gt 1 ]; then
+  printf '  %s  %s\n' "ok  " "-d 显示明细（文件清单/增量原因）"
+else
+  printf '  %s  %s\n' "FAIL" "-d 应该显示明细"
+  FAILS=$((FAILS + 1))
+fi
+TOTAL=$((TOTAL + 1))
 rm -rf "$scaffold_root"
 
 # 12) 工作区护栏：在错误目录里跑不会留垃圾
