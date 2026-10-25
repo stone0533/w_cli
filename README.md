@@ -303,6 +303,13 @@ Future<void> main() async {
 > 生成逻辑（`lib/src/api/`、`lib/src/models/`）**没有**导出：它们与具体的工程约定
 > 绑得很紧，直接用 `ww api` / `ww api models` 更安全。
 
+可直接运行的版本在 [`example/example.dart`](example/example.dart)：
+
+```bash
+dart run example/example.dart dart --version
+dart run example/example.dart -d dart analyze   # -d 显示明细
+```
+
 ## License / 许可证
 
 MIT
