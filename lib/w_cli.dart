@@ -16,7 +16,6 @@ import 'src/api/scaffolder.dart';
 import 'src/models/models_generator.dart';
 import 'src/commands/clean_command.dart';
 import 'src/commands/open_command.dart';
-import 'src/commands/project_command.dart';
 import 'src/project/project_creator.dart';
 
 /// 获取当前版本号
@@ -210,11 +209,6 @@ Future<int> handleBuildCommand(List<String> arguments) async {
     handleError(e, 'build');
     return 1;
   }
-}
-
-/// 处理项目管理命令（旧名入口；新入口见 `ww deps`）
-Future<int> handleProjectCommand(List<String> arguments) async {
-  return ProjectCommand().pubUpgrade();
 }
 
 /// 处理打开命令
