@@ -2,7 +2,7 @@ import 'dart:io';
 
 /// 检查 Markdown 里的内部锚点链接是否都有对应标题。
 ///
-/// 起因：`doc/commands.md` 的章节被误删后，表格里的 `#ww-clean` 之类的链接
+/// 起因：`docs/commands.md` 的章节被误删后，表格里的 `#ww-clean` 之类的链接
 /// 还留着——肉眼很难发现，CI 也没管。这个脚本在 CI 里跑，断链直接红。
 ///
 /// 用法：

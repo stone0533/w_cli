@@ -14,3 +14,4 @@ GLOSSARY.md
 doc/agents/
 # 历史清理项：曾经在仓库根误生成过，留着防止再被带进发布包
 lib/app/
+docs/

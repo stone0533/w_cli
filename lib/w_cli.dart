@@ -5,7 +5,7 @@
 /// - `bin/w_cli.dart` 统一从 `package:w_cli/w_cli.dart` 取命令处理器
 /// - 外部脚本按需复用其中的工具（例如 [ProcessRunner]、[Cli]、[executeScript]）
 ///
-/// 想了解命令与行为，看 `doc/commands.md`；想了解设计取舍，看 `doc/adr/`。
+/// 想了解命令与行为，看 `docs/commands.md`；想了解设计取舍，看 `docs/adr/`。
 library;
 
 import 'src/version.dart';

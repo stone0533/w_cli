@@ -9,7 +9,7 @@ topics:
   - codegen
   - build-runner
   - dart
-documentation: https://github.com/stone0533/w_cli/blob/main/doc/commands.md
+documentation: https://github.com/stone0533/w_cli/blob/main/docs/commands.md
 
 environment:
   sdk: ^3.10.3
