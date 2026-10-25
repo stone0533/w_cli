@@ -98,27 +98,111 @@ void main() {
     });
   });
 
-  group('ProjectCommand', () {
-    test('--update 升级依赖并改写 gradle wrapper', () async {
+  group('ProjectCommand：deps upgrade', () {
+    test('只跑 pub upgrade，不动 gradle-wrapper', () async {
       touch('pubspec.yaml');
-      touch('android/gradle/wrapper/gradle-wrapper.properties');
+      File(
+        '${project.path}/android/gradle/wrapper/gradle-wrapper.properties',
+      ).createSync(recursive: true);
       File(
         '${project.path}/android/gradle/wrapper/gradle-wrapper.properties',
       ).writeAsStringSync(
-        'distributionUrl=https\\://services.gradle.org/distributions/gradle-7.6.1-all.zip\n',
+        'distributionUrl=https\\://services.gradle.org/distributions/gradle-9.1.0-all.zip\n',
       );
 
-      final runner = FakeProcessRunner(runStdout: 'Flutter 3.24.0\n');
+      final runner = FakeProcessRunner(
+        runStdout: '> dio 5.9.0 (was 5.8.0)\n> retrofit 5.0.0 (was 4.9.0)\n',
+      );
       final code = await ProjectCommand(
         root: project.path,
         runner: runner,
-      ).run(['--update']);
+      ).pubUpgrade();
 
       expect(code, 0);
       expect(
-        runner.starts.map((call) => call.args.join(' ')),
+        runner.runs.map((call) => call.args.join(' ')),
         contains('pub upgrade'),
       );
+      // Gradle 不能再被顺手改掉（Flutter 3.4x 的工程是 9.1.0，改成 8.0 就是降级）
+      expect(
+        File(
+          '${project.path}/android/gradle/wrapper/gradle-wrapper.properties',
+        ).readAsStringSync(),
+        contains('gradle-9.1.0-all.zip'),
+      );
+    });
+
+    test('--major 透传 --major-versions', () async {
+      touch('pubspec.yaml');
+      final runner = FakeProcessRunner();
+      await ProjectCommand(
+        root: project.path,
+        runner: runner,
+      ).pubUpgrade(major: true);
+      expect(
+        runner.runs.map((call) => call.args.join(' ')),
+        contains('pub upgrade --major-versions'),
+      );
+    });
+
+    test('--dry-run 只跑 pub outdated', () async {
+      touch('pubspec.yaml');
+      final runner = FakeProcessRunner(
+        runStdout: 'Showing outdated packages\n',
+      );
+      expect(
+        await ProjectCommand(
+          root: project.path,
+          runner: runner,
+        ).pubUpgrade(dryRun: true),
+        0,
+      );
+      expect(
+        runner.runs.map((call) => call.args.join(' ')),
+        contains('pub outdated'),
+      );
+      expect(
+        runner.runs.map((call) => call.args.join(' ')),
+        isNot(contains('pub upgrade')),
+      );
+    });
+
+    test('没有 pubspec.yaml 时退出 1', () async {
+      final runner = FakeProcessRunner();
+      expect(
+        await ProjectCommand(root: project.path, runner: runner).pubUpgrade(),
+        1,
+      );
+    });
+
+    test('flutter 不可用退出 1', () async {
+      touch('pubspec.yaml');
+      final runner = FakeProcessRunner(available: {'dart'});
+      expect(
+        await ProjectCommand(root: project.path, runner: runner).pubUpgrade(),
+        1,
+      );
+    });
+  });
+
+  group('ProjectCommand：deps gradle', () {
+    void writeWrapper(String url) {
+      final file = File(
+        '${project.path}/android/gradle/wrapper/gradle-wrapper.properties',
+      );
+      file.parent.createSync(recursive: true);
+      file.writeAsStringSync('distributionUrl=$url\n');
+    }
+
+    test('默认只报告，不写文件', () async {
+      writeWrapper(
+        'https\\://services.gradle.org/distributions/gradle-8.0-all.zip',
+      );
+      final code = await ProjectCommand(
+        root: project.path,
+        runner: FakeProcessRunner(),
+      ).gradle();
+      expect(code, 0);
       expect(
         File(
           '${project.path}/android/gradle/wrapper/gradle-wrapper.properties',
@@ -127,36 +211,64 @@ void main() {
       );
     });
 
-    test('没有 pubspec.yaml 时退出 1', () async {
-      final runner = FakeProcessRunner();
+    test('--to 升级并保留 all 类型', () async {
+      writeWrapper(
+        'https\\://services.gradle.org/distributions/gradle-8.0-all.zip',
+      );
+      final code = await ProjectCommand(
+        root: project.path,
+        runner: FakeProcessRunner(),
+      ).gradle(to: '9.1.0');
+      expect(code, 0);
       expect(
-        await ProjectCommand(
-          root: project.path,
-          runner: runner,
-        ).run(['--update']),
-        1,
+        File(
+          '${project.path}/android/gradle/wrapper/gradle-wrapper.properties',
+        ).readAsStringSync(),
+        contains('gradle-9.1.0-all.zip'),
       );
     });
 
-    test('没有 android 目录只告警、仍退出 0', () async {
-      touch('pubspec.yaml');
-      final runner = FakeProcessRunner(runStdout: 'Flutter 3.24.0\n');
+    test('--to 保留 bin 类型', () async {
+      writeWrapper(
+        'https\\://services.gradle.org/distributions/gradle-8.0-bin.zip',
+      );
+      await ProjectCommand(
+        root: project.path,
+        runner: FakeProcessRunner(),
+      ).gradle(to: '9.1.0');
       expect(
-        await ProjectCommand(
-          root: project.path,
-          runner: runner,
-        ).run(['--update']),
-        0,
+        File(
+          '${project.path}/android/gradle/wrapper/gradle-wrapper.properties',
+        ).readAsStringSync(),
+        contains('gradle-9.1.0-bin.zip'),
       );
     });
 
-    test('未知参数退出 2', () async {
+    test('降级被拒绝（除非 --force）', () async {
+      writeWrapper(
+        'https\\://services.gradle.org/distributions/gradle-9.1.0-all.zip',
+      );
+      final command = ProjectCommand(
+        root: project.path,
+        runner: FakeProcessRunner(),
+      );
+      expect(await command.gradle(to: '8.0'), 1);
+      expect(await command.gradle(to: '8.0', force: true), 0);
+      expect(
+        File(
+          '${project.path}/android/gradle/wrapper/gradle-wrapper.properties',
+        ).readAsStringSync(),
+        contains('gradle-8.0-all.zip'),
+      );
+    });
+
+    test('没有 android 目录时跳过（退出 0）', () async {
       expect(
         await ProjectCommand(
           root: project.path,
           runner: FakeProcessRunner(),
-        ).run(['--bogus']),
-        2,
+        ).gradle(to: '9.1.0'),
+        0,
       );
     });
   });

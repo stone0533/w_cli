@@ -98,9 +98,21 @@ ww create my_app --force          # 覆盖同名目录（默认拒绝）
 
 ## ww deps
 
+两件事分开做——**升级依赖不会顺手改 Gradle**：
+
 ```bash
-ww deps upgrade          # flutter pub upgrade + Gradle wrapper 指到 8.0
+ww deps upgrade               # 只升 pub 依赖
+ww deps upgrade --major       # 连同大版本（--major-versions）
+ww deps upgrade --dry-run     # 只跑 pub outdated 看能升什么
+ww deps upgrade --pod         # 升完顺带 pod install
+
+ww deps gradle                # 只看当前 Gradle 版本，不写文件
+ww deps gradle --to=9.1.0     # 写进 gradle-wrapper.properties
+ww deps gradle --to=8.0 --force   # 允许降级（默认拒绝）
 ```
+
+> 为什么要拆：Flutter 3.4x 模板默认 Gradle 是 **9.1.0**，旧实现无条件写 8.0，
+> 等于把新工程的 Gradle 降级，AGP 兼容性直接崩。
 
 旧写法 `ww project --update` 仍可用。
 

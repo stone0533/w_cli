@@ -150,15 +150,28 @@ iOS 签名（优先级从高到低）:
 
 执行 flutter pub outdated。''',
   'deps': '''
-用法: ww deps upgrade
+用法: ww deps <子命令> [选项]
 
-升级项目依赖（flutter pub upgrade）并把 Gradle wrapper 指到 8.0。
-等价于旧写法 `ww project --update`。''',
+子命令:
+  upgrade            升级 pub 依赖（flutter pub upgrade）
+  gradle             查看 / 更新 Gradle wrapper（默认只报告，不写文件）
+
+upgrade 选项:
+  --major            连同大版本一起升（--major-versions）
+  --dry-run          只跑 flutter pub outdated，列可升级项，不改文件
+  --pod              升级完顺带刷新 iOS Pods
+
+gradle 选项:
+  --to=<版本>        目标版本，例如 --to=9.1.0
+  --force            允许降级（默认拒绝）
+
+Gradle 不再随 upgrade 一起改：Flutter 3.4x 新工程默认是 9.x，
+旧实现无条件写 8.0 等于降级。''',
   'project': '''
 用法: ww project [选项]
 
 选项:
-  --update      升级依赖与 Gradle（旧写法，请改用 ww deps upgrade）''',
+  --update      升级 pub 依赖（旧写法，请改用 ww deps upgrade）；Gradle 见 ww deps gradle''',
   'gen': '''
 用法: ww gen [-- <build_runner flags>]
 

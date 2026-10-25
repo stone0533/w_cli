@@ -912,9 +912,9 @@ resolve_export_options() {
     return 0
   fi
 
-  # 5) 什么都没有：生成模板并给出明确指引
+  # 5) 什么都没有：给指引（不在只读命令里生成模板/建目录）
   local template_path="$OUTPUT_DIR/ios.plist"
-  if [ ! -f "$template_path" ]; then
+  if [ ! -f "$template_path" ] && [ "$SHOW_CONFIG" != "true" ]; then
     generate_ios_plist_template "$template_path" || return 1
   fi
   log_error "无法确定签名配置：没有 ios/ExportOptions.plist，工程里也没读到 DEVELOPMENT_TEAM"

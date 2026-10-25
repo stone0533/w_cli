@@ -1,126 +1,204 @@
 import 'dart:io';
+
+import '../cli/output.dart';
 import '../cli/process.dart';
 
-/// `ww project`（原 `lib/sh/project.sh`）。
+/// `ww deps`：依赖与工程脚手架的升级。
 ///
-/// 目前只有一个动作：`--update` = `flutter pub upgrade` + 把 Gradle wrapper
-/// 指向推荐的 8.0 版本。改成 Dart 后 Windows 也能用（原来依赖 bash）。
+/// 两件事**分开**做（以前 `ww project --update` 把两者绑在一起，还无条件把
+/// Gradle 写成 8.0——对 Flutter 3.4x 的新工程等于降级）：
+///
+/// - `ww deps upgrade [--major] [--dry-run] [--pod]`：只动 pub 依赖
+/// - `ww deps gradle [--to=x.y.z] [--force]`：只动 gradle-wrapper，
+///   默认只报告；`--to` 低于当前版本会被拒绝（除非 `--force`）
 class ProjectCommand {
   ProjectCommand({this.root = '.', this.runner = const SystemProcessRunner()});
 
   final String root;
   final ProcessRunner runner;
 
-  static const String recommendedGradleVersion = '8.0';
-
-  Future<int> run(List<String> args) async {
-    if (args.isEmpty) {
-      printHelp();
-      return 0;
-    }
-
-    var result = 0;
-    for (final arg in args) {
-      switch (arg) {
-        case '--update':
-          print('${'=' * 54}\nFlutter 项目管理脚本运行开始\n${'=' * 54}');
-          final status = await _update();
-          print(
-            '${'=' * 54}\nFlutter 项目管理脚本运行结束 '
-            '${DateTime.now().toString().substring(0, 19)}\n${'=' * 54}',
-          );
-          if (status != 0) {
-            return status;
-          }
-          break;
-        case '--help':
-          printHelp();
-          return 0;
-        case '--version':
-          printVersion();
-          return 0;
-        default:
-          stderr.writeln('未知参数: $arg');
-          printHelp(asError: true);
-          return 2;
-      }
-    }
-    return result;
-  }
-
-  Future<int> _update() async {
+  /// pub 依赖升级
+  Future<int> pubUpgrade({
+    bool major = false,
+    bool dryRun = false,
+    bool pod = false,
+  }) async {
     if (!runner.which('flutter')) {
-      stderr.writeln('Flutter 未安装，请先安装 Flutter');
+      Cli.error('Flutter 未安装，请先安装 Flutter');
+      return 1;
+    }
+    if (!File('$root/pubspec.yaml').existsSync()) {
+      Cli.error('未找到 pubspec.yaml，当前目录可能不是 Flutter 项目');
       return 1;
     }
 
-    final flutterVersion = await _flutterVersion();
-    stdout.writeln('使用当前 Flutter 版本: $flutterVersion');
+    final version = await _flutterVersion();
+    Cli.info('Flutter $version');
 
-    if (!await _updatePub()) {
-      return 1;
-    }
-    if (!await _updateGradle()) {
-      return 1;
+    if (dryRun) {
+      return _reportOutdated();
     }
 
-    stdout.writeln('项目更新完成！');
+    Cli.info(major ? '升级依赖（含大版本）...' : '升级依赖...');
+    final args = <String>['pub', 'upgrade', if (major) '--major-versions'];
+    final output = await _runCaptured('flutter', args, log: 'deps.log');
+    if (output.code != 0) {
+      _printTail(output.text);
+      return output.code;
+    }
+
+    final changed = _countChanged(output.text);
+    Cli.ok(changed > 0 ? '升级了 $changed 个依赖' : '依赖已是最新');
+
+    if (pod && File('$root/ios/Podfile').existsSync()) {
+      Cli.info('刷新 iOS Pods...');
+      final podCode = await _runCaptured('pod', [
+        'install',
+        '--project-directory=ios',
+      ], log: 'pod.log');
+      if (podCode.code != 0) {
+        _printTail(podCode.text);
+        return podCode.code;
+      }
+      Cli.ok('Pods 已刷新');
+    } else if (File('$root/ios/Podfile').existsSync()) {
+      Cli.info('提示: iOS 的 Pods 可能已过期，接着跑 ww pod 或加 --pod');
+    }
+
     return 0;
   }
 
-  Future<bool> _updatePub() async {
-    stdout.writeln('正在升级 pub 依赖...');
-    if (!File('$root/pubspec.yaml').existsSync()) {
-      stderr.writeln('未找到 pubspec.yaml 文件，当前目录可能不是 Flutter 项目');
-      return false;
-    }
-
-    if (await _run('flutter', ['pub', 'upgrade']) != 0) {
-      stderr.writeln('pub 依赖升级失败');
-      return false;
-    }
-    stdout.writeln('pub 依赖升级成功');
-    return true;
-  }
-
-  Future<bool> _updateGradle() async {
-    stdout.writeln('正在升级 Gradle 版本...');
-
-    final androidDir = Directory('$root/android');
-    if (!androidDir.existsSync()) {
-      stdout.writeln('未找到 android 目录，跳过 Gradle 升级');
-      return true;
-    }
-
+  /// Gradle wrapper：默认只报告，`--to` 才写文件
+  Future<int> gradle({String? to, bool force = false}) async {
     final wrapper = File(
       '$root/android/gradle/wrapper/gradle-wrapper.properties',
     );
     if (!wrapper.existsSync()) {
-      stderr.writeln('未找到 gradle-wrapper.properties 文件');
-      return false;
+      Cli.warn('没有 android/gradle/wrapper/gradle-wrapper.properties，跳过');
+      return 0;
     }
 
-    final lines = wrapper.readAsLinesSync();
-    final current = lines.firstWhere(
-      (line) => line.startsWith('distributionUrl='),
-      orElse: () => '',
-    );
-    final currentVersion =
-        RegExp(r'gradle-(.*)-all\.zip').firstMatch(current)?.group(1) ?? '未知';
-    stdout.writeln('当前 Gradle 版本: $currentVersion');
-    stdout.writeln('推荐 Gradle 版本: $recommendedGradleVersion');
+    final content = wrapper.readAsStringSync();
+    final match = RegExp(
+      r'gradle-([0-9][0-9.]*)-(all|bin)\.zip',
+    ).firstMatch(content);
+    if (match == null) {
+      Cli.error('无法从 gradle-wrapper.properties 解析出版本');
+      Cli.info('  当前内容: ${_distributionLine(content)}');
+      return 1;
+    }
 
-    final updated = lines
-        .map(
-          (line) => line.startsWith('distributionUrl=')
-              ? 'distributionUrl=https://services.gradle.org/distributions/'
-                    'gradle-$recommendedGradleVersion-all.zip'
-              : line,
-        )
-        .join('\n');
-    wrapper.writeAsStringSync(updated.isEmpty ? '$updated\n' : '$updated\n');
-    stdout.writeln('Gradle 版本更新成功');
-    return true;
+    final current = match.group(1)!;
+    final kind = match.group(2)!;
+    Cli.info('当前 Gradle: $current ($kind)');
+
+    if (to == null || to.isEmpty) {
+      Cli.info('只检测未修改；要升级请加 --to=<版本>，例如 --to=9.1.0');
+      return 0;
+    }
+    _checkVersionShape(to);
+
+    final cmp = _compareVersions(to, current);
+    if (cmp == 0) {
+      Cli.ok('已经是 $to，未改动');
+      return 0;
+    }
+    if (cmp < 0 && !force) {
+      Cli.error('目标版本 $to 低于当前 $current，会降级；确需降级请加 --force');
+      return 1;
+    }
+
+    final line =
+        'distributionUrl=https\\://services.gradle.org/distributions/'
+        'gradle-$to-$kind.zip';
+    final updated = content.replaceAll(
+      RegExp(r'^distributionUrl=.*$', multiLine: true),
+      line,
+    );
+    wrapper.writeAsStringSync(updated);
+    Cli.ok('Gradle 已更新: $current → $to（保留 $kind）');
+    Cli.info('提示: Gradle 大版本升级后建议跑一次 ww clean 再构建');
+    return 0;
+  }
+
+  Future<int> _reportOutdated() async {
+    Cli.info('检查可升级的依赖（不修改任何文件）...');
+    final output = await _runCaptured('flutter', [
+      'pub',
+      'outdated',
+    ], log: 'outdated.log');
+    if (output.code != 0) {
+      _printTail(output.text);
+      return output.code;
+    }
+    for (final line in output.text.split('\n').take(20)) {
+      Cli.detail(line);
+    }
+    Cli.ok('详细清单: $root/w_build/outdated.log');
+    return 0;
+  }
+
+  int _countChanged(String text) {
+    final pattern = RegExp(r'^\s*[>+]\s+\S+\s+\S+.*\(was ', multiLine: true);
+    return pattern.allMatches(text).length;
+  }
+
+  Future<({int code, String text})> _runCaptured(
+    String executable,
+    List<String> args, {
+    required String log,
+  }) async {
+    if (Cli.verbose) {
+      final code = await runner.start(executable, args, workingDirectory: root);
+      return (code: code, text: '');
+    }
+
+    final result = await runner.run(executable, args, workingDirectory: root);
+    final text = '${result.stdout}${result.stderr}';
+    final file = File('$root/w_build/$log');
+    file.parent.createSync(recursive: true);
+    file.writeAsStringSync(text, mode: FileMode.append);
+    return (code: result.exitCode, text: text);
+  }
+
+  void _printTail(String text) {
+    final lines = text.trimRight().split('\n');
+    final start = lines.length > 10 ? lines.length - 10 : 0;
+    for (final line in lines.skip(start)) {
+      Cli.error('    $line');
+    }
+  }
+
+  String _distributionLine(String content) {
+    for (final line in content.split('\n')) {
+      if (line.startsWith('distributionUrl=')) {
+        return line;
+      }
+    }
+    return '（没有 distributionUrl 行）';
+  }
+
+  void _checkVersionShape(String version) {
+    if (!RegExp(r'^\d+\.\d+(\.\d+)?$').hasMatch(version)) {
+      Cli.warn('`$version` 不像 Gradle 版本号（示例: 9.1.0），仍按原样写入');
+    }
+  }
+
+  /// 语义化比较：返回负 / 零 / 正
+  int _compareVersions(String a, String b) {
+    List<int> parts(String v) =>
+        v.split('.').map((p) => int.tryParse(p) ?? 0).toList();
+    final left = parts(a);
+    final right = parts(b);
+    final length = left.length > right.length ? left.length : right.length;
+    for (var i = 0; i < length; i++) {
+      final l = i < left.length ? left[i] : 0;
+      final r = i < right.length ? right[i] : 0;
+      if (l != r) {
+        return l - r;
+      }
+    }
+    return 0;
   }
 
   Future<String> _flutterVersion() async {
@@ -130,27 +208,5 @@ class ProjectCommand {
     final firstLine = result.stdout.toString().split('\n').first;
     final parts = firstLine.split(' ');
     return parts.length > 1 ? parts[1] : '未知';
-  }
-
-  Future<int> _run(String executable, List<String> args) async {
-    return runner.start(executable, args, workingDirectory: root);
-  }
-
-  void printVersion() {
-    print('ww project');
-    print('Description: 更新 Flutter 项目的依赖和配置');
-  }
-
-  void printHelp({bool asError = false}) {
-    final buffer = StringBuffer()
-      ..writeln('使用方法: ww project [选项]')
-      ..writeln('选项:')
-      ..writeln('  --update      # 更新 Flutter 项目依赖和配置')
-      ..writeln('  --help        # 显示帮助信息')
-      ..writeln('  --version     # 显示版本信息')
-      ..writeln('')
-      ..writeln('示例:')
-      ..writeln('  ww project --update  # 更新项目依赖和配置');
-    (asError ? stderr : stdout).write(buffer);
   }
 }

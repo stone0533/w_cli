@@ -212,10 +212,9 @@ Future<int> handleBuildCommand(List<String> arguments) async {
   }
 }
 
-/// 处理项目管理命令
-/// [arguments] - 命令参数
+/// 处理项目管理命令（旧名入口；新入口见 `ww deps`）
 Future<int> handleProjectCommand(List<String> arguments) async {
-  return ProjectCommand().run(arguments);
+  return ProjectCommand().pubUpgrade();
 }
 
 /// 处理打开命令
