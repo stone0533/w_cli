@@ -32,7 +32,6 @@ class Cli {
   static const _green = '\x1b[0;32m';
   static const _yellow = '\x1b[1;33m';
   static const _red = '\x1b[0;31m';
-  static const _bold = '\x1b[1m';
   static const _reset = '\x1b[0m';
 
   static String _paint(String code, String text) =>
@@ -45,7 +44,7 @@ class Cli {
     _watch
       ..reset()
       ..start();
-    stdout.writeln(_paint(_bold, '=== $title ==='));
+    stdout.writeln(_paint(_green, '=== $title ==='));
   }
 
   /// 命令结束：一行结果 + 时刻（与 build.sh 的页脚一致）；失败时红色
@@ -64,7 +63,7 @@ class Cli {
   }
 
   static void step(String message) =>
-      stdout.writeln(_paint(_bold, '=== $message ==='));
+      stdout.writeln(_paint(_green, '=== $message ==='));
 
   static void ok(String message) =>
       stdout.writeln('${_paint(_green, '[INFO]')} $message');

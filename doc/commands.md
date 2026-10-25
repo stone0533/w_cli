@@ -33,12 +33,12 @@ ww api --force          # 覆盖 repository.dart 里检测到的手写成员
 
 ```console
 $ ww api models
-=== ww api models · demo 1.0.0+1 ===
+=== ww api models ===
 [INFO] 生成 7 个模型文件 → lib/app/data/models
 === 完成（16:15:06）===
 ```
 
-- 开始横幅带**工程名与版本**（参照 build 的「构建 apk aab 1.0.0+1 (UAT …)」）
+- 开始/结束横幅与 `ww build` 同色（绿色 `\x1b[0;32m`）
 - 结束横幅是**完成时刻**；耗时在 `-d` 下以 `[INFO] 耗时 0.8s` 出现
 
 - 每个命令有**开始 / 结束**横幅（结束行带耗时；失败时红色并带退出码）
