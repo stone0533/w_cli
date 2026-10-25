@@ -1,83 +1,30 @@
-# common.sh 使用说明
+# ww common 使用说明
 
-## 脚本概述
+`ww common drbb` 执行 `dart run build_runner build --delete-conflicting-outputs`。
 
-`common.sh` 是一个通用脚本工具，提供了一些常用的辅助函数和命令，主要用于 Flutter 项目的开发过程中。
+> 2026-10 起这一条由 Dart 实现（`lib/src/tools/build_runner.dart`），`lib/sh/common.sh` 已删除。
+> 变化：Windows 上也能用、统一 30 分钟超时、超时退出码 124。
 
-**脚本路径：** `/Users/lei0533/flutter/github_w_cli/lib/sh/common.sh`
-
-**版本：** 1.0.0
-
-**更新日期：** 2026-04-02
-
-## 功能特点
-
-- 提供 `drbb` 命令，执行 `dart run build_runner build --delete-conflicting-outputs`
-- 支持调试模式，显示详细的执行信息
-- 自动检测并使用可用的命令（优先使用 dart，其次使用 flutter）
-- 统一的日志输出格式，使用彩色信息增强可读性
-- 支持 `--help` 和 `--version` 参数
-
-## 命令说明
-
-### drbb
-
-执行 `dart run build_runner build --delete-conflicting-outputs` 命令，用于生成和更新项目中的代码。
-
-**参数：**
-- `-d, --debug`：启用调试模式，显示详细的执行信息
-
-**功能：**
-1. 检查 Dart 或 Flutter 命令是否可用
-2. 执行 build_runner build 命令
-3. 显示执行结果和时间戳
-
-## 使用示例
-
-### 基本使用
+## 用法
 
 ```bash
-# 执行 build_runner build 命令
-./common.sh drbb
-
-# 启用调试模式执行
-./common.sh -d drbb
-
-# 启用调试模式执行（使用长选项）
-./common.sh --debug drbb
+ww common drbb            # 执行 build_runner build
+ww common drbb --debug    # 带调试日志（等同 -d）
+ww co drbb                # ww common 的别名
 ```
 
-### 作为 ww 命令使用
+## 与 `ww api models` 的关系
 
-```bash
-# 执行 build_runner build 命令
-ww common drbb
+两者都会调 build_runner，用的是同一个 `BuildRunner`：
 
-# 启用调试模式执行
-ww common -d drbb
+- `ww api models` 在模型落盘后跑一次
+- `ww common drbb` 是手动触发（改完 `@JsonSerializable` 注解后想立刻生成）
+- `ww create` 在脚手架完成、依赖安装后跑一次
 
-# 使用别名
-ww co drbb  # 执行 build_runner build 命令
-ww co -d drbb  # 启用调试模式执行
-```
+三处共用：优先 `dart`、缺省退回 `flutter`、30 分钟超时、退出码透传。
 
-## 错误处理
+## 注意
 
-- 如果 Dart 和 Flutter 命令都不可用，脚本会显示错误信息并退出
-- 如果 build_runner build 命令执行失败，脚本会显示错误信息并返回失败状态
-
-## 日志输出
-
-脚本使用彩色日志输出，不同级别的信息使用不同颜色：
-- 绿色：信息（INFO）
-- 黄色：警告（WARN）
-- 红色：错误（ERROR）
-- 蓝色：调试信息（DEBUG，仅在调试模式下显示）
-
-## 执行权限
-
-确保脚本具有执行权限：
-
-```bash
-chmod +x /Users/lei0533/flutter/github_w_cli/lib/sh/common.sh
-```
+- 必须在 Flutter 项目根目录执行（`pubspec.yaml` 所在处）
+- 第一次跑需要 `dart pub get` 已经完成，否则 build_runner 找不到
+- 超时返回 124，失败透传 build_runner 自己的退出码

@@ -218,7 +218,7 @@ ww common drbb
 ww common drbb --debug
 
 # Using full path (if needed) / 使用完整路径（如果需要）
-./lib/sh/common.sh drbb
+ww common drbb
 ```
 
 ### Project Management / 项目管理

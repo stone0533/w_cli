@@ -52,6 +52,11 @@ Future<void> main(List<String> arguments) async {
       ..addOption('export-options');
   }
 
+  // common / co：只声明 --debug（其余参数直接拒绝）
+  for (final name in ['common', 'co']) {
+    parser.commands[name]?.addFlag('debug', abbr: 'd', negatable: false);
+  }
+
   // 为 project 命令添加选项
   final projectCommand = parser.commands['project'];
   if (projectCommand != null) {
@@ -140,7 +145,10 @@ Future<void> main(List<String> arguments) async {
         break;
       case 'common':
       case 'co':
-        exitCode = await w.handleCommonCommand(command.arguments);
+        exitCode = await w.handleCommonCommand(
+          command.rest,
+          debug: command['debug'] as bool,
+        );
         break;
       case 'clean':
       case 'cl':

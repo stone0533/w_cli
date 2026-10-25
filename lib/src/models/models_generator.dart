@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../tools/build_runner.dart';
 import 'model_renderer.dart';
 
 /// `ww api models` 的 Dart 实现（ADR-0002 Phase 3）。
@@ -115,7 +116,7 @@ class ModelsGenerator {
     }
 
     if (runBuildRunner) {
-      _runBuildRunner();
+      await _runBuildRunner();
     }
 
     stdout.writeln('✅ 模型文件生成完成！');
@@ -473,21 +474,16 @@ class ModelsGenerator {
     return true;
   }
 
-  void _runBuildRunner() {
+  Future<void> _runBuildRunner() async {
     stdout.writeln('执行 build_runner build...');
-    final tool = _commandAvailable('dart') ? 'dart' : 'flutter';
-    final result = Process.runSync(
-      tool,
-      ['run', 'build_runner', 'build', '--delete-conflicting-outputs'],
-      workingDirectory: root,
-      runInShell: true,
-    );
-    if (result.exitCode != 0) {
-      stderr.writeln('build_runner build 失败（退出码 ${result.exitCode}）');
+    final status = await BuildRunner(root: root).run();
+    if (status != 0) {
+      stderr.writeln('build_runner build 失败（退出码 $status）');
       return;
     }
     stdout.writeln('build_runner build 执行完成');
   }
+
 
   static String _basename(String path) => path.split('/').last;
 

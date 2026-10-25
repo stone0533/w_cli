@@ -8,6 +8,7 @@ export 'src/api/api_cli.dart';
 import 'src/api/api_generator.dart';
 import 'src/api/scaffolder.dart';
 import 'src/models/models_generator.dart';
+import 'src/tools/build_runner.dart';
 
 /// 获取当前版本号
 /// 从自动生成的版本文件中读取版本号
@@ -253,7 +254,14 @@ Future<int> handleCreateProject(String projectName) async {
     // API 层（client / paths / data_source / mixin / repository）由 Dart 生成，
     // 与 `ww api init` 共用同一份模板（ADR-0002 Phase 2b）
     print('\n🚀 Scaffolding API layer');
-    return ApiScaffolder(root: projectName).run();
+    final scaffoldStatus = ApiScaffolder(root: projectName).run();
+    if (scaffoldStatus != 0) {
+      return scaffoldStatus;
+    }
+
+    // Retrofit 代码生成也走统一的 BuildRunner（setup.sh 里已不再直接跑）
+    print('\n🚀 Generating code');
+    return BuildRunner(root: projectName).run();
   } catch (e) {
     handleError(e, 'project creation');
     return 1;
@@ -578,20 +586,28 @@ Future<bool> scriptExists(String scriptName) async {
 
 /// 处理 common 命令
 /// [arguments] - 命令参数
-Future<int> handleCommonCommand(List<String> arguments) async {
-  print('\n🚀 Running common commands');
-  try {
-    // 执行脚本并实时显示输出
-    return await executeScript(
-      'common.sh',
-      arguments,
-      'Common command completed successfully!',
-      'Common command failed',
-    );
-  } catch (e) {
-    handleError(e, 'common command');
-    return 1;
+Future<int> handleCommonCommand(
+  List<String> arguments, {
+  bool debug = false,
+}) async {
+  if (arguments.isEmpty) {
+    print('用法: ww common drbb');
+    return 2;
   }
+
+  final command = arguments.first;
+  if (command != 'drbb') {
+    stderr.writeln('未知命令: $command');
+    stderr.writeln('用法: ww common drbb');
+    return 2;
+  }
+
+  if (debug) {
+    print('debug 模式已开启');
+  }
+
+  print('🚀 执行 build_runner build');
+  return BuildRunner().run();
 }
 
 /// 处理 clean 命令
