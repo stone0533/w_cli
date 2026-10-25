@@ -408,7 +408,7 @@ delete_existing_file() {
   
   # 直接删除已存在的文件
   rm -f "$target_file"
-  log_warn "删除已存在文件: $target_file"
+  log_info "覆盖已存在的文件: $target_file"
 }
 
 # 生成文件名
@@ -1197,7 +1197,7 @@ prepare_build() {
   fi
 
   # 创建输出目录
-  log_warn "创建输出目录: $OUTPUT_DIR"
+  log_info "创建输出目录: $OUTPUT_DIR"
   mkdir -p "$OUTPUT_DIR"
 
   # 验证配置
