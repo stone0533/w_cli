@@ -37,6 +37,13 @@
 - `ww create` 生成的 API 层改用 `ApiScaffolder`（与 `ww api init` 同一份模板），
   `setup.sh` 里重复的那份模板已删除
 
+### Changed
+
+- `ww common drbb` 改为 Dart 实现（`lib/src/tools/build_runner.dart`），`lib/sh/common.sh` 删除：
+  统一 30 分钟超时、超时退出码 124、Windows 可用
+- `ww common drbb --debug` / `-d` 之前会被 ArgParser 拒绝，现在可用
+- `ww create` 在脚手架完成后统一调用 `BuildRunner`（`setup.sh` 不再自己跑 build_runner）
+
 ### Added
 
 - `ww api models` 不再需要 python3：JSON→Dart 渲染在 `lib/src/models/`

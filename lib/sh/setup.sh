@@ -49,7 +49,7 @@ readonly W_TOOLS_SUBPACKAGES="core app form ui api toast qr"
 PROJECT_NAME=""
 API_BASE_URL="$DEFAULT_API_BASE_URL"
 OS=""
-TOTAL_STEPS=16
+TOTAL_STEPS=15
 CURRENT_STEP=0
 # --force：目标目录已存在时允许覆盖（默认拒绝，避免误删）
 FORCE=false
@@ -791,17 +791,6 @@ EOF
 }
 
 # 生成代码
-generate_code() {
-  log_info "生成代码..."
-  # 再次执行 flutter pub get 确保所有依赖都已正确安装
-  run_command_with_timeout 600 run_in_project flutter pub get
-  # 执行代码生成（第一次失败才算"失败"，所以这里不能用会直接退出的 run_command_with_timeout）
-  if ! ww::run_with_timeout 900 run_in_project dart run build_runner build; then
-    log_warn "代码生成失败，尝试使用 --delete-conflicting-outputs 选项"
-    run_command_with_timeout 900 run_in_project dart run build_runner build --delete-conflicting-outputs
-  fi
-  log_info "代码生成完成"
-}
 
 # 格式化代码
 format_code() {
@@ -1054,41 +1043,37 @@ main() {
   CURRENT_STEP=7
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   create_directory_structure
-  
+
   CURRENT_STEP=8
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   add_w_tools_dependency
-  
+
   CURRENT_STEP=9
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   create_w_tools_scaffold
-  
+
   CURRENT_STEP=10
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   create_core_files
-  
+
   CURRENT_STEP=11
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  generate_code
-  
+  format_code
+
   CURRENT_STEP=12
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  format_code
-  
+  update_analysis_options
+
   CURRENT_STEP=13
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  update_analysis_options
-  
-  CURRENT_STEP=14
-  show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   initialize_tests
-  
-  CURRENT_STEP=15
+
+  CURRENT_STEP=14
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   initialize_git
   create_ci_cd_config
-  
-  CURRENT_STEP=16
+
+  CURRENT_STEP=15
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   health_check
   
@@ -1103,8 +1088,7 @@ main() {
   log_info "3. 创建了完整的目录结构"
   log_info "4. 添加了 w_tools 分包依赖（不含 w_tools_map）"
   log_info "5. 生成了 w_tools 接入骨架（toolkit / design_system / AGENTS / doctor 配置）"
-  log_info "6. 创建了核心数据层文件"
-  log_info "7. 生成了 Retrofit 代码"
+  log_info "6. 创建了核心数据层文件（API 层与 Retrofit 代码由 ww create 随后生成）"
   log_info "8. 格式化了代码"
   log_info "9. 初始化了测试文件"
   log_info "10. 初始化了 Git 仓库"
