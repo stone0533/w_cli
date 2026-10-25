@@ -14,6 +14,10 @@
 
 ### Changed
 
+- `Resources.readResource` 找不到脚本时列出所有搜索过的路径；新增 `WW_SCRIPT_DIR`
+  环境变量（开发脚本时绕开 pub-cache）；命中 pub-cache 时在 `-d` 下提示
+- 删除已无产品代码引用的 `scriptExists`（只被测试用）
+
 - handler 从 `lib/w_cli.dart` 迁到 `lib/src/commands/`（create / api / update / build /
   open / clean），`w_cli.dart` 只剩 42 行 re-export
 - 顶层 `ww --help` 由命令表生成（以前是 120 行手写字面量，且漏了 fix/l10n/watch/ios/doctor）

@@ -37,19 +37,6 @@ void main() {
           .toList()
         ..sort();
 
-  group('scriptExists', () {
-    test('should return true for existing scripts', () async {
-      expect(repoScripts, isNotEmpty);
-      for (final name in repoScripts) {
-        expect(await scriptExists(name), isTrue, reason: name);
-      }
-    });
-
-    test('should return false for non-existent scripts', () async {
-      expect(await scriptExists('non_existent_script.sh'), isFalse);
-    });
-  });
-
   group('getScriptPath', () {
     test('should return a valid path for every existing script', () async {
       expect(repoScripts, isNotEmpty);
@@ -116,11 +103,6 @@ void main() {
         expect(validateProjectName('projectName'), isFalse);
       },
     );
-
-    test('scriptExists should return false for non-existent scripts', () async {
-      expect(await scriptExists('non_existent_script.sh'), isFalse);
-      expect(await scriptExists(''), isFalse);
-    });
   });
 
   group('bashMissingHint', () {

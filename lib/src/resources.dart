@@ -27,19 +27,46 @@ class Resources {
   }
 
   /// 读取资源文件内容
-  /// [resourcePath] - 资源文件路径
-  /// 返回资源文件的字节数据
+  ///
+  /// 查找顺序（[WW_SCRIPT_DIR] 存在时只查它，便于开发脚本时绕开缓存）：
+  /// 1. `<WW_SCRIPT_DIR>/lib/sh/<脚本>`
+  /// 2. `<当前工作目录>/lib/sh/<脚本>`
+  /// 3. `<Platform.script 所在目录>/../lib/sh/<脚本>`
+  /// 4. `~/.pub-cache/hosted/*/w_cli-<当前版本>/lib/sh/<脚本>`（全局安装场景）
+  ///
+  /// 第 4 条会**静默**用缓存里的脚本，这正是「删了脚本本地测试还绿」的原因，
+  /// 所以命中缓存时打一条 debug 提示，并在找不到时把搜过的路径全列出来。
   static Future<Uint8List> readResource(String resourcePath) async {
-    // 尝试从当前工作目录读取
-    final cwdPath = path.join(Directory.current.path, resourcePath);
-    final cwdFile = File(cwdPath);
-    if (cwdFile.existsSync()) {
-      return cwdFile.readAsBytes();
+    final searched = <String>[];
+
+    Uint8List? tryFile(String candidate) {
+      searched.add(candidate);
+      final file = File(candidate);
+      return file.existsSync() ? file.readAsBytesSync() : null;
     }
 
-    // 尝试从脚本所在目录读取（处理符号链接）
+    final overrideDir = Platform.environment['WW_SCRIPT_DIR'];
+
+    // 1. 显式覆盖（开发 build.sh 时用）
+    if (overrideDir != null && overrideDir.isNotEmpty) {
+      final fromOverride = tryFile(path.join(overrideDir, resourcePath));
+      if (fromOverride != null) {
+        return fromOverride;
+      }
+      throw FileSystemException(
+        'WW_SCRIPT_DIR 下找不到资源: $resourcePath\n搜索过:\n'
+        '${searched.map((p) => '  - $p').join('\n')}',
+      );
+    }
+
+    // 2. 当前工作目录
+    final fromCwd = tryFile(path.join(Directory.current.path, resourcePath));
+    if (fromCwd != null) {
+      return fromCwd;
+    }
+
+    // 3. 脚本所在目录（处理符号链接）
     var scriptPath = Platform.script;
-    // 解析符号链接
     final scriptFile = File(scriptPath.toFilePath());
     if (scriptFile.existsSync()) {
       final resolvedPath = await scriptFile.resolveSymbolicLinks();
@@ -48,13 +75,12 @@ class Resources {
       }
     }
     final scriptDir = path.dirname(scriptPath.toFilePath());
-    final relativePath = path.join(scriptDir, '..', resourcePath);
-    final resourceScriptFile = File(relativePath);
-    if (resourceScriptFile.existsSync()) {
-      return resourceScriptFile.readAsBytes();
+    final fromScript = tryFile(path.join(scriptDir, '..', resourcePath));
+    if (fromScript != null) {
+      return fromScript;
     }
 
-    // 尝试从 .pub-cache 目录读取
+    // 4. pub-cache（只找当前版本）
     String? homeDir;
     if (Platform.isMacOS || Platform.isLinux) {
       homeDir = Platform.environment['HOME'];
@@ -65,35 +91,28 @@ class Resources {
     if (homeDir != null) {
       final hostedDir = Directory(path.join(homeDir, '.pub-cache', 'hosted'));
       if (hostedDir.existsSync()) {
-        final hostedSources = hostedDir.listSync(followLinks: false);
-        for (var source in hostedSources) {
-          if (source is Directory) {
-            // 获取所有 w_cli 目录
-            final wCliDirs = source
-                .listSync(followLinks: false)
-                .where((e) => e is Directory && e.path.contains('w_cli-'))
-                .toList();
-
-            // 只查找当前版本，不尝试其他版本
-            final currentVersion = version;
-            final currentVersionDir = wCliDirs.firstWhere(
-              (dir) => dir.path.endsWith('w_cli-$currentVersion'),
-              orElse: () => Directory(''),
-            );
-
-            if (currentVersionDir.existsSync()) {
-              final tempPath = path.join(currentVersionDir.path, resourcePath);
-              final resourceFile = File(tempPath);
-              if (resourceFile.existsSync()) {
-                return resourceFile.readAsBytes();
-              }
+        for (final source in hostedDir.listSync(followLinks: false)) {
+          if (source is! Directory) {
+            continue;
+          }
+          for (final dir in source.listSync(followLinks: false)) {
+            if (dir is! Directory || !dir.path.endsWith('w_cli-$version')) {
+              continue;
+            }
+            final fromCache = tryFile(path.join(dir.path, resourcePath));
+            if (fromCache != null) {
+              Cli.detail('资源来自 pub-cache（工作区里没有）: $resourcePath');
+              return fromCache;
             }
           }
         }
       }
     }
 
-    throw FileSystemException('Resource file not found: $resourcePath');
+    throw FileSystemException(
+      'Resource file not found: $resourcePath\n搜索过:\n'
+      '${searched.map((p) => '  - $p').join('\n')}',
+    );
   }
 
   /// 将资源文件复制到临时文件并返回路径
