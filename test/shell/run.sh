@@ -776,6 +776,24 @@ assert_eq "全局 ww -d <命令> 也被接受" "no" \
   "$(printf '%s' "$global_out" | grep -q 'Could not find an option' && echo yes || echo no)"
 rm -rf "$debug_root"
 
+# 8.36c) 资源查找：WW_SCRIPT_DIR 可覆盖，找不到时列出搜索过的路径
+res_root="$(mktemp -d)"
+mkdir -p "$res_root/override/lib/sh" "$res_root/demo"
+printf '#!/bin/bash
+echo hello
+' > "$res_root/override/lib/sh/build.sh"
+chmod +x "$res_root/override/lib/sh/build.sh"
+printf 'name: demo\nversion: 1.0.0\n' > "$res_root/demo/pubspec.yaml"
+
+override_out="$( cd "$res_root/demo" && WW_SCRIPT_DIR="$res_root/override" CI=true \
+  "$(command -v dart)" run "$ROOT/bin/w_cli.dart" build --help 2>&1 )"
+assert_contains "WW_SCRIPT_DIR 生效时的输出正常" "ww build" "$override_out"
+
+missing_out="$( cd "$res_root/demo" && WW_SCRIPT_DIR="$res_root/nowhere" CI=true \
+  "$(command -v dart)" run "$ROOT/bin/w_cli.dart" build apk 2>&1 )"
+assert_contains "找不到时列出搜索过的路径" "搜索过" "$missing_out"
+rm -rf "$res_root"
+
 # 8.37) 输出约定：开始/结束横幅 + 颜色只在 TTY
 frame_root="$(mktemp -d)"
 mkdir -p "$frame_root/demo"
