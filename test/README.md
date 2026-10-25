@@ -18,6 +18,16 @@ test/
     └── stubs/             #   flutter 等命令的桩
 ```
 
+## 文档锚点检查
+
+`tool/check_doc_anchors.dart` 校验 Markdown 里的 `[x](#anchor)` 是否能对上标题。
+CI 里跑；`doc/commands.md` 的章节被误删过、链接却还在，肉眼看不出。
+
+```bash
+dart run tool/check_doc_anchors.dart          # 检查整个仓库
+dart run tool/check_doc_anchors.dart doc      # 只检查某个目录
+```
+
 ## 怎么跑
 
 ```bash
