@@ -115,7 +115,10 @@ Future<void> main(List<String> arguments) async {
     switch (command.name) {
       case 'create':
       case 'c':
-        exitCode = await w.handleCreateCommand(command.arguments, force: command['force'] as bool);
+        exitCode = await w.handleCreateCommand(
+          command.arguments,
+          force: command['force'] as bool,
+        );
         break;
       case 'api':
       case 'a':
@@ -132,7 +135,9 @@ Future<void> main(List<String> arguments) async {
       case 'b':
         // 构建参数列表：从 rest 参数中提取平台类型，再添加 flags
         final buildArgs = <String>[
-          ...command.rest.where((arg) => arg == 'apk' || arg == 'aab' || arg == 'ios'),
+          ...command.rest.where(
+            (arg) => arg == 'apk' || arg == 'aab' || arg == 'ios',
+          ),
           if (command['uat'] as bool) '--uat',
           if (command['clean'] as bool) '--clean',
           if (command['open'] as bool) '--open',
@@ -234,9 +239,13 @@ void showHelp() {
   print('Build Options:');
   print('  --uat, -u              # Build in UAT mode with timestamp');
   print('  --clean, -c            # Clear build directory before building');
-  print('  --open, -o             # Open output directory in Finder after build');
+  print(
+    '  --open, -o             # Open output directory in Finder after build',
+  );
   print('  --name=<name>          # App name used in output file names');
-  print('  --export-options=<f>   # iOS export options plist (default w_build/ios.plist)');
+  print(
+    '  --export-options=<f>   # iOS export options plist (default w_build/ios.plist)',
+  );
   print('  --debug, -d            # Verbose debug logging');
   print('');
   print('Examples:');

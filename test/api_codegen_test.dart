@@ -8,12 +8,15 @@ import 'package:w_cli/src/api/client_renderer.dart';
 /// 迁移的等价性闸门：Dart 侧的产物必须与 `api.sh` 原有产物逐字一致
 /// （golden 取自 shell 版本，只把时间戳固定成 2026-01-01 00:00:00）。
 void main() {
-  final clientSource =
-      File('test/shell/fixtures/client_nested.expected').readAsStringSync();
-  final mixinGolden =
-      File('test/fixtures/api/remote_data_source.expected').readAsStringSync();
-  final repositoryGolden =
-      File('test/fixtures/api/repository.expected').readAsStringSync();
+  final clientSource = File(
+    'test/shell/fixtures/client_nested.expected',
+  ).readAsStringSync();
+  final mixinGolden = File(
+    'test/fixtures/api/remote_data_source.expected',
+  ).readAsStringSync();
+  final repositoryGolden = File(
+    'test/fixtures/api/repository.expected',
+  ).readAsStringSync();
 
   const headerTimestamp = '2026-01-01 00:00:00';
 
@@ -22,12 +25,15 @@ void main() {
 
     setUp(() {
       project = Directory.systemTemp.createTempSync('w_cli_guard');
-      Directory('${project.path}/lib/app/data/sources/remote')
-          .createSync(recursive: true);
-      Directory('${project.path}/lib/app/data/models')
-          .createSync(recursive: true);
-      File('${project.path}/lib/app/data/sources/client.dart')
-          .writeAsStringSync(clientSource);
+      Directory(
+        '${project.path}/lib/app/data/sources/remote',
+      ).createSync(recursive: true);
+      Directory(
+        '${project.path}/lib/app/data/models',
+      ).createSync(recursive: true);
+      File(
+        '${project.path}/lib/app/data/sources/client.dart',
+      ).writeAsStringSync(clientSource);
     });
 
     tearDown(() => project.deleteSync(recursive: true));
@@ -45,9 +51,9 @@ void main() {
       ).generate(force: force);
     }
 
-    String repository() =>
-        File('${project.path}/lib/app/data/sources/repository.dart')
-            .readAsStringSync();
+    String repository() => File(
+      '${project.path}/lib/app/data/sources/repository.dart',
+    ).readAsStringSync();
 
     test('初次生成没有旧文件，直接写入', () async {
       expect(await run(), 0);
@@ -61,8 +67,9 @@ void main() {
         '  static bool destroyInstance() {',
         '  Future<int> orderCount() async => 0;\n\n  static bool destroyInstance() {',
       );
-      File('${project.path}/lib/app/data/sources/repository.dart')
-          .writeAsStringSync(withHandwritten);
+      File(
+        '${project.path}/lib/app/data/sources/repository.dart',
+      ).writeAsStringSync(withHandwritten);
 
       expect(await run(), 1);
       expect(repository(), contains('orderCount'));
@@ -71,11 +78,14 @@ void main() {
     test('--force 时才覆盖手写内容', () async {
       expect(await run(), 0);
 
-      File('${project.path}/lib/app/data/sources/repository.dart')
-          .writeAsStringSync(repository().replaceFirst(
-        '  static bool destroyInstance() {',
-        '  Future<int> orderCount() async => 0;\n\n  static bool destroyInstance() {',
-      ));
+      File(
+        '${project.path}/lib/app/data/sources/repository.dart',
+      ).writeAsStringSync(
+        repository().replaceFirst(
+          '  static bool destroyInstance() {',
+          '  Future<int> orderCount() async => 0;\n\n  static bool destroyInstance() {',
+        ),
+      );
 
       expect(await run(force: true), 0);
       expect(repository(), isNot(contains('orderCount')));
@@ -126,7 +136,9 @@ void main() {
       expect(login.params.single.name, 'data');
       expect(login.params.single.type, 'Map<String, dynamic>');
 
-      final delete = methods.firstWhere((method) => method.name == 'deleteUser');
+      final delete = methods.firstWhere(
+        (method) => method.name == 'deleteUser',
+      );
       expect(delete.params.single.name, 'id');
       expect(delete.params.single.type, 'String');
     });

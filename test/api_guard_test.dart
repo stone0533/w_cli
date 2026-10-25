@@ -28,10 +28,13 @@ class AppRepository {
 void main() {
   group('declaredMemberNames', () {
     test('抽到类级成员，忽略构造函数', () {
-      expect(
-        declaredMemberNames(_generated),
-        {'_instance', '_getInstance', 'instance', 'destroyInstance', 'getUsers'},
-      );
+      expect(declaredMemberNames(_generated), {
+        '_instance',
+        '_getInstance',
+        'instance',
+        'destroyInstance',
+        'getUsers',
+      });
     });
 
     test('方法体内部的声明不算成员', () {

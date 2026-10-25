@@ -90,7 +90,9 @@ class ProjectCommand {
       return true;
     }
 
-    final wrapper = File('$root/android/gradle/wrapper/gradle-wrapper.properties');
+    final wrapper = File(
+      '$root/android/gradle/wrapper/gradle-wrapper.properties',
+    );
     if (!wrapper.existsSync()) {
       stderr.writeln('未找到 gradle-wrapper.properties 文件');
       return false;
@@ -110,7 +112,7 @@ class ProjectCommand {
         .map(
           (line) => line.startsWith('distributionUrl=')
               ? 'distributionUrl=https://services.gradle.org/distributions/'
-                  'gradle-$recommendedGradleVersion-all.zip'
+                    'gradle-$recommendedGradleVersion-all.zip'
               : line,
         )
         .join('\n');

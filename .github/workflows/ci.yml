@@ -18,8 +18,12 @@ jobs:
         run: dart pub get
       - name: 静态分析
         run: dart analyze
+      - name: 格式检查
+        run: dart format --output=none --set-exit-if-changed .
       - name: 单元测试
         run: dart test
+      - name: 发布检查
+        run: dart pub publish --dry-run
 
   shell:
     name: Shell 检查与测试

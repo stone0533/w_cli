@@ -33,7 +33,8 @@ dev_dependencies:
     'client.dart': 'lib/app/data/sources/client.dart',
     'paths.dart': 'lib/app/data/sources/paths.dart',
     'data_source.dart': 'lib/app/data/sources/remote/data_source.dart',
-    'data_source_mixin.dart': 'lib/app/data/sources/remote/data_source_mixin.dart',
+    'data_source_mixin.dart':
+        'lib/app/data/sources/remote/data_source_mixin.dart',
     'repository.dart': 'lib/app/data/sources/repository.dart',
   };
 
@@ -43,8 +44,9 @@ dev_dependencies:
         expect(ApiScaffolder(root: root).run(), 0);
         expect(
           read(entry.value),
-          File('test/shell/fixtures/scaffold/${entry.key}.expected')
-              .readAsStringSync(),
+          File(
+            'test/shell/fixtures/scaffold/${entry.key}.expected',
+          ).readAsStringSync(),
         );
       });
     }
@@ -52,9 +54,7 @@ dev_dependencies:
 
   test('重复运行不改变任何文件', () {
     expect(ApiScaffolder(root: root).run(), 0);
-    final first = {
-      for (final path in expectedFiles.values) path: read(path),
-    };
+    final first = {for (final path in expectedFiles.values) path: read(path)};
 
     expect(ApiScaffolder(root: root).run(), 0);
     for (final entry in first.entries) {
@@ -64,8 +64,9 @@ dev_dependencies:
 
   test('已存在的文件不会被覆盖', () {
     expect(ApiScaffolder(root: root).run(), 0);
-    File('$root/lib/app/data/sources/paths.dart')
-        .writeAsStringSync('class ApiPath {}\n');
+    File(
+      '$root/lib/app/data/sources/paths.dart',
+    ).writeAsStringSync('class ApiPath {}\n');
 
     expect(ApiScaffolder(root: root).run(), 0);
     expect(read('lib/app/data/sources/paths.dart'), 'class ApiPath {}\n');
@@ -77,9 +78,9 @@ dev_dependencies:
     final path = '$root/lib/app/data/sources/remote/data_source.dart';
     final stale = read('lib/app/data/sources/remote/data_source.dart')
         .replaceFirst(
-      "import 'package:demo/app/w/toolkit.dart';",
-      "import 'package:w_tools/w.dart';",
-    );
+          "import 'package:demo/app/w/toolkit.dart';",
+          "import 'package:w_tools/w.dart';",
+        );
     File(path).writeAsStringSync('$stale\nclass HandWritten {}\n');
 
     expect(ApiScaffolder(root: root).run(), 0);
@@ -91,7 +92,8 @@ dev_dependencies:
   test('没有 marker 的 data_source.dart 一个字节都不改', () {
     final path = '$root/lib/app/data/sources/remote/data_source.dart';
     Directory('$root/lib/app/data/sources/remote').createSync(recursive: true);
-    const handwritten = "import 'package:w_tools/w.dart';\n\nclass OnlyMine {}\n";
+    const handwritten =
+        "import 'package:w_tools/w.dart';\n\nclass OnlyMine {}\n";
     File(path).writeAsStringSync(handwritten);
 
     expect(ApiScaffolder(root: root).run(), 0);

@@ -40,7 +40,9 @@ String renderRemoteDataSource({
   buffer.writeln('}');
   buffer.writeln();
 
-  buffer.writeln('mixin AppRemoteDataSourceMixin implements IAppRemoteDataSource {');
+  buffer.writeln(
+    'mixin AppRemoteDataSourceMixin implements IAppRemoteDataSource {',
+  );
   buffer.writeln('  late final ApiClient libRest;');
 
   for (final clientId in _customClientIds(methods)) {
@@ -52,10 +54,7 @@ String renderRemoteDataSource({
     if (existingMethods.contains(method.name)) {
       continue;
     }
-    impls.add(_implementation(
-      method,
-      receiver: method.clientId ?? 'libRest',
-    ));
+    impls.add(_implementation(method, receiver: method.clientId ?? 'libRest'));
   }
 
   if (impls.isNotEmpty) {
@@ -92,9 +91,13 @@ String renderRepository({
   }
 
   buffer
-    ..writeln('class AppRepository extends BaseRepository<Null, AppRemoteDataSource>')
+    ..writeln(
+      'class AppRepository extends BaseRepository<Null, AppRemoteDataSource>',
+    )
     ..writeln('    implements IAppRemoteDataSource {')
-    ..writeln('  AppRepository() : super(remoteDataSource: AppRemoteDataSource());')
+    ..writeln(
+      '  AppRepository() : super(remoteDataSource: AppRemoteDataSource());',
+    )
     ..writeln()
     ..writeln('  static AppRepository? _instance;')
     ..writeln()
@@ -116,9 +119,14 @@ String renderRepository({
   if (methods.isNotEmpty) {
     buffer
       ..writeln()
-      ..write(methods
-          .map((method) => _implementation(method, receiver: 'remoteDataSource!'))
-          .join('\n\n'))
+      ..write(
+        methods
+            .map(
+              (method) =>
+                  _implementation(method, receiver: 'remoteDataSource!'),
+            )
+            .join('\n\n'),
+      )
       ..writeln();
   }
 

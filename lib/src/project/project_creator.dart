@@ -124,8 +124,7 @@ class ProjectCreator {
 
     // 5. w_tools 接入骨架（不可用时由 ProjectScaffolder 兜底写 toolkit）
     stdout.writeln('生成 w_tools 接入骨架...');
-    final wToolsCode =
-        await _runInProject('dart', ['run', 'w_tools_cli:init']);
+    final wToolsCode = await _runInProject('dart', ['run', 'w_tools_cli:init']);
     if (wToolsCode == 0) {
       stdout.writeln('已通过 w_tools_cli:init 生成接入骨架');
     } else {
@@ -180,13 +179,24 @@ class ProjectCreator {
 
     final groups = <List<String>>[
       [
-        'pub', 'add', 'get', 'dio', 'flutter_screenutil', 'flutter_form_builder',
-        'form_builder_validators', 'json_annotation:^4.9.0',
+        'pub',
+        'add',
+        'get',
+        'dio',
+        'flutter_screenutil',
+        'flutter_form_builder',
+        'form_builder_validators',
+        'json_annotation:^4.9.0',
       ],
       ['pub', 'add', 'retrofit:4.9.0'],
       [
-        'pub', 'add', '--dev', 'build_runner', 'json_serializable',
-        'retrofit_generator:^9.7.0', 'w_tools_cli',
+        'pub',
+        'add',
+        '--dev',
+        'build_runner',
+        'json_serializable',
+        'retrofit_generator:^9.7.0',
+        'w_tools_cli',
       ],
     ];
 
@@ -206,18 +216,23 @@ class ProjectCreator {
     stdout.writeln('配置 w_tools 分包依赖...');
 
     for (final pkg in _wToolsSubpackages) {
-      final code = await _runInProject(
-        'flutter',
-        ['pub', 'add', 'w_tools_$pkg:^1.0.0'],
-      );
+      final code = await _runInProject('flutter', [
+        'pub',
+        'add',
+        'w_tools_$pkg:^1.0.0',
+      ]);
       if (code != 0) {
         stderr.writeln('添加依赖失败: w_tools_$pkg');
         return false;
       }
     }
 
-    final cliCode =
-        await _runInProject('flutter', ['pub', 'add', '--dev', 'w_tools_cli']);
+    final cliCode = await _runInProject('flutter', [
+      'pub',
+      'add',
+      '--dev',
+      'w_tools_cli',
+    ]);
     if (cliCode != 0) {
       stdout.writeln('添加 w_tools_cli 失败（不影响编译，但缺少 doctor）');
     }
@@ -330,16 +345,11 @@ class ProjectCreator {
     if (Platform.isMacOS &&
         Directory('/Applications/Android Studio.app').existsSync()) {
       stdout.writeln('使用 macOS 打开 Android Studio');
-      Process.runSync(
-        'open',
-        ['-a', 'Android Studio', name],
-        runInShell: true,
-      );
+      Process.runSync('open', ['-a', 'Android Studio', name], runInShell: true);
       return;
     }
     stdout.writeln('未找到 trae / studio，跳过打开项目');
   }
-
 
   Future<int> _runInProject(String executable, List<String> args) {
     return _runDirect(executable, args, workingDirectory: name);

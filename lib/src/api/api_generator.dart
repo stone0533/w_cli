@@ -173,7 +173,9 @@ class ApiGenerator {
     }
 
     final pattern = RegExp(
-      r'(^|\s)class\s+' + RegExp.escape(className) + r'(\s|\{|extends|implements)',
+      r'(^|\s)class\s+' +
+          RegExp.escape(className) +
+          r'(\s|\{|extends|implements)',
     );
     for (final entity in dir.listSync()) {
       if (entity is! File || !entity.path.endsWith('.dart')) {

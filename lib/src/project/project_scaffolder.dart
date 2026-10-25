@@ -20,11 +20,15 @@ class ProjectScaffolder {
   int run() {
     final packageName = _packageName();
 
-    _write('lib/app/modules/home/controllers/home_controller.dart',
-        homeControllerTemplate);
+    _write(
+      'lib/app/modules/home/controllers/home_controller.dart',
+      homeControllerTemplate,
+    );
     _write('lib/app/modules/home/views/home_view.dart', homeViewTemplate);
-    _write('lib/app/modules/home/bindings/home_binding.dart',
-        homeBindingTemplate);
+    _write(
+      'lib/app/modules/home/bindings/home_binding.dart',
+      homeBindingTemplate,
+    );
     _write('lib/app/routes/app_routes.dart', appRoutesTemplate);
     _write('lib/app/routes/app_pages.dart', appPagesTemplate);
     _write('lib/main.dart', mainTemplate(packageName: packageName));

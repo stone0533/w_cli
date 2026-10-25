@@ -46,8 +46,9 @@ class ApiParseException implements Exception {
   final int? offset;
 
   @override
-  String toString() =>
-      offset == null ? 'ApiParseException: $message' : 'ApiParseException: $message (offset $offset)';
+  String toString() => offset == null
+      ? 'ApiParseException: $message'
+      : 'ApiParseException: $message (offset $offset)';
 }
 
 const String _clientClass = 'abstract class ApiClient';
@@ -78,12 +79,14 @@ List<ApiMethod> parseApiClient(String source) {
 
     if (body.startsWith('Future<', i)) {
       final parsed = _parseMethod(body, i);
-      methods.add(ApiMethod(
-        name: parsed.method.name,
-        returnType: parsed.method.returnType,
-        params: parsed.method.params,
-        clientId: pendingClientId.isEmpty ? null : pendingClientId,
-      ));
+      methods.add(
+        ApiMethod(
+          name: parsed.method.name,
+          returnType: parsed.method.returnType,
+          params: parsed.method.params,
+          clientId: pendingClientId.isEmpty ? null : pendingClientId,
+        ),
+      );
       pendingClientId = '';
       i = parsed.nextIndex;
       continue;
@@ -373,7 +376,8 @@ String _unquote(String text) {
   return value;
 }
 
-bool _isSpace(String char) => char == ' ' || char == '\t' || char == '\n' || char == '\r';
+bool _isSpace(String char) =>
+    char == ' ' || char == '\t' || char == '\n' || char == '\r';
 
 bool _isIdentifierChar(String char) => RegExp(r'[A-Za-z0-9_$]').hasMatch(char);
 

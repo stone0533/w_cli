@@ -32,17 +32,18 @@ dev_dependencies:
     ).generate();
   }
 
-  String expected(String group, String name) =>
-      File('test/fixtures/models/$group/$name.dart.expected').readAsStringSync();
+  String expected(String group, String name) => File(
+    'test/fixtures/models/$group/$name.dart.expected',
+  ).readAsStringSync();
 
   String generated(DirectoryFixture fixture, String name) =>
       File('${fixture.root}/lib/app/data/models/$name.dart').readAsStringSync();
 
   group('与 shell 产物一致', () {
-    for (final json in Directory('test/fixtures/models')
-        .listSync()
-        .whereType<File>()
-        .where((file) => file.path.endsWith('.json'))) {
+    for (final json
+        in Directory('test/fixtures/models').listSync().whereType<File>().where(
+          (file) => file.path.endsWith('.json'),
+        )) {
       final name = json.uri.pathSegments.last.replaceFirst('.json', '');
       test(name, () async {
         final fixture = newProject();
@@ -62,11 +63,10 @@ dev_dependencies:
 
     setUp(() {
       fixture = newProject();
-      fixture.addJson(
-        File('test/fixtures/models/standalone/json/shop.json'),
-      );
-      File('test/fixtures/models/standalone/json/w_json.config')
-          .copySync('${fixture.root}/w_json/w_json.config');
+      fixture.addJson(File('test/fixtures/models/standalone/json/shop.json'));
+      File(
+        'test/fixtures/models/standalone/json/w_json.config',
+      ).copySync('${fixture.root}/w_json/w_json.config');
     });
 
     test('三个文件都与 shell 产物一致', () async {

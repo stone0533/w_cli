@@ -35,8 +35,10 @@ class OpenCommand {
 
     print('${'=' * 54}\n打开$label\n${'=' * 54}');
     final status = await _open(target);
-    print('${'=' * 54}\n打开$label完成 '
-        '${DateTime.now().toString().substring(0, 19)}\n${'=' * 54}');
+    print(
+      '${'=' * 54}\n打开$label完成 '
+      '${DateTime.now().toString().substring(0, 19)}\n${'=' * 54}',
+    );
     return status;
   }
 
@@ -102,7 +104,11 @@ class OpenCommand {
 
     stdout.writeln('用 Android Studio 打开 Android 项目...');
     if (Platform.isMacOS) {
-      return _run('open', ['-a', 'Android Studio', androidDir.path], 'Android 项目');
+      return _run('open', [
+        '-a',
+        'Android Studio',
+        androidDir.path,
+      ], 'Android 项目');
     }
     if (Platform.isLinux) {
       if (!_available('studio.sh')) {

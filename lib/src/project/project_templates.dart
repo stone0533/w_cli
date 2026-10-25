@@ -113,7 +113,8 @@ API_BASE_URL=$apiBaseUrl
 # 其他配置
 DEBUG=true''';
 
-const String toolkitTemplate = r'''// 本项目用到的 w_tools 能力清单（w_tools_cli:init 生成的兜底版本）。
+const String toolkitTemplate =
+    r'''// 本项目用到的 w_tools 能力清单（w_tools_cli:init 生成的兜底版本）。
 //
 // 业务代码统一 import 这里，不要直接 import 各个子包 ——
 // 换依赖方式时只改这一个文件。
@@ -129,7 +130,8 @@ export 'package:w_tools_api/w_tools_api.dart';
 export 'package:w_tools_toast/w_tools_toast.dart';
 export 'package:w_tools_qr/w_tools_qr.dart';''';
 
-const String widgetTestTemplate = r'''import 'package:flutter_test/flutter_test.dart';
+const String widgetTestTemplate =
+    r'''import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
@@ -167,4 +169,3 @@ jobs:
     - name: Build app
       run: flutter build apk
 ''';
-

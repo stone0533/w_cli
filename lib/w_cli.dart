@@ -71,15 +71,17 @@ Future<int> executeScript(
 
     Process process;
     // 把包版本注入脚本环境，脚本的 --version 因此不再各自维护一份版本号
-    final env = {...Platform.environment, 'WW_VERSION': getVersionFromPubspec()};
+    final env = {
+      ...Platform.environment,
+      'WW_VERSION': getVersionFromPubspec(),
+    };
     try {
       // 所有脚本都是 bash 脚本：Windows 上同样走 bash（Git Bash / WSL），
       // 没有 bash 时会在下面的 ProcessException 分支里给出明确提示
-      process = await Process.start(
-        'bash',
-        [scriptPath, ...arguments],
-        environment: env,
-      );
+      process = await Process.start('bash', [
+        scriptPath,
+        ...arguments,
+      ], environment: env);
     } on ProcessException {
       final hint = bashMissingHint(scriptName, isWindows: Platform.isWindows);
       if (hint != null) {
@@ -206,7 +208,10 @@ bool validateProjectName(String projectName) {
 
 /// 处理 create 命令
 /// [arguments] - 命令参数
-Future<int> handleCreateCommand(List<String> arguments, {bool force = false}) async {
+Future<int> handleCreateCommand(
+  List<String> arguments, {
+  bool force = false,
+}) async {
   String subcommand;
   List<String> subArgs;
 
@@ -236,7 +241,10 @@ Future<int> handleCreateCommand(List<String> arguments, {bool force = false}) as
 
 /// 处理项目创建
 /// [projectName] - 项目名称
-Future<int> handleCreateProject(String projectName, {bool force = false}) async {
+Future<int> handleCreateProject(
+  String projectName, {
+  bool force = false,
+}) async {
   if (!validateProjectName(projectName)) {
     return 2;
   }
@@ -323,7 +331,10 @@ Future<void> handleInitCommand() async {
 
 /// 处理 API 代码生成命令
 /// [arguments] - 命令参数
-Future<int> handleApiCommand(List<String> arguments, {bool debug = false}) async {
+Future<int> handleApiCommand(
+  List<String> arguments, {
+  bool debug = false,
+}) async {
   final ApiInvocation invocation;
   try {
     invocation = resolveApiArgs(arguments);
