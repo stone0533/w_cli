@@ -4,6 +4,11 @@ version: 1.1.0
 homepage: https://github.com/stone0533/w_cli
 repository: https://github.com/stone0533/w_cli
 issue_tracker: https://github.com/stone0533/w_cli/issues
+topics:
+  - flutter
+  - cli
+  - codegen
+  - build-runner
 documentation: https://github.com/stone0533/w_cli/blob/main/doc/commands.md
 
 environment:
