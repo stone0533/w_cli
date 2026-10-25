@@ -65,22 +65,13 @@ void main() {
   });
 
   group('getScriptPath', () {
-    test('should return a valid path for existing scripts', () async {
-      final path = await getScriptPath(repoScripts.first);
-      expect(path, isNotEmpty);
-      expect(File(path).existsSync(), isTrue);
-    });
-
-    test('should return a valid path for setup.sh script', () async {
-      final path = await getScriptPath('setup.sh');
-      expect(path, isNotEmpty);
-      expect(File(path).existsSync(), isTrue);
-    });
-
-    test('should return a valid path for build.sh script', () async {
-      final path = await getScriptPath('build.sh');
-      expect(path, isNotEmpty);
-      expect(File(path).existsSync(), isTrue);
+    test('should return a valid path for every existing script', () async {
+      expect(repoScripts, isNotEmpty);
+      for (final name in repoScripts) {
+        final path = await getScriptPath(name);
+        expect(path, isNotEmpty, reason: name);
+        expect(File(path).existsSync(), isTrue, reason: name);
+      }
     });
 
     test('should throw an exception for non-existent scripts', () async {
