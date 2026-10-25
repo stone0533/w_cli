@@ -50,3 +50,16 @@ jobs:
           shellcheck --severity=warning lib/sh/*.sh test/shell/run.sh test/shell/stubs/*
       - name: Shell 测试
         run: bash test/shell/run.sh
+
+  shell-macos:
+    name: Shell 测试（macOS）
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: 安装依赖
+        run: dart pub get
+      - name: Shell 测试（bash 3.2 + BSD 工具）
+        run: bash test/shell/run.sh

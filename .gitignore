@@ -3,7 +3,7 @@
 # Files and directories created by pub
 .dart_tool/
 .packages
-build/
+build/          # 本地构建产物；别在仓库根跑打包（测试用 mktemp，见 test/README.md）
 # If you're building an application, you may want to check-in your pubspec.lock
 pubspec.lock
 
