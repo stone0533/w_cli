@@ -22,8 +22,10 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
       - name: 单元测试
         run: dart test
-      - name: 文档锚点检查
+      - name: 文档检查（锚点 / 相对链接 / 旧命令）
         run: dart run tool/check_docs.dart
+      - name: 发布前检查
+        run: dart run tool/release_check.dart --strict
       - name: 发布检查
         run: dart pub publish --dry-run
 
@@ -47,7 +49,7 @@ jobs:
           sudo apt-get install -y shellcheck
           # 门禁设在 warning 级：error 与 warning 都必须为 0
           shellcheck --version
-          shellcheck --severity=warning lib/sh/*.sh test/shell/run.sh test/shell/stubs/*
+          shellcheck --severity=warning lib/sh/*.sh test/shell/run.sh test/shell/stubs/* tool/*.sh
       - name: Shell 测试
         run: bash test/shell/run.sh
 

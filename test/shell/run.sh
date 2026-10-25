@@ -825,6 +825,25 @@ MD
 assert_eq "教人用已删除命令会让文档检查失败" 1 "$?"
 rm -rf "$bad_doc"
 
+# 8.36e) 发布前检查与发布脚本
+rel_out="$( cd "$ROOT" && CI=true "$(command -v dart)" run tool/release_check.dart 2>&1 )"
+assert_eq "release_check 在仓库上通过" 0 "$?"
+assert_contains "release_check 报告版本" "w_cli" "$rel_out"
+
+bash "$ROOT/tool/publish.sh" --help > /dev/null 2>&1
+assert_eq "publish.sh --help 退出 0" 0 "$?"
+
+# 反例：版本与 CHANGELOG/version.dart 不一致时应当失败
+rel_bad="$(mktemp -d)"
+mkdir -p "$rel_bad/lib/src"
+printf 'name: demo\nversion: 1.0.0\n' > "$rel_bad/pubspec.yaml"
+printf "const String version = '0.9.0';\n" > "$rel_bad/lib/src/version.dart"
+printf '## 0.9.0\n\n- 旧版本\n' > "$rel_bad/CHANGELOG.md"
+printf '# demo\n' > "$rel_bad/README.md"
+( cd "$rel_bad" && CI=true "$(command -v dart)" run "$ROOT/tool/release_check.dart" ) > /dev/null 2>&1
+assert_eq "版本不一致时 release_check 失败" 1 "$?"
+rm -rf "$rel_bad"
+
 # 8.37) 输出约定：开始/结束横幅 + 颜色只在 TTY
 frame_root="$(mktemp -d)"
 mkdir -p "$frame_root/demo"
