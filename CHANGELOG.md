@@ -46,6 +46,12 @@
 
 ### Changed
 
+- `ww clean` 无参数改为打印帮助（以前会立刻清空所有构建产物），要清理请显式写 `ww clean all`
+- `ww create <name>` 不再要求写 `project`（`ww create project <name>` 仍可用）
+- `ww <命令> --help` 打印该命令自己的帮助；`ww build` / `ww common` 无参数也打印帮助
+
+### Changed
+
 - `lib/sh/lib.sh` 精简为「只服务 build.sh」：删掉 `ww::die` / `ww::require` /
   `ww::show_version` / `ww::usage_error` / `log_success`（其余脚本迁 Dart 后无人使用）
 - `ww open` 改为 Dart 实现，`lib/sh/open.sh` 删除：支持 `i`/`a`/`b`/`r` 短别名，

@@ -118,7 +118,7 @@ COMMON_EXIT=1 run_common drbb
 assert_eq "build_runner 失败会透传退出码" 1 "$?"
 
 run_common
-assert_eq "ww common 缺子命令退出 2" 2 "$?"
+assert_eq "ww common 无参数打印帮助并退出 0" 0 "$?"
 rm -rf "$common_root"
 
 echo
@@ -198,6 +198,10 @@ run_create() { # 参数...
 
 run_create demo
 assert_eq "已存在目录且没有 --force 时退出非零" 1 "$?"
+
+# 省略 project 也能建（新写法）
+CREATE_EXIT=0 run_create plain_name
+assert_eq "ww create <name> 省略 project 也能用" 0 "$?"
 assert_eq "已存在的目录被保留" "precious" "$(cat "$create_work/demo/keep.txt" 2>/dev/null)"
 
 run_create ok_app
@@ -403,7 +407,22 @@ head -c 100 /dev/zero > "$build_root/demo/w_build/keep_live_9.9.9.apk"
 assert_eq "失败清理保留输出目录里的成品" "present" \
   "$([ -f "$build_root/demo/w_build/keep_live_9.9.9.apk" ] && echo present || echo gone)"
 
-# 9) ww build 的参数透传：--name / 未知参数
+# 9) 无参数 = 帮助（ww clean 曾经一按回车就清空产物）
+noarg_root="$(mktemp -d)"
+mkdir -p "$noarg_root/keep"
+printf 'precious\n' > "$noarg_root/keep/model.apk"
+noarg() { ( cd "$noarg_root" && CI=true "$(command -v dart)" run "$ROOT/bin/w_cli.dart" "$@" ) > /dev/null 2>&1; }
+
+noarg clean
+assert_eq "ww clean 无参数退出 0" 0 "$?"
+assert_eq "ww clean 无参数不删任何东西" "precious" \
+  "$(cat "$noarg_root/keep/model.apk" 2>/dev/null)"
+
+noarg build
+assert_eq "ww build 无参数打印帮助并退出 0" 0 "$?"
+rm -rf "$noarg_root"
+
+# 10) ww build 的参数透传：--name / 未知参数
 run_ww_build() { # 参数...（在 demo 工程里跑 ww build）
   ( cd "$build_root/demo" && CI=true PATH="$build_root/bin:$PATH" \
       "$(command -v dart)" run "$ROOT/bin/w_cli.dart" build "$@" ) > /dev/null 2>&1
@@ -416,7 +435,7 @@ assert_eq "ww build --name 进产物文件名" "present" \
 run_ww_build apk --bogus-option
 assert_eq "ww build 未知参数退出 2" 2 "$?"
 
-# 10) 并行构建：Android 内部串行、失败会传播
+# 11) 并行构建：Android 内部串行、失败会传播
 run_build_parallel() { # 参数...（PARALLEL_BUILD=true）
   ( cd "$build_root/demo" && PARALLEL_BUILD=true PATH="$build_root/bin:$PATH" \
       bash "$SH/build.sh" "$@" ) > /dev/null 2>&1
@@ -429,7 +448,7 @@ assert_eq "并行构建两个产物都在" "present" \
 assert_contains "Android 内部串行提示" "Android 内部串行" \
   "$( cd "$build_root/demo" && PARALLEL_BUILD=true PATH="$build_root/bin:$PATH" bash "$SH/build.sh" apk aab 2>&1 )"
 
-# 11) MIN_BUILD_SIZE 可配：阈值超过产物大小时失败且不落产物
+# 12) MIN_BUILD_SIZE 可配：阈值超过产物大小时失败且不落产物
 rm -rf "$build_root/demo/w_build" "$build_root/demo/build"
 ( cd "$build_root/demo" && MIN_BUILD_SIZE=999999 PATH="$build_root/bin:$PATH" \
     bash "$SH/build.sh" apk ) > /dev/null 2>&1

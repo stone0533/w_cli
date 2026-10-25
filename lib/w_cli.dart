@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'src/version.dart';
 import 'src/cli/script_runner.dart';
+import 'src/cli/help.dart';
 import 'src/cli/validators.dart';
 import 'src/api/api_cli.dart';
 
@@ -35,31 +36,19 @@ Future<int> handleCreateCommand(
   List<String> arguments, {
   bool force = false,
 }) async {
-  String subcommand;
-  List<String> subArgs;
-
-  if (arguments.isEmpty) {
-    // 默认行为：create project
-    subcommand = 'project';
-    subArgs = [];
-  } else {
-    subcommand = arguments[0];
-    subArgs = arguments.sublist(1);
+  // 两种写法都接受：`ww create my_app` 与 `ww create project my_app`
+  final rest = [...arguments];
+  if (rest.isNotEmpty && (rest.first == 'project' || rest.first == 'p')) {
+    rest.removeAt(0);
   }
 
-  if (subcommand == 'project' || subcommand == 'p') {
-    if (subArgs.isEmpty) {
-      print('❌ Error: Project name is required');
-      print('   Usage: ww create|c project|p name');
-      return 2;
-    }
-    final projectName = subArgs[0];
-    return await handleCreateProject(projectName, force: force);
-  } else {
-    print('❌ Error: Unknown create subcommand: $subcommand');
-    print('   Usage: ww create|c project|p name');
+  if (rest.isEmpty) {
+    print('❌ Error: Project name is required');
+    print('   Usage: ww create|c [project|p] <name>');
     return 2;
   }
+
+  return await handleCreateProject(rest.first, force: force);
 }
 
 /// 处理项目创建
@@ -178,7 +167,15 @@ Future<int> handleUpdateCommand() async {
 /// 处理构建命令
 /// [arguments] - 命令参数
 Future<int> handleBuildCommand(List<String> arguments) async {
-  // print('\n🚀 Running Flutter build');
+  // 无参数时打印 ww 自己的帮助，而不是 build.sh 的英文 usage
+  if (arguments.isEmpty) {
+    final help = commandHelp('build');
+    if (help != null) {
+      print(help);
+    }
+    return 0;
+  }
+
   try {
     // 执行脚本并实时显示输出
     return await executeScript(
@@ -230,8 +227,11 @@ Future<int> handleCommonCommand(
   bool debug = false,
 }) async {
   if (arguments.isEmpty) {
-    print('用法: ww common drbb');
-    return 2;
+    final help = commandHelp('common');
+    if (help != null) {
+      print(help);
+    }
+    return 0;
   }
 
   final command = arguments.first;
@@ -252,6 +252,14 @@ Future<int> handleCommonCommand(
 /// 处理 clean 命令
 /// [arguments] - 命令参数
 Future<int> handleCleanCommand(List<String> arguments) async {
+  // 无参数时只打印帮助：`ww clean` 曾经会立刻清空所有构建产物
+  if (arguments.isEmpty) {
+    final help = commandHelp('clean');
+    if (help != null) {
+      print(help);
+    }
+    return 0;
+  }
   return CleanCommand().run(arguments);
 }
 
