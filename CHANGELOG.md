@@ -1,4 +1,7 @@
-## Unreleased
+## 1.1.0
+
+> 这一版把「一个 bash 工具集」收成了「一个 Dart CLI」：脚本只剩 `build.sh`，
+> 其余全部 Dart 实现；命令面统一（别名 / `-d` / 帮助 / 输出），iOS 签名做到零配置。
 
 ### Breaking
 
@@ -16,6 +19,35 @@
 
 - `tool/check_doc_anchors.dart` + CI 步骤：校验 Markdown 内部锚点，
   防止「章节删了、链接还在」这类断链（`doc/commands.md` 就发生过一次）
+
+- iOS 产物多一份 `<app>_<version>.dSYMs.zip`（符号化/上传用），并输出一行构建摘要
+  （签名方式 / method / team / bundle / 用时）
+- 手动签名自动探测：`--manual` 未给 `--cert`/`--profile` 时，从本机钥匙串与
+  `~/Library/MobileDevice/Provisioning Profiles` 里找唯一匹配（证书按 Apple Distribution/Development，
+  profile 按 bundle id）
+- iOS 零配置构建：从 `ios/Runner.xcodeproj` 读 `DEVELOPMENT_TEAM`，按自动签名直接出包，
+  不再需要先生成再手填 `ios.plist`
+- `ww build ios` 新增签名覆盖参数：`--method=` `--team=` `--bundle-id=` `--cert=`
+  `--profile=` `--automatic` `--manual`（不修改任何配置文件）
+- 签名配置查找顺序：命令行 > `w_build/ios.plist`（个人）> `ios/ExportOptions.plist`（可提交）> 自动探测
+- 新增内置动词 `ww watch`（build_runner watch，不限时）、`ww add <包> [--dev]`、
+  `ww fix`（dart fix --apply）、`ww doctor`（环境自检）
+- `WW_TASK_TIMEOUT=0` 表示不限时；`ww watch` 默认就不限时
+- 新增内置动词 `ww test` / `ww l10n` / `ww outdated`
+- `ww fmt --check`：只检查不修改，格式不一致退出 1（CI 用）
+- 内置动词支持额外参数：位置参数替换默认目标（`ww fmt lib/app`），flag 写在 `--` 后原样转发
+- 内置动词统一超时（默认 10 分钟，`WW_TASK_TIMEOUT` 覆盖，超时 124）；`ww gen` 30 分钟
+- `ww pod` 在没有 `ios/` 目录时直接给中文提示而不是 CocoaPods 报错
+- `ww run [任务名]` + `.ww/tasks`：项目自定义快捷键（一行一条 `名字 = 命令`，
+  可提交到仓库给团队/CI 共用）；`ww run` 列任务、`--dry-run` 只打印
+- `ww create` 会生成一份默认 `.ww/tasks`（gen / fmt / get）
+- 四个内置短命令：`ww fmt`（dart format .）、`ww get`（flutter pub get）、
+  `ww pod`（pod install --project-directory=ios）、`ww analyze`（flutter analyze）
+
+- `ww api models` 不再需要 python3：JSON→Dart 渲染在 `lib/src/models/`
+- `ww api` 覆盖前检测手写成员，`--force` 才覆盖
+- `ww api generate`（别名 `g`）显式写法
+- `ww api -d/--debug` 可以传到脚本（之前会被参数解析拒绝）
 
 ### Changed
 
@@ -42,12 +74,37 @@
   - `main.dart` 模板改用 w_tools_app 1.x 的 `WApp.start()`：去掉已不存在的
     `designWidth` / `envFileName`（屏幕适配与 `.env` 由插件负责）
 
-### Changed
-
 - 抽出 `lib/src/cli/capture.dart`（`runCaptured` / `captureTail` / `captureLastLine`），
   合并 `BuildRunner` / `ProjectCommand` / `TaskRunner` 三份「收集输出 + 落盘 + 失败尾巴」
 - 剩余命令（clean / open / doctor / run / api / models / update）的输出统一走 `Cli`，
   并去掉 `open` / `clean` 自带的 `====` 横幅（Dart 侧已统一打）
+
+- 命令改名（旧名保留一版并提示）：
+  | 旧 | 新 |
+  |---|---|
+  | `ww update` | `ww self-update`（`su`） |
+  | `ww project --update` | `ww deps upgrade` |
+  | `ww common drbb` | `ww gen` |
+  | `ww build --clean` | `ww build --fresh` |
+- `ww clean` 无参数改为打印帮助（以前会立刻清空所有构建产物），要清理请显式写 `ww clean all`
+- `ww create <name>` 不再要求写 `project`（`ww create project <name>` 仍可用）
+- `ww <命令> --help` 打印该命令自己的帮助；`ww build` / `ww common` 无参数也打印帮助
+
+- `lib/sh/lib.sh` 精简为「只服务 build.sh」：删掉 `ww::die` / `ww::require` /
+  `ww::show_version` / `ww::usage_error` / `log_success`（其余脚本迁 Dart 后无人使用）
+- `ww open` 改为 Dart 实现，`lib/sh/open.sh` 删除：支持 `i`/`a`/`b`/`r` 短别名，
+  打开失败返回非零（旧脚本永远退 0）
+- `lib/sh/setup.sh` 删除：`ww create` 编排也迁到 Dart（`lib/src/project/`），
+  Windows 可用；assets 配置的兜底路径不再依赖 `sed -i ''`（只在 macOS 有效）
+- `ww create` 的生成文本全部迁到 Dart：`lib/src/project/project_templates.dart` +
+  `ProjectScaffolder`（main.dart / home / routes / CI / .env / toolkit），
+  `setup.sh` 只剩编排
+- `ww clean` / `ww project` 改为 Dart 实现，`lib/sh/clean.sh`、`lib/sh/project.sh` 删除：
+  `--lock` / `--pod` 以前会被 ww 的参数解析拒绝，现在可用；Windows 也可用
+- `ww common drbb` 改为 Dart 实现（`lib/src/tools/build_runner.dart`），`lib/sh/common.sh` 删除：
+  统一 30 分钟超时、超时退出码 124、Windows 可用
+- `ww common drbb --debug` / `-d` 之前会被 ArgParser 拒绝，现在可用
+- `ww create` 在脚手架完成后统一调用 `BuildRunner`（`setup.sh` 不再自己跑 build_runner）
 
 ### Fixed
 
@@ -70,70 +127,6 @@
   （`handleCreatePage/Screen/Controller/View/Provider`、`handleInitCommand`、
   `handleGenerateLocales/Model`、`handleInstallCommand`、`handleRemoveCommand`）：
   它们都只打印「not yet implemented」，对应命令也从未在 `bin` 注册
-
-### Added
-
-- iOS 产物多一份 `<app>_<version>.dSYMs.zip`（符号化/上传用），并输出一行构建摘要
-  （签名方式 / method / team / bundle / 用时）
-- 手动签名自动探测：`--manual` 未给 `--cert`/`--profile` 时，从本机钥匙串与
-  `~/Library/MobileDevice/Provisioning Profiles` 里找唯一匹配（证书按 Apple Distribution/Development，
-  profile 按 bundle id）
-- iOS 零配置构建：从 `ios/Runner.xcodeproj` 读 `DEVELOPMENT_TEAM`，按自动签名直接出包，
-  不再需要先生成再手填 `ios.plist`
-- `ww build ios` 新增签名覆盖参数：`--method=` `--team=` `--bundle-id=` `--cert=`
-  `--profile=` `--automatic` `--manual`（不修改任何配置文件）
-- 签名配置查找顺序：命令行 > `w_build/ios.plist`（个人）> `ios/ExportOptions.plist`（可提交）> 自动探测
-- 新增内置动词 `ww watch`（build_runner watch，不限时）、`ww add <包> [--dev]`、
-  `ww fix`（dart fix --apply）、`ww doctor`（环境自检）
-- `WW_TASK_TIMEOUT=0` 表示不限时；`ww watch` 默认就不限时
-- 新增内置动词 `ww test` / `ww l10n` / `ww outdated`
-- `ww fmt --check`：只检查不修改，格式不一致退出 1（CI 用）
-- 内置动词支持额外参数：位置参数替换默认目标（`ww fmt lib/app`），flag 写在 `--` 后原样转发
-- 内置动词统一超时（默认 10 分钟，`WW_TASK_TIMEOUT` 覆盖，超时 124）；`ww gen` 30 分钟
-- `ww pod` 在没有 `ios/` 目录时直接给中文提示而不是 CocoaPods 报错
-- `ww run [任务名]` + `.ww/tasks`：项目自定义快捷键（一行一条 `名字 = 命令`，
-  可提交到仓库给团队/CI 共用）；`ww run` 列任务、`--dry-run` 只打印
-- `ww create` 会生成一份默认 `.ww/tasks`（gen / fmt / get）
-- 四个内置短命令：`ww fmt`（dart format .）、`ww get`（flutter pub get）、
-  `ww pod`（pod install --project-directory=ios）、`ww analyze`（flutter analyze）
-
-### Changed
-
-- 命令改名（旧名保留一版并提示）：
-  | 旧 | 新 |
-  |---|---|
-  | `ww update` | `ww self-update`（`su`） |
-  | `ww project --update` | `ww deps upgrade` |
-  | `ww common drbb` | `ww gen` |
-  | `ww build --clean` | `ww build --fresh` |
-- `ww clean` 无参数改为打印帮助（以前会立刻清空所有构建产物），要清理请显式写 `ww clean all`
-- `ww create <name>` 不再要求写 `project`（`ww create project <name>` 仍可用）
-- `ww <命令> --help` 打印该命令自己的帮助；`ww build` / `ww common` 无参数也打印帮助
-
-### Changed
-
-- `lib/sh/lib.sh` 精简为「只服务 build.sh」：删掉 `ww::die` / `ww::require` /
-  `ww::show_version` / `ww::usage_error` / `log_success`（其余脚本迁 Dart 后无人使用）
-- `ww open` 改为 Dart 实现，`lib/sh/open.sh` 删除：支持 `i`/`a`/`b`/`r` 短别名，
-  打开失败返回非零（旧脚本永远退 0）
-- `lib/sh/setup.sh` 删除：`ww create` 编排也迁到 Dart（`lib/src/project/`），
-  Windows 可用；assets 配置的兜底路径不再依赖 `sed -i ''`（只在 macOS 有效）
-- `ww create` 的生成文本全部迁到 Dart：`lib/src/project/project_templates.dart` +
-  `ProjectScaffolder`（main.dart / home / routes / CI / .env / toolkit），
-  `setup.sh` 只剩编排
-- `ww clean` / `ww project` 改为 Dart 实现，`lib/sh/clean.sh`、`lib/sh/project.sh` 删除：
-  `--lock` / `--pod` 以前会被 ww 的参数解析拒绝，现在可用；Windows 也可用
-- `ww common drbb` 改为 Dart 实现（`lib/src/tools/build_runner.dart`），`lib/sh/common.sh` 删除：
-  统一 30 分钟超时、超时退出码 124、Windows 可用
-- `ww common drbb --debug` / `-d` 之前会被 ArgParser 拒绝，现在可用
-- `ww create` 在脚手架完成后统一调用 `BuildRunner`（`setup.sh` 不再自己跑 build_runner）
-
-### Added
-
-- `ww api models` 不再需要 python3：JSON→Dart 渲染在 `lib/src/models/`
-- `ww api` 覆盖前检测手写成员，`--force` 才覆盖
-- `ww api generate`（别名 `g`）显式写法
-- `ww api -d/--debug` 可以传到脚本（之前会被参数解析拒绝）
 
 ## 1.0.30
 
