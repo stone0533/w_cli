@@ -794,10 +794,10 @@ missing_out="$( cd "$res_root/demo" && WW_SCRIPT_DIR="$res_root/nowhere" CI=true
 assert_contains "找不到时列出搜索过的路径" "搜索过" "$missing_out"
 rm -rf "$res_root"
 
-# 8.36d) 文档锚点检查：仓库通过，断链会失败
-doc_ok="$( cd "$ROOT" && CI=true "$(command -v dart)" run tool/check_doc_anchors.dart 2>&1 )"
-assert_eq "文档锚点检查在仓库上通过" 0 "$?"
-assert_contains "给出检查统计" "锚点检查通过" "$doc_ok"
+# 8.36d) 文档检查：锚点 / 相对链接 / 旧命令
+doc_ok="$( cd "$ROOT" && CI=true "$(command -v dart)" run tool/check_docs.dart 2>&1 )"
+assert_eq "文档检查在仓库上通过" 0 "$?"
+assert_contains "给出检查统计" "文档检查通过" "$doc_ok"
 
 bad_doc="$(mktemp -d)"
 cat > "$bad_doc/bad.md" << 'MD'
@@ -805,9 +805,44 @@ cat > "$bad_doc/bad.md" << 'MD'
 
 见 [不存在的章节](#missing-section)。
 MD
-( cd "$ROOT" && CI=true "$(command -v dart)" run tool/check_doc_anchors.dart "$bad_doc" ) > /dev/null 2>&1
-assert_eq "断链会让锚点检查失败" 1 "$?"
+( cd "$ROOT" && CI=true "$(command -v dart)" run tool/check_docs.dart "$bad_doc" ) > /dev/null 2>&1
+assert_eq "锚点断链会让文档检查失败" 1 "$?"
+
+cat > "$bad_doc/link.md" << 'MD'
+# 标题
+
+见 [不存在的文件](no-such-file.md)。
+MD
+( cd "$ROOT" && CI=true "$(command -v dart)" run tool/check_docs.dart "$bad_doc" ) > /dev/null 2>&1
+assert_eq "相对链接断链会让文档检查失败" 1 "$?"
+
+cat > "$bad_doc/retired.md" << 'MD'
+# 标题
+
+运行 `ww common drbb` 即可。
+MD
+( cd "$ROOT" && CI=true "$(command -v dart)" run tool/check_docs.dart "$bad_doc" ) > /dev/null 2>&1
+assert_eq "教人用已删除命令会让文档检查失败" 1 "$?"
 rm -rf "$bad_doc"
+
+# 8.36e) 发布前检查与发布脚本
+rel_out="$( cd "$ROOT" && CI=true "$(command -v dart)" run tool/release_check.dart 2>&1 )"
+assert_eq "release_check 在仓库上通过" 0 "$?"
+assert_contains "release_check 报告版本" "w_cli" "$rel_out"
+
+bash "$ROOT/tool/publish.sh" --help > /dev/null 2>&1
+assert_eq "publish.sh --help 退出 0" 0 "$?"
+
+# 反例：版本与 CHANGELOG/version.dart 不一致时应当失败
+rel_bad="$(mktemp -d)"
+mkdir -p "$rel_bad/lib/src"
+printf 'name: demo\nversion: 1.0.0\n' > "$rel_bad/pubspec.yaml"
+printf "const String version = '0.9.0';\n" > "$rel_bad/lib/src/version.dart"
+printf '## 0.9.0\n\n- 旧版本\n' > "$rel_bad/CHANGELOG.md"
+printf '# demo\n' > "$rel_bad/README.md"
+( cd "$rel_bad" && CI=true "$(command -v dart)" run "$ROOT/tool/release_check.dart" ) > /dev/null 2>&1
+assert_eq "版本不一致时 release_check 失败" 1 "$?"
+rm -rf "$rel_bad"
 
 # 8.37) 输出约定：开始/结束横幅 + 颜色只在 TTY
 frame_root="$(mktemp -d)"

@@ -38,4 +38,4 @@
 | --- | --- |
 | **`lib/sh/`** | 只剩 `build.sh`（打包编排）与 `lib.sh`（共享库）；**不写任何生成文本** |
 | **工作区卫生** | `test/shell/run.sh` 结束前对比 `git status`，且断言 `w_build/` `w_json/` `lib/app/` 不存在 |
-| **锚点检查** | `tool/check_doc_anchors.dart`：校验 Markdown 里的 `#anchor` 是否都有对应标题 |
+| **锚点检查** | `tool/check_docs.dart`：校验 Markdown 里的 `#anchor` 是否都有对应标题 |

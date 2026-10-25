@@ -17,9 +17,14 @@
 
 ### Added
 
+- `tool/release_check.dart`：发布前检查（版本/CHANGELOG/README 一致性，`--strict` 查工作区，
+  `--online` 对比 pub.dev），并在「含 Breaking 却没升 major」时提醒
+- `tool/publish.sh`：发布封装，显式指定 pub.dev（本机 `PUB_HOSTED_URL` 常指向只读镜像）
+- `tool/check_docs.dart` 增加相对链接与已删除命令检查（原 `check_doc_anchors.dart`）
+
 - `example/example.dart`：演示如何复用 `ProcessRunner` + `Cli`（pub.dev 的 Example 项）
 
-- `tool/check_doc_anchors.dart` + CI 步骤：校验 Markdown 内部锚点，
+- `tool/check_docs.dart` + CI 步骤：校验 Markdown 内部锚点，
   防止「章节删了、链接还在」这类断链（`docs/commands.md` 就发生过一次）
 
 - iOS 产物多一份 `<app>_<version>.dSYMs.zip`（符号化/上传用），并输出一行构建摘要
