@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'src/version.dart';
 import 'src/cli/script_runner.dart';
 import 'src/cli/help.dart';
+import 'src/cli/output.dart';
 import 'src/cli/validators.dart';
 import 'src/api/api_cli.dart';
 
@@ -105,7 +106,7 @@ Future<int> handleApiCommand(
     return 1;
   }
 
-  print('\n🚀 Running API code generation');
+  Cli.detail('API 代码生成');
 
   // 目录初始化（ADR-0002 Phase 1：Dart 实现）
   if (invocation.mode == ApiMode.init) {

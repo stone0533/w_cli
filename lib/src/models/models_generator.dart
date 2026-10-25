@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../cli/output.dart';
+
 import '../tools/build_runner.dart';
 import 'model_renderer.dart';
 import '../cli/process.dart';
@@ -67,9 +69,9 @@ class ModelsGenerator {
       return 1;
     }
 
-    stdout.writeln('找到 ${jsonFiles.length} 个 json 文件:');
+    Cli.detail('找到 ${jsonFiles.length} 个 json 文件');
     for (final file in jsonFiles) {
-      stdout.writeln('  - ${_basename(file.path)}');
+      Cli.detail('  - ${_basename(file.path)}');
     }
 
     final configFile = File('$base$jsonDir/w_json.config');
@@ -78,7 +80,7 @@ class ModelsGenerator {
 
     // 独立类先落盘：主模型的增量检查要靠磁盘上的 mtime
     if (specs.isNotEmpty) {
-      stdout.writeln('生成配置文件声明的独立类...');
+      Cli.detail('生成配置文件声明的独立类...');
       if (!_generateStandalones(specs, standalones, configFile, base)) {
         return 1;
       }
@@ -92,7 +94,7 @@ class ModelsGenerator {
       return 0; // 全部是最新的
     }
 
-    stdout.writeln('开始转换 json 文件为 dart 文件...');
+    Cli.detail('开始转换 json 文件为 dart 文件...');
     for (final target in targets) {
       final jsonText = File(target.jsonPath).readAsStringSync();
       Object? data;
@@ -112,9 +114,11 @@ class ModelsGenerator {
       _enqueue(target.dartPath, content);
     }
 
+    final generatedCount = targets.length;
     if (!await _flush()) {
       return 1;
     }
+    Cli.ok('生成 $generatedCount 个模型文件 → $modelsDir');
 
     if (!_verifyGeneratedModels()) {
       return 1;
@@ -124,7 +128,6 @@ class ModelsGenerator {
       await _runBuildRunner();
     }
 
-    stdout.writeln('✅ 模型文件生成完成！');
     return 0;
   }
 
@@ -138,10 +141,10 @@ class ModelsGenerator {
 
     for (final entry in required.entries) {
       if (content.contains('${entry.key}:')) {
-        stdout.writeln('${entry.key} 依赖已存在');
+        Cli.detail('${entry.key} 依赖已存在');
         continue;
       }
-      stdout.writeln('添加 ${entry.key} 依赖...');
+      Cli.detail('添加 ${entry.key} 依赖...');
       final tool = runner.which('flutter') ? 'flutter' : 'dart';
       final args = ['pub', 'add', if (entry.value) '--dev', entry.key];
       final result = await runner.run(tool, args, workingDirectory: root);
@@ -160,10 +163,10 @@ class ModelsGenerator {
   ) {
     final specs = <({String className, String jsonPath, String node})>[];
     if (!config.existsSync()) {
-      stdout.writeln('配置文件不存在: ${config.path}，跳过自定义类生成');
+      Cli.detail('配置文件不存在: ${config.path}，跳过自定义类生成');
       return specs;
     }
-    stdout.writeln('读取配置文件: ${config.path}');
+    Cli.detail('读取配置文件: ${config.path}');
 
     var currentClass = '';
     for (final line in config.readAsLinesSync()) {
@@ -251,7 +254,7 @@ class ModelsGenerator {
             : jsonTime;
         final dartTime = dartFile.lastModifiedSync();
         if (!jsonTime.isAfter(dartTime) && !configTime.isAfter(dartTime)) {
-          stdout.writeln('  - $dartName.dart (无需更新)');
+          Cli.detail('  - $dartName.dart (无需更新)');
           continue;
         }
       }
@@ -271,7 +274,7 @@ class ModelsGenerator {
           standalones: standalones,
         ),
       );
-      stdout.writeln('  ~ $dartName.dart (生成/更新)');
+      Cli.detail('  ~ $dartName.dart (生成/更新)');
     }
     return true;
   }
@@ -317,7 +320,7 @@ class ModelsGenerator {
 
       final dartFile = File(entry.dartPath);
       if (!dartFile.existsSync()) {
-        stdout.writeln('  + $name.json -> $dartName.dart (新建)');
+        Cli.detail('  + $name.json -> $dartName.dart (新建)');
         changed.add(entry);
         continue;
       }
@@ -334,24 +337,24 @@ class ModelsGenerator {
       }
 
       if (needUpdate) {
-        stdout.writeln('  ~ $name.json -> $dartName.dart (已更新)');
+        Cli.detail('  ~ $name.json -> $dartName.dart (已更新)');
         changed.add(entry);
       } else {
-        stdout.writeln('  - $name.json -> $dartName.dart (无需更新)');
+        Cli.detail('  - $name.json -> $dartName.dart (无需更新)');
       }
     }
 
     if (force) {
-      stdout.writeln('全量模式: 重新生成所有 ${all.length} 个文件...');
+      Cli.detail('全量模式: 重新生成所有 ${all.length} 个文件...');
       return all;
     }
 
     if (changed.isEmpty) {
-      stdout.writeln('✅ 所有模型文件都是最新的，无需重新生成');
+      Cli.ok('所有模型文件都是最新的，无需重新生成');
       return null;
     }
 
-    stdout.writeln('需要更新 ${changed.length} 个文件');
+    Cli.detail('需要更新 ${changed.length} 个文件');
     return changed;
   }
 
@@ -406,7 +409,7 @@ class ModelsGenerator {
     }
 
     if (formatOutput && runner.which('dart')) {
-      stdout.writeln('校验生成的代码...');
+      Cli.detail('校验生成的代码...');
       final result = await runner.run('dart', [
         'format',
         ..._pending.map((entry) => entry.temp),
@@ -464,18 +467,18 @@ class ModelsGenerator {
       return false;
     }
 
-    stdout.writeln('生成自检通过：无重复 import / 无重复 class');
+    Cli.detail('生成自检通过：无重复 import / 无重复 class');
     return true;
   }
 
   Future<void> _runBuildRunner() async {
-    stdout.writeln('执行 build_runner build...');
+    Cli.detail('执行 build_runner build...');
     final status = await BuildRunner(root: root).run();
     if (status != 0) {
       stderr.writeln('build_runner build 失败（退出码 $status）');
       return;
     }
-    stdout.writeln('build_runner build 执行完成');
+    Cli.detail('build_runner build 执行完成');
   }
 
   static String _basename(String path) => path.split('/').last;

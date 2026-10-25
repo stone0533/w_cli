@@ -29,6 +29,17 @@ ww api models --force   # 忽略增量，全量重生成
 ww api --force          # 覆盖 repository.dart 里检测到的手写成员
 ```
 
+输出约定（全项目一致）：
+
+- 默认只留关键行；明细用 `-d` / `--debug` 打开
+- 前缀固定 `[INFO]` / `[WARN]` / `[ERROR]`
+- 子进程输出（xcodebuild / build_runner）默认写入 `w_build/build.log`
+
+```console
+$ ww api models
+[INFO] 生成 7 个模型文件 → lib/app/data/models
+```
+
 要点：
 
 - **只在 Flutter 工程里运行**：`init` / `generate` 要求当前目录有 `pubspec.yaml` 的 `flutter:` 段
