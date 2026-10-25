@@ -6,15 +6,16 @@
 | --- | --- | --- |
 | [`ww api`](#ww-api) | Dart | `client.dart` → API 层；`w_json` → 模型 |
 | [`ww create`](#ww-create) | Dart | 从零搭一个符合约定的工程 |
-| [`ww common`](#ww-common) | Dart | 跑 build_runner |
+| [`ww deps`](#ww-deps) | Dart | 升级 pub 依赖；Gradle 单独一步 |
+| [`ww build`](#ww-build) | **bash** | 打包 APK / AAB / IPA |
 | [`ww clean`](#ww-clean) | Dart | 清构建产物 / 锁文件 / Pods |
 | [`ww open`](#ww-open) | Dart | 打开 IDE 或目录 |
-| [`ww deps`](#ww-deps) | Dart | 升级依赖与 Gradle |
-| `ww gen` | Dart | 跑 build_runner（30 分钟超时） |
-| [`ww fmt`](#内置短命令-fmt--get--pod--analyze) / `get` / `pod` / `analyze` | Dart | 常用长命令的短写法 |
+| [`ww gen`](#ww-gen) | Dart | 跑 build_runner（30 分钟超时） |
+| [`fmt` / `get` / `add` / `pod` / `analyze` / `fix` / `test` / `l10n` / `outdated`](#内置短命令) | Dart | 常用长命令的短写法 |
 | [`ww run`](#ww-run) | Dart | 执行 `.ww/tasks` 里的自定义任务 |
-| `ww doctor` | Dart | 检查环境（flutter / dart / pod / 工程文件） |
-| [`ww build`](#ww-build) | **bash** | 打包 APK / AAB / IPA |
+| [`ww doctor`](#ww-doctor) | Dart | 检查环境与签名来源 |
+| [`ww ios setup`](#ww-ios-setup) | Dart | 生成可提交的签名配置 |
+| [`ww self-update`](#ww-self-update) | Dart | 升级 w_cli 自身 |
 
 > 除 `build` 外全部是纯 Dart，Windows 可直接用；`build` 需要 bash（Git Bash / WSL）。
 
@@ -114,13 +115,69 @@ ww deps gradle --to=8.0 --force   # 允许降级（默认拒绝）
 > 为什么要拆：Flutter 3.4x 模板默认 Gradle 是 **9.1.0**，旧实现无条件写 8.0，
 > 等于把新工程的 Gradle 降级，AGP 兼容性直接崩。
 
-旧写法 `ww project --update` 仍可用。
+旧写法 `ww project --update` 仍可用（只升 pub 依赖，并提示改用 `ww deps upgrade`）。
 
 1. 检查 `flutter`（不可用退出 1）
 2. 打印当前 Flutter 版本
 3. 需要 `pubspec.yaml`，执行 `flutter pub upgrade`
 4. 有 `android/gradle/wrapper/gradle-wrapper.properties` 时，把 `distributionUrl` 改写为 `gradle-8.0-all.zip`
 5. 没有 `android` 目录只告警，不算失败
+
+## ww clean
+
+清理 Flutter 构建产物，然后重新 `flutter pub get`。
+
+> 2026-10 起由 Dart 实现（`lib/src/commands/clean_command.dart`），`lib/sh/clean.sh` 已删除。
+> 变化：`--lock` / `--pod` 以前会被 ww 的参数解析拒绝，现在能真正传进来；Windows 可用。
+
+### 用法
+
+```bash
+ww clean                 # 只打印帮助（不会清任何东西）
+ww clean all             # 清理所有平台的构建文件
+ww clean android         # 只清 Android
+ww clean ios             # 只清 iOS
+ww clean --lock          # 额外删除 pubspec.lock（iOS 时还会删 Podfile.lock）
+ww clean ios --pod       # 删除 ios/Pods 与 Podfile.lock，然后 pod update
+ww cl --lock             # ww clean 的别名
+```
+
+### 行为
+
+1. `--lock`：按平台删 `pubspec.lock` / `ios/Podfile.lock`
+2. `--pod`：删 `ios/Pods` 与 `ios/Podfile.lock`（`--pod` + `android` 会直接报错退出 2）
+3. `flutter clean`
+4. `flutter pub get`
+5. 需要时执行 `pod update`（最多重试 30 次，与旧脚本一致）
+
+任何一步失败退出码为 1；参数错误为 2。
+
+## ww open
+
+打开 Flutter 项目的不同部分。
+
+> 2026-10 起由 Dart 实现（`lib/src/commands/open_command.dart`），`lib/sh/open.sh` 已删除。
+> 变化：支持 help 里早就写着的短别名（`i` / `a` / `b` / `r`）；打开失败返回非零（旧脚本永远退 0）。
+
+### 用法
+
+```bash
+ww open ios        # 用 Xcode 打开 ios/Runner.xcworkspace（仅 macOS）
+ww open i          # 同上
+ww open android    # 用 Android Studio 打开 android/（macOS: open -a / Linux: studio.sh）
+ww open build      # 用文件管理器打开 w_build/
+ww open root       # 用文件管理器打开项目根目录
+ww o b             # 别名
+```
+
+| 目标 | 要求 |
+|---|---|
+| `ios` / `i` | 存在 `ios/Runner.xcworkspace`；仅 macOS |
+| `android` / `a` | 存在 `android/`；macOS 用 `open -a "Android Studio"`，Linux 用 `studio.sh` |
+| `build` / `b` | 存在 `w_build/`；macOS `open` / Linux `xdg-open` |
+| `root` / `r` | 项目根目录；同上 |
+
+无参数或 `--help` 打印帮助（退出 0）；未知参数退出 2；打开失败退出非零。
 
 ## ww build
 
@@ -263,3 +320,82 @@ ww ios setup --method=ad-hoc --team=ABC123DEF4
 | 「构建产物不完整」 | 产物小于 `MIN_BUILD_SIZE` |
 | iOS 提示「ios.plist 文件配置不正确」 | 缺 `method` / `teamID`，或仍有 `YOUR_` 占位符 |
 | 手动签名签名失败 | `signingCertificate` 与钥匙串里的证书名不完全一致 |
+
+## ww gen
+
+```bash
+ww gen            # dart run build_runner build --delete-conflicting-outputs
+ww gen -d         # 实时显示 build_runner 的输出
+```
+
+- 30 分钟超时；输出默认落盘 `w_build/gen.log`，终端只留结论
+- 长驻开发用 [`ww watch`](#内置短命令)，它不设超时
+
+## 内置短命令
+
+| 命令 | 等价于 |
+| --- | --- |
+| `ww fmt [路径...] [--check]` | `dart format`（默认 `.`；`--check` 只检查） |
+| `ww get` | `flutter pub get` |
+| `ww add <包>... [--dev]` | `flutter pub add`（`--dev` → `dev:` 前缀） |
+| `ww pod` | `pod install --project-directory=ios` |
+| `ww analyze [-- <flags>]` | `flutter analyze` |
+| `ww fix` | `dart fix --apply` |
+| `ww test [目标...]` | `flutter test` |
+| `ww l10n` | `flutter gen-l10n` |
+| `ww outdated` | `flutter pub outdated` |
+| `ww gen` | `dart run build_runner build --delete-conflicting-outputs`（30 分钟超时） |
+| `ww watch` | `dart run build_runner watch --delete-conflicting-outputs`（**不限时**） |
+
+- 都在项目根执行；执行前打印展开后的命令行
+- 位置参数替换默认目标（`ww fmt lib` → `dart format lib`）；flag 写在 `--` 之后
+- 工具不在 PATH 时退出 1 并打印等价命令；进程退出码原样透传
+- `WW_TASK_TIMEOUT=<秒>` 覆盖默认 10 分钟；`0` 表示不限时
+
+## ww run
+
+项目特有的命令写在 `.ww/tasks`（`ww create` 会生成一份默认的），提交到仓库即可团队/CI 共用：
+
+```ini
+# .ww/tasks —— 一行一条 `名字 = 命令`
+map  = dart run w_tools_cli:map
+gen  = dart run build_runner build --delete-conflicting-outputs
+```
+
+```bash
+ww run               # 列出所有任务
+ww run map           # 执行
+ww run map --dry-run # 只打印命令，不执行
+```
+
+- 按**第一个** `=` 切分；名字限 `[A-Za-z0-9_-]`；坏行跳过并报行号；重名保留第一条
+- 命令走 `bash -c`（Windows `cmd /c`），支持 `&&` / `cd` / 管道；退出码透传
+- 没有 `.ww/tasks` 时：`ww run` 打印用法（0），`ww run <名字>` 报错（1）
+
+## ww doctor
+
+```bash
+ww doctor
+```
+
+逐项检查 flutter / dart / pod、`pubspec.yaml`、`ios/`、`android/`、`.ww/tasks`，
+并报告 **iOS 签名来源**（个人 `w_build/ios.plist` / 团队 `ios/ExportOptions.plist` / 零配置自动探测）。
+必需项缺失退出 1。
+
+## ww ios setup
+
+```bash
+ww ios setup --dry-run     # 先看会写成什么
+ww ios setup               # 写入 ios/ExportOptions.plist（已存在则拒绝，--force 覆盖）
+```
+
+值优先取命令行，其次自动探测（xcodeproj 的 team/bundle、钥匙串里的证书、
+`~/Library/MobileDevice` 里匹配 bundle id 的 profile）。
+
+## ww self-update
+
+```bash
+ww self-update     # dart pub global activate w_cli
+```
+
+旧名 `ww update` / `ww u` 仍可用，会提示改用新名。
