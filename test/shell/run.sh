@@ -12,6 +12,8 @@ set -uo pipefail
 export CI="${CI:-true}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# 跑测试前的工作区快照：结束时对比，任何新增都是「测试污染了工作区」
+WORKSPACE_BEFORE="$(git -C "$ROOT" status --porcelain 2>/dev/null || true)"
 SH="$ROOT/lib/sh"
 FIXTURES="$ROOT/test/shell/fixtures"
 STUBS="$ROOT/test/shell/stubs"
@@ -808,6 +810,8 @@ mkdir -p "$scaffold_root/bin" "$scaffold_root/demo/lib/app/w"
 printf '#!/bin/bash\nexit 0\n' > "$scaffold_root/bin/flutter"
 chmod +x "$scaffold_root/bin/flutter"
 printf '// barrel\n' > "$scaffold_root/demo/lib/app/w/toolkit.dart"
+mkdir -p "$scaffold_root/demo/lib"
+printf 'void main() {}\n' > "$scaffold_root/demo/lib/main.dart"
 cat > "$scaffold_root/demo/pubspec.yaml" << 'YAML'
 name: demo
 dependencies:
@@ -844,6 +848,49 @@ assert_eq "ww api models 退出 0" 0 "$?"
 assert_eq "ww api models 产出模型文件" "present" \
   "$([ -f "$scaffold_root/demo/lib/app/data/models/user.dart" ] && echo present || echo gone)"
 rm -rf "$scaffold_root"
+
+# 12) 工作区护栏：在错误目录里跑不会留垃圾
+guard_root="$(mktemp -d)"
+mkdir -p "$guard_root/fake_engine/lib"
+printf 'name: fake_engine\ndependencies:\n  retrofit: ^4.0.0\n' > "$guard_root/fake_engine/pubspec.yaml"
+printf 'void main() {}\n' > "$guard_root/fake_engine/lib/main.dart"
+
+# 已在工程里再 create → 拒绝，且不建目录
+( cd "$guard_root/fake_engine" && CI=true "$(command -v dart)" run "$ROOT/bin/w_cli.dart" create nested ) > /dev/null 2>&1
+assert_eq "工程内 ww create 被拒绝" 1 "$?"
+assert_eq "被拒绝时不留目录" "absent" \
+  "$([ -d "$guard_root/fake_engine/nested" ] && echo present || echo absent)"
+
+# 非工程目录跑 api init → 拒绝，且不建 lib/app
+mkdir -p "$guard_root/not_a_project"
+printf 'name: somewhere\n' > "$guard_root/not_a_project/pubspec.yaml"
+( cd "$guard_root/not_a_project" && CI=true "$(command -v dart)" run "$ROOT/bin/w_cli.dart" api init ) > /dev/null 2>&1
+assert_eq "非工程目录 api init 被拒绝" 1 "$?"
+assert_eq "被拒绝时不留 lib/app" "absent" \
+  "$([ -d "$guard_root/not_a_project/lib/app" ] && echo present || echo absent)"
+rm -rf "$guard_root"
+
+# workspace 卫生：测试不得在仓库里留东西（空目录 git 看不到，单独查）
+WORKSPACE_AFTER="$(git -C "$ROOT" status --porcelain 2>/dev/null || true)"
+if [ "$WORKSPACE_BEFORE" = "$WORKSPACE_AFTER" ]; then
+  printf '  %s  %s\n' "ok  " "测试未改动工作区（git status 不变）"
+  TOTAL=$((TOTAL + 1))
+else
+  printf '  %s  %s\n' "FAIL" "测试改动了工作区："
+  printf '%s\n' "$WORKSPACE_AFTER" | sed 's/^/        /'
+  FAILS=$((FAILS + 1))
+  TOTAL=$((TOTAL + 1))
+fi
+
+for stray in w_build w_json lib/app; do
+  if [ -e "$ROOT/$stray" ]; then
+    printf '  %s  %s\n' "FAIL" "工作区不该出现 $stray/"
+    FAILS=$((FAILS + 1))
+  else
+    printf '  %s  %s\n' "ok  " "工作区没有 $stray/"
+  fi
+  TOTAL=$((TOTAL + 1))
+done
 
 echo
 if [ "$FAILS" -eq 0 ]; then

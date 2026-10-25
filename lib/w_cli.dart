@@ -29,6 +29,19 @@ String getVersionFromPubspec() {
 /// [projectName] - 项目名称
 /// 返回验证结果
 
+/// 当前目录看起来是不是一个 Flutter 工程：
+/// pubspec.yaml 里有 flutter: 段，或者存在 lib/main.dart
+bool _isFlutterProject() {
+  final pubspec = File('pubspec.yaml');
+  if (pubspec.existsSync()) {
+    final content = pubspec.readAsStringSync();
+    if (RegExp(r'^flutter:', multiLine: true).hasMatch(content)) {
+      return true;
+    }
+  }
+  return File('lib/main.dart').existsSync();
+}
+
 /// 处理 create 命令
 /// [arguments] - 命令参数
 Future<int> handleCreateCommand(
@@ -81,6 +94,15 @@ Future<int> handleApiCommand(
   } on ApiUsageError catch (error) {
     stderr.writeln(error.message);
     return 2;
+  }
+
+  // 在非工程目录里跑会在仓库根长出 lib/app/ —— 直接拒绝，别留垃圾
+  if (invocation.mode != ApiMode.models && !_isFlutterProject()) {
+    stderr.writeln(
+      '当前目录不是 Flutter 工程（没有 pubspec.yaml 的 flutter: 段，也没有 lib/main.dart）',
+    );
+    stderr.writeln('  请在工程根目录执行，或先 ww create <name>');
+    return 1;
   }
 
   print('\n🚀 Running API code generation');

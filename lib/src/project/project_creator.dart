@@ -5,6 +5,7 @@ import '../tools/build_runner.dart';
 import 'project_scaffolder.dart';
 import 'pubspec_editor.dart';
 import '../cli/process.dart';
+import '../cli/validators.dart';
 
 /// `ww create project <name>` 的完整实现（ADR-0002：`lib/sh/setup.sh` 的最后一块）。
 ///
@@ -82,6 +83,14 @@ class ProjectCreator {
       return 1;
     }
     stdout.writeln('Flutter 已安装');
+
+    // 在已有工程里创建，会把工程嵌套在自己下面——多半是敲错了目录
+    if (!force && insideExistingProject()) {
+      stderr.writeln('当前目录已经是一个 Dart/Flutter 工程，请到父目录执行 ww create');
+      stderr.writeln('  当前目录: ${Directory.current.path}');
+      stderr.writeln('  确需在此创建，加 --force');
+      return 1;
+    }
 
     if (Directory(name).existsSync()) {
       if (!force) {
