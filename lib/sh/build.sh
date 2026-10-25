@@ -193,11 +193,11 @@ check_flutter_version() {
     return 0
   fi
   
-  log_info "当前 Flutter 版本: $current_version"
+  log_debug "当前 Flutter 版本: $current_version"
   
   # 比较版本号（使用纯 bash 实现）
   if version_ge "$current_version" "$required_version"; then
-    log_info "Flutter 版本满足要求 (>= $required_version)"
+    log_debug "Flutter 版本满足要求 (>= $required_version)"
   else
     log_warn "Flutter 版本低于推荐版本: $current_version < $required_version"
     log_warn "建议升级到 Flutter $required_version 或更高版本"
@@ -206,7 +206,7 @@ check_flutter_version() {
 
 # 检查项目依赖
 check_dependencies() {
-  log_info "检查项目依赖..."
+  log_debug "检查项目依赖..."
   
   # 检查是否为 Flutter 项目
   if [ ! -f "pubspec.yaml" ]; then
@@ -216,13 +216,13 @@ check_dependencies() {
   
   # 检查是否需要执行 pub get
   if [ ! -d ".dart_tool" ]; then
-    log_info "检测到首次构建，执行 flutter pub get..."
+    log_info "首次构建，安装依赖（flutter pub get）..."
     if ! flutter pub get; then
       log_error "flutter pub get 执行失败"
       return 1
     fi
   else
-    log_info "依赖已安装"
+    log_debug "依赖已安装"
   fi
   
   return 0
@@ -230,7 +230,7 @@ check_dependencies() {
 
 # 构建前完整性检查
 pre_build_check() {
-  log_info "执行构建前完整性检查..."
+  log_debug "执行构建前完整性检查..."
   
   # 检查平台目录
   for platform in "${PLATFORMS[@]}"; do
@@ -250,13 +250,13 @@ pre_build_check() {
     esac
   done
   
-  log_info "完整性检查通过"
+  log_debug "完整性检查通过"
   return 0
 }
 
 # 环境检查
 check_environment() {
-  log_info "检查构建环境..."
+  log_debug "检查构建环境..."
   
   # 检查 Flutter
   if ! command -v flutter &> /dev/null; then
@@ -275,13 +275,13 @@ check_environment() {
   
   # 检查 Android 工具
   if command -v aapt &> /dev/null; then
-    log_info "aapt 已找到: $(which aapt)"
+    log_debug "aapt 已找到: $(which aapt)"
   fi
   
   # 检查 iOS 工具（仅在 macOS 上）
   if [ "$(uname)" == "Darwin" ]; then
     if command -v xcodebuild &> /dev/null; then
-      log_info "Xcode 构建工具已找到"
+      log_debug "Xcode 构建工具已找到"
     else
       log_warn "Xcode 构建工具未找到，iOS 构建可能失败"
     fi
@@ -291,7 +291,7 @@ check_environment() {
     log_warn "未知系统，仅支持 Android 构建"
   fi
   
-  log_info "环境检查完成"
+  log_debug "环境检查完成"
   return 0
 }
 
@@ -486,7 +486,7 @@ build_android_package() {
   # 计算构建时间
   local end_time=$(date +%s)
   local duration=$((end_time - start_time))
-  log_info "构建耗时: ${duration}s"
+  log_debug "构建耗时: ${duration}s"
   
   # 验证构建产物完整性
   if ! verify_build_output "$source_path" "$MIN_BUILD_SIZE"; then
@@ -698,7 +698,7 @@ validate_ios_plist() {
     return 1
   fi
   
-  log_info "ios.plist 文件验证通过"
+  log_debug "ios.plist 文件验证通过"
   return 0
 }
 
@@ -994,7 +994,7 @@ autodetect_signing() {
 
 # 构建 iOS
 build_ios() {
-  log_info "=== 构建 iOS ==="
+  log_debug "=== 构建 iOS ==="
   
   # 记录开始时间
   local start_time=$(date +%s)
@@ -1016,7 +1016,7 @@ build_ios() {
   # 这里若跑完整 build 等于把同一份代码编译两遍——实测多花 40%~60% 的时间。
   local -a flutter_config_command=("flutter" "build" "ios" "--release" "--no-codesign" "--config-only")
 
-  log_info "生成 Flutter 构建配置..."
+  log_debug "生成 Flutter 构建配置..."
   log_debug "完整命令: ${flutter_config_command[*]}"
 
   local timeout=1800  # 30 分钟
@@ -1037,7 +1037,7 @@ build_ios() {
   fi
   
   # 使用 xcodebuild 导出 IPA
-  log_info "使用 xcodebuild 导出 IPA..."
+  log_debug "使用 xcodebuild 导出 IPA..."
   
   # 创建临时导出目录
   local export_dir=$(mktemp -d)
@@ -1046,6 +1046,7 @@ build_ios() {
   # 执行 xcodebuild 导出命令
   local xcodebuild_command=(
     "xcodebuild"
+    "-quiet"
     "-exportArchive"
     "-archivePath" "build/ios/archive/Runner.xcarchive"
     "-exportPath" "$export_dir"
@@ -1059,8 +1060,7 @@ build_ios() {
   signing_style=${signing_style:-manual}
   local team_id=$(get_plist_value "$export_options_file" "teamID")
   
-  log_info "签名方式: $signing_style"
-  log_info "团队 ID: $team_id"
+  log_debug "签名方式: $signing_style / 团队: $team_id"
 
   # 自动签名时 Xcode 自己管证书与 profile；模板里的占位符会让导出失败，
   # 这里用一份剔除了这两项的副本（不改用户的 ios.plist）
@@ -1077,6 +1077,7 @@ build_ios() {
   # 首先需要创建 archive
   local archive_command=(
     "xcodebuild"
+    "-quiet"
     "-workspace" "ios/Runner.xcworkspace"
     "-scheme" "Runner"
     "-configuration" "Release"
@@ -1102,7 +1103,7 @@ build_ios() {
   # -archivePath 的父目录不会自动创建，缺了 xcodebuild 会直接失败
   mkdir -p build/ios/archive
 
-  log_info "创建 Xcode Archive..."
+  log_info "Archive（xcodebuild）..."
   log_debug "Archive 命令: ${archive_command[*]}"
   if ! run_build_step "Xcode Archive" "$timeout" "${archive_command[@]}"; then
     log_error "Xcode Archive 创建失败"
@@ -1130,7 +1131,7 @@ build_ios() {
   # 计算构建时间
   local end_time=$(date +%s)
   local duration=$((end_time - start_time))
-  log_info "构建耗时: ${duration}s"
+  log_debug "构建耗时: ${duration}s"
   
   # 查找导出的 IPA 文件（新版本 Xcode 可能使用不同的路径结构）
   local exported_ipa=""
@@ -1159,7 +1160,7 @@ build_ios() {
     return 1
   fi
   
-  log_info "找到导出的 IPA 文件: $exported_ipa"
+  log_debug "找到导出的 IPA 文件: $exported_ipa"
   
   # 验证 archive 里的 Runner.app 关键文件（不再依赖第一遍构建的 build/ios/iphoneos）
   local archived_app_path="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
@@ -1175,13 +1176,13 @@ build_ios() {
     return 1
   fi
   
-  log_info "构建产物验证通过: $archived_app_path"
+  log_debug "构建产物验证通过: $archived_app_path"
   
   local ipa_file=$(generate_filename "ios" "ipa" "")
   delete_existing_file "$ipa_file"
   
   # 复制 xcodebuild 导出的 IPA 文件到输出目录
-  log_info "复制 IPA 文件到输出目录..."
+  log_debug "复制 IPA 文件到输出目录..."
   if command -v rsync &> /dev/null; then
     rsync -ah "$exported_ipa" "$ipa_file"
   else
@@ -1232,10 +1233,43 @@ run_build_step() {
   shift 2
 
   log_debug "命令: $*"
+
+  local log_file="$OUTPUT_DIR/build.log"
+  local LOUD_OUTPUT=false
+  if ww::debug_enabled; then LOUD_OUTPUT=true; fi
+  local raw
+  raw=$(mktemp)
+
   local status=0
-  if ! ww::run_with_timeout "$timeout" "$@" 2>&1 | ww::strip_ansi; then
-    status=${PIPESTATUS[0]}
+  if ww::debug_enabled; then
+    # -d：实时显示全部输出（同时落盘）
+    if ! ww::run_with_timeout "$timeout" "$@" 2>&1 | ww::strip_ansi | tee "$raw"; then
+      status=${PIPESTATUS[0]}
+    fi
+  else
+    if ! ww::run_with_timeout "$timeout" "$@" 2>&1 | ww::strip_ansi > "$raw"; then
+      status=${PIPESTATUS[0]}
+    fi
   fi
+
+  local lines
+  lines=$(wc -l < "$raw" | tr -d ' ')
+  {
+    printf '===== %s (%s) =====\n' "$label" "$(date '+%H:%M:%S')"
+    cat "$raw"
+  } >> "$log_file" 2>/dev/null || true
+
+  if [ "$status" -eq 0 ]; then
+    # 正常构建只透传警告：xcodebuild/gradle 的逐行日志对使用者没有价值
+    [ "$LOUD_OUTPUT" = "true" ] || grep -E '(^|[[:space:]])(warning|warning:|error:|error )|\*\* ARCHIVE|\*\* EXPORT|^note:' "$raw" \
+      | head -20 | sed 's/^/    /' || true
+    log_debug "$label 输出 ${lines} 行 → ${log_file}"
+  else
+    log_error "$label 失败（完整日志: ${log_file}，末尾 20 行如下）"
+    tail -20 "$raw" | sed 's/^/    /'
+  fi
+
+  rm -f "$raw"
   if [ "$status" -eq 124 ]; then
     log_error "$label 超时（超过 ${timeout}s）"
   fi
@@ -1244,9 +1278,10 @@ run_build_step() {
 
 # 运行时页脚（开始 / 结束各一处，内容不同）
 print_footer() {
-  printf "${GREEN}======================================================${NC}\n"
-  printf "${GREEN}Flutter 应用打包脚本运行结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
-  printf "${GREEN}======================================================${NC}\n"
+  printf '%s=== 完成（%s）===%s\n' "$GREEN" "$(date '+%H:%M:%S')" "$NC"
+  if [ -f "$OUTPUT_DIR/build.log" ] && ! ww::debug_enabled; then
+    log_info "构建细节: $OUTPUT_DIR/build.log（-d 可实时显示）"
+  fi
 }
 
 # 支持的平台（加平台只改这里 + build_platform）
@@ -1452,25 +1487,10 @@ prepare_build() {
   # 移除版本号中的 + 号，用于文件名
   VERSION_FOR_FILENAME=$(printf '%s' "$VERSION" | tr '+' '-')
 
-  # 添加运行开始分隔线
-  printf "${GREEN}======================================================${NC}\n"
-  printf "${GREEN}Flutter 应用打包脚本运行开始${NC}\n"
-  printf "${GREEN}======================================================${NC}\n"
-
-  # 显示构建信息
-  if [ "$UAT_MODE" == "true" ]; then
-    log_info "打包模式: UAT"
-    log_info "打包时间戳: $TIMESTAMP"
-  else
-    log_info "打包模式: PROD (Versioned)"
-    log_info "打包版本: $VERSION"
-  fi
-
-  if [ ${#PLATFORMS[@]} -gt 0 ]; then
-    log_info "构建平台: ${PLATFORMS[*]}"
-  else
-    log_info "构建平台: 无"
-  fi
+  # 一行标题（原来 3 行分隔线 + 3 行信息）
+  local mode_label="PROD"
+  [ "$UAT_MODE" == "true" ] && mode_label="UAT $TIMESTAMP"
+  printf '%s=== 构建 %s %s (%s) ===%s\n' "$GREEN" "${PLATFORMS[*]:-无}" "$VERSION" "$mode_label" "$NC"
 
   # 环境检查
   if ! check_environment; then
@@ -1491,7 +1511,7 @@ prepare_build() {
   fi
 
   # 创建输出目录
-  log_info "创建输出目录: $OUTPUT_DIR"
+  log_debug "创建输出目录: $OUTPUT_DIR"
   mkdir -p "$OUTPUT_DIR"
 
   # 验证配置
@@ -1593,7 +1613,7 @@ run_build() {
     return 1
   fi
 
-  log_info "=== 打包完成！ ==="
+  log_debug "=== 打包完成！ ==="
   log_to_file "Packaging completed successfully"
 
   # 发送构建完成通知

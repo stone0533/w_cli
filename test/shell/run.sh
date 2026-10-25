@@ -474,7 +474,7 @@ if printf ' %s ' "$*" | grep -q " archive "; then
   mkdir -p "build/ios/archive/Runner.xcarchive/dSYMs/Runner.app.dSYM"
   printf 'dsym\n' > "build/ios/archive/Runner.xcarchive/dSYMs/Runner.app.dSYM/Contents"
 fi
-if [ "$1" = "-exportArchive" ]; then
+if printf ' %s ' "$*" | grep -q " -exportArchive "; then
   while [ $# -gt 0 ]; do
     if [ "$1" = "-exportPath" ]; then mkdir -p "$2"; printf 'ipa\n' > "$2/Runner.ipa"; fi
     shift
@@ -535,7 +535,7 @@ case "$*" in
     done
     ;;
 esac
-if [ "$1" = "-exportArchive" ]; then
+if printf ' %s ' "$*" | grep -q " -exportArchive "; then
   while [ $# -gt 0 ]; do
     if [ "$1" = "-exportPath" ]; then mkdir -p "$2"; printf 'ipa\n' > "$2/Runner.ipa"; fi
     shift
@@ -648,7 +648,7 @@ for arg in "$@"; do
   if [ "$prev" = "-exportOptionsPlist" ]; then cp "$arg" "$XCODE_LOG.options"; fi
   prev="$arg"
 done
-if [ "$1" = "-exportArchive" ]; then
+if printf ' %s ' "$*" | grep -q " -exportArchive "; then
   while [ $# -gt 0 ]; do
     if [ "$1" = "-exportPath" ]; then mkdir -p "$2"; printf 'ipa\n' > "$2/Runner.ipa"; fi
     shift
@@ -688,6 +688,41 @@ head -c 100 /dev/zero > "$build_root/demo/w_build/keep_live_9.9.9.apk"
 assert_eq "失败清理保留输出目录里的成品" "present" \
   "$([ -f "$build_root/demo/w_build/keep_live_9.9.9.apk" ] && echo present || echo gone)"
 
+# 8.4) 日志精简：子进程输出进 build.log，终端只留关键行
+quiet_root="$(mktemp -d)"
+mkdir -p "$quiet_root/bin" "$quiet_root/demo/android" "$quiet_root/demo/w_build"
+cat > "$quiet_root/bin/flutter" << 'STUB'
+#!/bin/bash
+case "$1" in
+  --version) echo "Flutter 3.24.0 • channel stable"; exit 0 ;;
+  build)
+    for i in $(seq 1 20); do echo "    export NOISE_$i=x"; done
+    mkdir -p build/app/outputs/flutter-apk
+    head -c 20000 /dev/zero > build/app/outputs/flutter-apk/app-release.apk
+    exit 0 ;;
+  *) exit 0 ;;
+esac
+STUB
+chmod +x "$quiet_root/bin/flutter"
+printf 'name: demo\nversion: 1.2.3\n' > "$quiet_root/demo/pubspec.yaml"
+
+quiet_out="$( cd "$quiet_root/demo" && PATH="$quiet_root/bin:$PATH" bash "$SH/build.sh" apk 2>&1 )"
+assert_eq "默认构建终端不打印子进程噪声" "0" \
+  "$(printf '%s' "$quiet_out" | grep -c 'export NOISE_')"
+assert_eq "噪声写入 build.log" "20" \
+  "$(grep -c 'export NOISE_' "$quiet_root/demo/w_build/build.log" 2>/dev/null || echo 0)"
+assert_contains "结尾提示日志位置" "build.log" "$quiet_out"
+
+loud_out="$( cd "$quiet_root/demo" && PATH="$quiet_root/bin:$PATH" bash "$SH/build.sh" apk --debug 2>&1 )"
+if [ "$(printf '%s' "$loud_out" | grep -c 'export NOISE_')" -gt 0 ]; then
+  printf '  %s  %s\n' "ok  " "--debug 实时透传全部输出"
+else
+  printf '  %s  %s\n' "FAIL" "--debug 应该透传全部输出"
+  FAILS=$((FAILS + 1))
+fi
+TOTAL=$((TOTAL + 1))
+rm -rf "$quiet_root"
+
 # 8.5) ww build：脚本的 stderr 原样转发，不再套一层 "Error: "
 stderr_root="$(mktemp -d)"
 mkdir -p "$stderr_root/bin" "$stderr_root/demo/android" "$stderr_root/demo/w_build"
@@ -712,7 +747,9 @@ ww_build_out="$(
 )"
 ww_build_status=$?
 assert_eq "ww build 带 stderr 警告时退出 0" 0 "$ww_build_status"
-assert_contains "脚本 stderr 原样转发" "[WARN] 这是脚本自己的警告" "$ww_build_out"
+# 子进程输出现在默认进 build.log（只把 warning/error 透传到终端）
+assert_contains "子进程输出写入 build.log" "[WARN] 这是脚本自己的警告" \
+  "$(cat "$stderr_root/demo/w_build/build.log" 2>/dev/null)"
 assert_eq "stderr 未被套上 Error: 前缀" "no" \
   "$(printf '%s' "$ww_build_out" | grep -q "Error: \[WARN\]" && echo yes || echo no)"
 rm -rf "$stderr_root"
