@@ -70,13 +70,13 @@ run_with_alarm() {
 }
 
 echo "== 1. 退出码契约 =="
-for script in build clean open project setup; do
+for script in build open setup; do
   assert_eq "$script.sh --help 退出 0" 0 "$(run_with_alarm bash "$SH/$script.sh" --help)"
   assert_eq "$script.sh --version 退出 0" 0 "$(run_with_alarm bash "$SH/$script.sh" --version)"
 done
 
 # build.sh 自己校验参数，语义是"运行失败"(1)；其余脚本把未知参数当用法错误(2)
-for script in clean open project setup; do
+for script in open setup; do
   if [ "$script" = "setup" ]; then
     # setup.sh 参数出错时会往当前目录写 setup_error.log，所以放到临时目录里跑，
     # 免得给仓库根留下垃圾文件
@@ -93,10 +93,9 @@ assert_eq "build.sh 未知参数退出 1" 1 "$(run_script build.sh --definitely-
 echo
 echo "== 2. 脚本不以可执行文件身份运行也能工作（ww 用 bash 调用） =="
 noexec_dir="$(mktemp -d)"
-cp "$SH/lib.sh" "$SH/build.sh" "$SH/clean.sh" "$SH/open.sh" \
-  "$SH/project.sh" "$SH/setup.sh" "$noexec_dir/"
+cp "$SH/lib.sh" "$SH/build.sh" "$SH/open.sh" "$SH/setup.sh" "$noexec_dir/"
 chmod -x "$noexec_dir"/*.sh
-for script in build clean open project setup; do
+for script in build open setup; do
   ( cd "$noexec_dir" && bash "$script.sh" --version ) > /dev/null 2>&1
   assert_eq "不可执行的 $script.sh --version 退出 0" 0 "$?"
 done
@@ -146,7 +145,7 @@ done
 
 echo
 echo "== 5. 脚本可以被 source（不执行 main） =="
-for script in clean open project setup; do
+for script in open setup; do
   out=$(
     bash -c "set -eo pipefail; . '$SH/$script.sh'; echo sourced" 2>&1 | tail -1
   )
@@ -202,10 +201,6 @@ else
   pass "失败时清理本次创建的项目目录"
 fi
 rm -rf "$tmp_work"
-
-echo
-echo "== 6. clean.sh 参数校验 =="
-assert_eq "--pod 与 android 同时使用退出 2" 2 "$(run_script clean.sh --pod android)"
 
 echo
 echo "== 8. build.sh 可 source 与纯函数 =="
