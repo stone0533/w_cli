@@ -4,7 +4,7 @@ version: 1.0.30
 homepage: https://github.com/stone0533/w_cli
 repository: https://github.com/stone0533/w_cli
 issue_tracker: https://github.com/stone0533/w_cli/issues
-documentation: https://github.com/stone0533/w_cli/wiki
+documentation: https://github.com/stone0533/w_cli/blob/main/doc/commands.md
 
 environment:
   sdk: ^3.10.3

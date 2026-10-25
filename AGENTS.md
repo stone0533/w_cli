@@ -10,7 +10,7 @@ The five canonical triage roles map to same-named labels: `needs-triage`, `needs
 
 ### Domain docs
 
-single-context — one `GLOSSARY.md` at the repo root, architecture decisions in `doc/adr/`. See `doc/agents/domain.md`.
+single-context — one `GLOSSARY.md` at the repo root（术语表的出处，改动生成/marker 相关概念时先读它）, architecture decisions in `doc/adr/`. See `doc/agents/domain.md`.
 
 ### 生成逻辑的归属（ADR-0002）
 
