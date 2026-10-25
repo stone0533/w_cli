@@ -129,10 +129,9 @@ void showHelp() {
   print(
     '  ww open|o [ios|i|android|a|build|b|root|r]  # Open project directories',
   );
-  print('  ww gen [--debug]                     # Run build_runner');
+  print('  ww gen [-- <flags>]                  # Run build_runner');
   print('  ww fmt | get | pod | analyze         # 常用长命令的短写法');
   print('  ww run [任务名]                      # 执行 .ww/tasks 里的任务');
-  print('  ww common|co drbb                    # 旧名，请改用 ww gen');
   print('  ww clean|cl [options] [platform]     # Clean Flutter project');
   print('  ww -v, --version                     # Show version information');
   print('  ww -h, --help                        # Show this help message');

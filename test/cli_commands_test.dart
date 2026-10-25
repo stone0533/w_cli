@@ -186,6 +186,7 @@ void main() {
     });
 
     test('pod 用 --project-directory，不 cd', () async {
+      Directory('${project.path}/ios').createSync();
       final runner = FakeProcessRunner();
       await TaskRunner(
         root: project.path,
@@ -204,6 +205,50 @@ void main() {
           root: project.path,
           runner: runner,
         ).run(builtinTask('fmt')!),
+        1,
+      );
+      expect(runner.starts, isEmpty);
+    });
+
+    test('位置参数替换默认目标', () async {
+      final runner = FakeProcessRunner();
+      await TaskRunner(
+        root: project.path,
+        runner: runner,
+      ).run(builtinTask('fmt')!, extra: ['lib/app']);
+      expect(runner.starts.single.args.join(' '), 'format lib/app');
+    });
+
+    test('flag 追加在最后', () async {
+      final runner = FakeProcessRunner();
+      await TaskRunner(
+        root: project.path,
+        runner: runner,
+      ).run(builtinTask('analyze')!, extra: ['--fatal-infos']);
+      expect(runner.starts.single.args.join(' '), 'analyze --fatal-infos');
+    });
+
+    test('gen 走 TaskRunner，30 分钟超时', () async {
+      final runner = FakeProcessRunner();
+      await TaskRunner(
+        root: project.path,
+        runner: runner,
+      ).run(builtinTask('gen')!);
+      final call = runner.starts.single;
+      expect(call.exe, 'dart');
+      expect(
+        call.args.join(' '),
+        'run build_runner build --delete-conflicting-outputs',
+      );
+    });
+
+    test('pod 在没有 ios 目录时直接失败', () async {
+      final runner = FakeProcessRunner();
+      expect(
+        await TaskRunner(
+          root: project.path,
+          runner: runner,
+        ).run(builtinTask('pod')!),
         1,
       );
       expect(runner.starts, isEmpty);

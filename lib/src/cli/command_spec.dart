@@ -143,18 +143,6 @@ List<CommandSpec> commandSpecs() => [
     ]),
   ),
   CommandSpec(
-    name: 'common',
-    aliases: const ['co'],
-    usage: 'ww common|co drbb                 # 跑 build_runner',
-    flags: const [FlagSpec('debug', abbr: 'd')],
-    run: (results) => _deprecated(
-      'common drbb',
-      '跑 build_runner',
-      'ww gen',
-      () => w.handleCommonCommand(results.rest, debug: _flag(results, 'debug')),
-    ),
-  ),
-  CommandSpec(
     name: 'self-update',
     aliases: const ['su'],
     usage: 'ww self-update|su                # 升级 w_cli 自身',
@@ -181,7 +169,7 @@ List<CommandSpec> commandSpecs() => [
     CommandSpec(
       name: task.name,
       usage: task.usage,
-      run: (results) => tasks.TaskRunner().run(task),
+      run: (results) => tasks.TaskRunner().run(task, extra: results.rest),
     ),
   CommandSpec(
     name: 'run',
@@ -191,14 +179,6 @@ List<CommandSpec> commandSpecs() => [
       ...results.rest,
       if (_flag(results, 'dry-run')) '--dry-run',
     ]),
-  ),
-  CommandSpec(
-    name: 'gen',
-    usage:
-        'ww gen                            # 跑 build_runner（原 ww common drbb）',
-    flags: const [FlagSpec('debug', abbr: 'd')],
-    run: (results) =>
-        w.handleCommonCommand(['drbb'], debug: _flag(results, 'debug')),
   ),
 ];
 
