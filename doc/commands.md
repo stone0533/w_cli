@@ -31,14 +31,18 @@ ww api --force          # 覆盖 repository.dart 里检测到的手写成员
 
 输出约定（全项目一致）：
 
-- 默认只留关键行；明细用 `-d` / `--debug` 打开
-- 前缀固定 `[INFO]` / `[WARN]` / `[ERROR]`
-- 子进程输出（xcodebuild / build_runner）默认写入 `w_build/build.log`
-
 ```console
 $ ww api models
+=== ww api models ===
 [INFO] 生成 7 个模型文件 → lib/app/data/models
+=== 完成（0.8s）===
 ```
+
+- 每个命令有**开始 / 结束**横幅（结束行带耗时；失败时红色并带退出码）
+- 前缀固定 `[INFO]` / `[WARN]` / `[ERROR]`；`INFO` 绿、`WARN` 黄、`ERROR` 红
+- 颜色只在终端下输出；`NO_COLOR=1` 关闭，`CLICOLOR_FORCE=1` 强制开（CI 想看颜色时）
+- 默认只留关键行；明细用 `-d` / `--debug` 打开
+- 子进程输出（xcodebuild / build_runner）默认写入 `w_build/build.log`
 
 要点：
 

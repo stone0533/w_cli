@@ -749,6 +749,29 @@ assert_eq "不再输出空的失败文案" "no" \
   "$(printf '%s' "$noteam_out" | grep -q 'with exit code' && echo yes || echo no)"
 rm -rf "$noteam_root"
 
+# 8.37) 输出约定：开始/结束横幅 + 颜色只在 TTY
+frame_root="$(mktemp -d)"
+mkdir -p "$frame_root/demo"
+printf 'name: demo\nversion: 1.0.0\n' > "$frame_root/demo/pubspec.yaml"
+printf 'void main() {}\n' > "$frame_root/demo/lib/main.dart" 2>/dev/null || mkdir -p "$frame_root/demo/lib" && printf 'void main() {}\n' > "$frame_root/demo/lib/main.dart"
+
+frame_out="$( cd "$frame_root/demo" && CI=true "$(command -v dart)" run "$ROOT/bin/w_cli.dart" doctor 2>&1 )"
+assert_contains "有开始横幅" "=== ww doctor ===" "$frame_out"
+assert_eq "有结束横幅（成功或失败）" "yes" \
+  "$(printf '%s' "$frame_out" | grep -Eq '=== (完成|失败)' && echo yes || echo no)"
+assert_eq "管道下不输出 ANSI 颜色" "0" \
+  "$(printf '%s' "$frame_out" | grep -c $'\x1b\[' || true)"
+
+color_out="$( cd "$frame_root/demo" && CI=true env -u NO_COLOR CLICOLOR_FORCE=1 \
+  "$(command -v dart)" run "$ROOT/bin/w_cli.dart" doctor 2>&1 )"
+assert_eq "CLICOLOR_FORCE=1 输出 ANSI 颜色" "1" \
+  "$(printf '%s' "$color_out" | grep -q $'\x1b\[' && echo 1 || echo 0)"
+
+no_color_out="$( cd "$frame_root/demo" && CI=true NO_COLOR=1 CLICOLOR_FORCE=1 "$(command -v dart)" run "$ROOT/bin/w_cli.dart" doctor 2>&1 )"
+assert_eq "NO_COLOR 优先于 CLICOLOR_FORCE" "0" \
+  "$(printf '%s' "$no_color_out" | grep -c $'\x1b\[' || true)"
+rm -rf "$frame_root"
+
 # 8.4) 日志精简：子进程输出进 build.log，终端只留关键行
 quiet_root="$(mktemp -d)"
 mkdir -p "$quiet_root/bin" "$quiet_root/demo/android" "$quiet_root/demo/w_build"
@@ -947,6 +970,9 @@ assert_eq "ww api models 产出模型文件" "present" \
   "$([ -f "$scaffold_root/demo/lib/app/data/models/user.dart" ] && echo present || echo gone)"
 assert_eq "默认输出只剩一行汇总" "1" \
   "$(printf '%s\n' "$models_quiet" | grep -c '\[INFO\]')"
+assert_contains "有开始横幅" "=== ww api models ===" "$models_quiet"
+assert_eq "有结束横幅（成功或失败）" "yes" \
+  "$(printf '%s' "$models_quiet" | grep -Eq '=== (完成|失败)' && echo yes || echo no)"
 assert_contains "汇总里有文件数" "生成" "$models_quiet"
 
 models_loud="$( cd "$scaffold_root/demo" && CI=true REAL_DART="$(command -v dart)" \
