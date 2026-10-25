@@ -124,120 +124,37 @@ Future<void> main(List<String> arguments) async {
 void showHelp() {
   print('ww - A command-line tool for Flutter projects');
   print('');
-  print('Usage:');
-  print(
-    '  ww create|c [project|p] <name>       # Create a new Flutter project',
-  );
-  print('  ww api|a [generate]                  # Generate API code');
-  print(
-    '  ww api|a init                        # Initialize API directory structure',
-  );
-  print(
-    '  ww api|a models                      # Generate model files from JSON',
-  );
-  print(
-    '  ww api|a models --force              # Force full regeneration of models',
-  );
-  print(
-    '  ww api|a generate --force            # Overwrite hand-written members',
-  );
-  print(
-    '  ww update|u                          # Update w_cli to the latest version',
-  );
-  print('  ww build|b [apk|aab|ios] [options]   # Build Flutter app');
-  print(
-    '  ww deps upgrade                      # Update project dependencies and Gradle',
-  );
-  print('  ww project|p --update                # 旧名，请改用 ww deps upgrade');
-  print(
-    '  ww open|o [ios|i|android|a|build|b|root|r]  # Open project directories',
-  );
-  print('  ww gen [-- <flags>]                  # Run build_runner');
-  print('  ww fmt [--check] | get | pod         # 常用长命令的短写法');
-  print('  ww add <包> [--dev]                  # flutter pub add');
-  print('  ww analyze | test | l10n | outdated  # 同上（flutter 侧）');
-  print(
-    '  ww fix | watch | doctor              # dart fix / build_runner watch / 环境检查',
-  );
-  print('  ww run [任务名]                      # 执行 .ww/tasks 里的任务');
-  print('  ww clean|cl [options] [platform]     # Clean Flutter project');
-  print('  ww -v, --version                     # Show version information');
-  print('  ww -h, --help                        # Show this help message');
+  print('用法:');
+  for (final spec in cli_spec.commandSpecs()) {
+    print('  ${spec.usage}');
+  }
   print('');
-  print('Build Options:');
-  print('  --uat, -u              # Build in UAT mode with timestamp');
-  print(
-    '  --fresh                # Clear build directory before building (was --clean)',
-  );
-  print(
-    '  --open, -o             # Open output directory in Finder after build',
-  );
-  print('  --name=<name>          # App name used in output file names');
-  print(
-    '  --export-options=<f>   # iOS export options plist (default w_build/ios.plist)',
-  );
-  print('  --debug, -d            # Verbose debug logging');
+  print('全局: -h/--help 显示帮助 · -v/--version 版本 · -d/--debug 详细输出');
   print('');
-  print('Examples:');
-  print('  # Create project');
-  print('  ww create my_app');
-  print('  ww c my_app');
+  print('构建参数（ww build）:');
+  print('  --uat  UAT 模式（文件名带时间戳）      --fresh  构建前清旧产物（旧名 --clean）');
+  print('  --open 构建后打开输出目录             --name=<名>  自定义产物名');
+  print('  --export-options=<文件>  iOS 导出配置');
   print('');
-  print('  # API generation');
-  print('  ww api                      # Generate API code');
-  print('  ww api init                 # Initialize API directory structure');
-  print('  ww api models               # Generate model files from JSON');
-  print('  ww api models --force       # Force full regeneration of models');
-  print('  ww api --force              # 覆盖 repository.dart 中检测到的手写成员');
-  print('');
-  print('  # Build commands');
-  print('  ww build apk                # Build APK in production mode');
-  print('  ww build apk aab            # Build APK and AAB in production mode');
-  print('  ww build apk --uat          # Build APK in UAT mode');
+  print('iOS 签名（优先级从高到低）:');
   print(
-    '  ww build apk aab ios --uat --clean  # Build all platforms in UAT mode',
+    '  1. --method= --team= --bundle-id= --cert= --profile= --automatic --manual',
   );
-  print(
-    '  ww b apk -u -o              # Build APK in UAT mode and open output',
-  );
-  print(
-    '  ww b apk aab -c -o          # Build APK and AAB with clean and open',
-  );
+  print('  2. w_build/ios.plist（个人覆盖）     3. ios/ExportOptions.plist（可提交）');
+  print('  4. 从 ios/Runner.xcodeproj 读 DEVELOPMENT_TEAM（零配置）');
+  print('  查看当前生效配置: ww build ios --show-config');
   print('');
-  print('  # Project management');
   print(
-    '  ww project --update         # Update project dependencies and configuration',
+    '环境变量: OUTPUT_DIR / PARALLEL_BUILD / MIN_BUILD_SIZE / ENABLE_NOTIFICATIONS',
   );
-  print(
-    '  ww p --update               # Update project dependencies and configuration',
-  );
+  print('          WW_TASK_TIMEOUT（秒，0 = 不限时）');
   print('');
-  print('  # Open commands');
-  print('  ww open ios                 # Open iOS project in Xcode');
-  print(
-    '  ww open android             # Open Android project in Android Studio',
-  );
-  print('  ww o i                      # Open iOS project (using alias)');
-  print('  ww o a                      # Open Android project (using alias)');
+  print('示例:');
+  print('  ww create my_app              # 建工程');
+  print('  ww api models --force         # 全量重生成模型');
+  print('  ww build apk ios --uat        # 打包');
+  print('  ww deps gradle --to=9.1.0     # 升 Gradle（默认只报告）');
+  print('  ww ios setup                  # 生成可提交的签名配置');
   print('');
-  print('  # Clean commands');
-  print('  ww clean all                # Clean all platforms');
-  print('  ww clean android            # Clean Android build files');
-  print('  ww clean ios                # Clean iOS build files');
-  print('  ww clean --lock             # Clean with lock files');
-  print('  ww clean ios --pod          # Clean iOS with Pods');
-  print('  ww cl                       # Clean all platforms (using alias)');
-  print('');
-  print('Aliases（命令）:');
-  print('  create -> c    api -> a       build -> b     clean -> cl');
-  print('  open   -> o    project -> p   update -> u    self-update -> su');
-  print('');
-  print('Aliases（目标）:');
-  print('  ww open:  ios/i  android/a  build/b  root/r');
-  print('');
-  print('无参数时:');
-  print('  ww 或 ww <命令> 都打印对应帮助；ww clean 需要显式写 all 才会清理');
-  print(
-    '  快捷命令: fmt get add pod analyze fix test l10n outdated gen watch doctor',
-  );
+  print('别名: create/c  api/a  build/b  clean/cl  open/o  project/p  update/u');
 }

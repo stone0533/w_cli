@@ -14,6 +14,10 @@
 
 ### Changed
 
+- handler 从 `lib/w_cli.dart` 迁到 `lib/src/commands/`（create / api / update / build /
+  open / clean），`w_cli.dart` 只剩 42 行 re-export
+- 顶层 `ww --help` 由命令表生成（以前是 120 行手写字面量，且漏了 fix/l10n/watch/ios/doctor）
+
 - `lib/sh/setup.sh` 1.1.0：按当前项目结构重写脚手架
   - 依赖改为 **w_tools 分包**（`core`/`app`/`form`/`ui`/`api`/`toast`/`qr`），不再安装 meta 包
     `w_tools`（会经 `w_tools_map` 拖进 `google_maps_flutter`）。一律用 **pub 发布版本**
