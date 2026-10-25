@@ -414,6 +414,38 @@ assert_eq "缺 teamID 校验失败" 1 "$(plist_valid "$plist_dir/no_team.plist")
 sed 's/My Company/YOUR_COMPANY_NAME/' "$plist_dir/ios.plist" > "$plist_dir/placeholder.plist"
 assert_eq "未替换的 YOUR_ 占位符校验失败" 1 "$(plist_valid "$plist_dir/placeholder.plist")"
 
+# 提示要指名 key，而不是把整行 XML 打出来
+placeholder_msg=$(bash -c '. "$1"; validate_ios_plist "$2"' _ "$SH/build.sh" "$plist_dir/placeholder.plist" 2>&1)
+assert_contains "占位符提示列出声明的 key" "signingCertificate" "$placeholder_msg"
+assert_contains "占位符提示给出取值办法" "security find-identity" "$placeholder_msg"
+
+# 自动签名：signingCertificate / provisioningProfiles 的占位符应被忽略（只差 teamID 不算错）
+cat > "$plist_dir/auto.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store</string>
+    <key>teamID</key>
+    <string>ABC123DEF4</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>signingCertificate</key>
+    <string>Apple Distribution: YOUR_COMPANY_NAME (YOUR_CERTIFICATE_ID)</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>YOUR_BUNDLE_ID</key>
+        <string>YOUR_PROVISIONING_PROFILE_NAME</string>
+    </dict>
+</dict>
+</plist>
+PLIST
+assert_eq "自动签名忽略证书/profile 占位符" 0 "$(plist_valid "$plist_dir/auto.plist")"
+
+# 自动签名但 teamID 仍是占位符 → 仍应失败
+sed 's/ABC123DEF4/YOUR_TEAM_ID/' "$plist_dir/auto.plist" > "$plist_dir/auto_no_team.plist"
+assert_eq "自动签名缺 teamID 仍失败" 1 "$(plist_valid "$plist_dir/auto_no_team.plist")"
+
 # 7) iOS 端到端：签名参数与导出流程（stub flutter + xcodebuild）
 ios_root="$(mktemp -d)"
 mkdir -p "$ios_root/bin" "$ios_root/demo/ios"

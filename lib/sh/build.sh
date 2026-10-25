@@ -617,14 +617,58 @@ validate_ios_plist() {
   fi
   
   # 检查字段值是否已修改（不是默认占位符）
-  local has_default_value=$(grep -c "YOUR_" "$plist_file")
-  if [ "$has_default_value" -gt 0 ]; then
-    log_warn "ios.plist 文件中存在未修改的默认值（YOUR_*）"
-    log_warn "请修改以下字段后重新构建:"
-    grep "YOUR_" "$plist_file" | while read -r line; do
-      log_info "  $line"
-    done
-    has_error=true
+  # 只说「哪个 key 还是占位符」，不再把整行 XML 打出来（那对使用者没有信息量）
+  local -a placeholder_keys=()
+  local token label
+  # 同一字段可能对应多个占位符 token（如证书名 + 证书 ID），这里去重
+  local seen_labels=" "
+  for token in $(grep -o "YOUR_[A-Z_]*" "$plist_file" 2>/dev/null | sort -u); do
+    case "$token" in
+      YOUR_TEAM_ID) label="teamID" ;;
+      YOUR_COMPANY_NAME | YOUR_CERTIFICATE_ID) label="signingCertificate" ;;
+      YOUR_BUNDLE_ID) label="provisioningProfiles 的 bundle id" ;;
+      YOUR_PROVISIONING_PROFILE_NAME) label="provisioningProfiles 的 profile 名称" ;;
+      *) label="$token" ;;
+    esac
+    case "$seen_labels" in
+      *" $label "*) ;;
+      *)
+        seen_labels="$seen_labels$label "
+        placeholder_keys+=("$label")
+        ;;
+    esac
+  done
+
+  if [ ${#placeholder_keys[@]} -gt 0 ]; then
+    # 自动签名下 Xcode 自己管证书与 profile，这两项留着也不影响（导出前会被剔除）
+    local auto_only_cert_placeholders=false
+    if [ "$signingstyle_value" = "automatic" ]; then
+      auto_only_cert_placeholders=true
+      for token in "${placeholder_keys[@]}"; do
+        case "$token" in
+          signingCertificate | provisioningProfiles*) ;;
+          *) auto_only_cert_placeholders=false ;;
+        esac
+      done
+    fi
+
+    if [ "$auto_only_cert_placeholders" = "true" ]; then
+      log_warn "ios.plist 是自动签名，signingCertificate / provisioningProfiles 的占位符会被忽略"
+      log_info "  需要填写的是 teamID（10 位）"
+    else
+      log_warn "ios.plist 还有未替换的占位符，请填写这些项后重新构建:"
+      local item
+      for item in "${placeholder_keys[@]}"; do
+        log_warn "  - $item"
+      done
+      log_info "取值的办法:"
+      log_info "  teamID              → App Store Connect → Membership → Team ID（10 位）"
+      log_info "  signingCertificate  → security find-identity -v -p codesigning"
+      log_info "  bundle id           → grep -m1 PRODUCT_BUNDLE_IDENTIFIER ios/Runner.xcodeproj/project.pbxproj"
+      log_info "  profile 名称        → Apple Developer → Profiles（与 bundle id 对应）"
+      log_info "想先在本机跑通，可以把 signingStyle 改成 automatic，只填 teamID"
+      has_error=true
+    fi
   fi
   
   # 检查 method 值是否有效
@@ -839,6 +883,18 @@ build_ios() {
   
   log_info "签名方式: $signing_style"
   log_info "团队 ID: $team_id"
+
+  # 自动签名时 Xcode 自己管证书与 profile；模板里的占位符会让导出失败，
+  # 这里用一份剔除了这两项的副本（不改用户的 ios.plist）
+  if [ "$signing_style" = "automatic" ] && command_available plutil; then
+    local sanitized_options="$export_dir/ExportOptions.plist"
+    if cp "$export_options_file" "$sanitized_options"; then
+      plutil -remove signingCertificate "$sanitized_options" 2>/dev/null || true
+      plutil -remove provisioningProfiles "$sanitized_options" 2>/dev/null || true
+      export_options_file="$sanitized_options"
+      log_debug "自动签名：已从导出配置中移除 signingCertificate / provisioningProfiles"
+    fi
+  fi
   
   # 首先需要创建 archive
   local archive_command=(
