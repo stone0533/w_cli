@@ -118,6 +118,19 @@ iOS 签名（优先级从高到低）:
 
 执行 dart run build_runner watch --delete-conflicting-outputs。
 长驻进程，不设超时；Ctrl+C 退出（退出码 130）。''',
+  'ios': '''
+用法: ww ios setup [选项]
+
+生成一份可提交的 ios/ExportOptions.plist（团队/CI 共用）。
+值优先取命令行，其次从 ios/Runner.xcodeproj 与钥匙串自动探测。
+
+选项:
+  --method=app-store|ad-hoc|development|enterprise
+  --team=<10 位 Team ID>   --bundle-id=com.x.y
+  --cert="Apple Distribution: …"   --profile="Profile 名"
+  --automatic | --manual
+  --dry-run   只打印将写入的内容
+  --force     覆盖已存在的 ios/ExportOptions.plist''',
   'doctor': '''
 用法: ww doctor
 

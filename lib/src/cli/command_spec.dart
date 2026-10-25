@@ -201,6 +201,24 @@ List<CommandSpec> commandSpecs() => [
       ),
     ),
   CommandSpec(
+    name: 'ios',
+    usage: 'ww ios setup                      # 生成可提交的 ios/ExportOptions.plist',
+    flags: const [
+      FlagSpec('dry-run'),
+      FlagSpec('force'),
+      FlagSpec('automatic'),
+      FlagSpec('manual'),
+    ],
+    options: const [
+      OptionSpec('method'),
+      OptionSpec('team'),
+      OptionSpec('bundle-id'),
+      OptionSpec('cert'),
+      OptionSpec('profile'),
+    ],
+    run: (results) => _iosSetup(results),
+  ),
+  CommandSpec(
     name: 'doctor',
     usage:
         'ww doctor                       # 检查环境（flutter / dart / pod / 工程文件）',
@@ -216,6 +234,33 @@ List<CommandSpec> commandSpecs() => [
     ]),
   ),
 ];
+
+/// `ww ios setup`：生成可提交的签名配置（逻辑在 build.sh，复用自动探测）
+Future<int> _iosSetup(ArgResults results) async {
+  if (results.rest.isEmpty || results.rest.first != 'setup') {
+    final help = cli_help.commandHelp('ios');
+    if (help != null) {
+      print(help);
+    }
+    return results.rest.isEmpty ? 0 : 2;
+  }
+
+  return w.executeScript(
+    'build.sh',
+    [
+      'ios',
+      '--save-config',
+      if (_flag(results, 'dry-run')) '--dry-run',
+      if (_flag(results, 'force')) '--force',
+      if (_flag(results, 'automatic')) '--automatic',
+      if (_flag(results, 'manual')) '--manual',
+      for (final option in ['method', 'team', 'bundle-id', 'cert', 'profile'])
+        if (results[option] != null) '--$option=${results[option]}',
+    ],
+    '',
+    '',
+  );
+}
 
 Future<int> _deps(ArgResults results) async {
   if (results.rest.isEmpty) {
