@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:w_cli/w_cli.dart' as w;
+import 'package:w_cli/src/cli/command_spec.dart' as cli_spec;
 import 'package:w_cli/src/cli/help.dart' as cli_help;
 import 'package:w_cli/src/resources.dart' as resources;
 
@@ -9,78 +10,21 @@ import 'package:w_cli/src/resources.dart' as resources;
 Future<void> main(List<String> arguments) async {
   // 初始化命令行参数解析器
   final parser = ArgParser()
-    ..addCommand('create')
-    ..addCommand('c') // 别名
-    ..addCommand('api')
-    ..addCommand('a') // 别名
-    ..addCommand('update')
-    ..addCommand('u') // 别名
-    ..addCommand('build')
-    ..addCommand('b') // 别名
-    ..addCommand('project')
-    ..addCommand('p') // 别名
-    ..addCommand('open')
-    ..addCommand('o') // 别名
-    ..addCommand('common')
-    ..addCommand('co') // 别名
-    ..addCommand('clean')
-    ..addCommand('cl') // 别名
     ..addFlag('version', abbr: 'v', negatable: false)
     ..addFlag('help', abbr: 'h', negatable: false);
 
-  // api / a：子命令用位置参数（generate / init / models），这里只声明修饰符
-  for (final name in ['api', 'a']) {
-    final command = parser.commands[name];
-    if (command != null) {
-      command
-        ..addFlag('force', negatable: false)
-        ..addFlag('debug', abbr: 'd', negatable: false);
+  // 命令名、别名、flag/option 声明全部来自这一张表
+  final specs = cli_spec.commandSpecs();
+  for (final spec in specs) {
+    for (final name in spec.allNames) {
+      final command = parser.addCommand(name);
+      for (final flag in spec.flags) {
+        flag.register(command);
+      }
+      for (final option in spec.options) {
+        option.register(command);
+      }
     }
-  }
-
-  // create / c：--force 覆盖已存在的目标目录
-  for (final name in ['create', 'c']) {
-    parser.commands[name]?.addFlag('force', negatable: false);
-  }
-
-  // 为 build 命令添加选项（必须在这里声明，否则 ArgParser 会直接拒绝）
-  for (final name in ['build', 'b']) {
-    final command = parser.commands[name];
-    if (command == null) {
-      continue;
-    }
-    command
-      ..addFlag('uat', abbr: 'u', negatable: false)
-      ..addFlag('clean', abbr: 'c', negatable: false)
-      ..addFlag('open', abbr: 'o', negatable: false)
-      ..addFlag('debug', abbr: 'd', negatable: false)
-      ..addOption('name')
-      ..addOption('export-options');
-  }
-
-  // clean / cl：声明 --lock / --pod / --debug，其余交给 Dart 实现
-  for (final name in ['clean', 'cl']) {
-    parser.commands[name]
-      ?..addFlag('lock', negatable: false)
-      ..addFlag('pod', negatable: false)
-      ..addFlag('debug', abbr: 'd', negatable: false);
-  }
-
-  // common / co：只声明 --debug（其余参数直接拒绝）
-  for (final name in ['common', 'co']) {
-    parser.commands[name]?.addFlag('debug', abbr: 'd', negatable: false);
-  }
-
-  // 为 project 命令添加选项
-  final projectCommand = parser.commands['project'];
-  if (projectCommand != null) {
-    projectCommand.addFlag('update', negatable: false);
-  }
-
-  // 为 p 命令（project 的别名）添加选项
-  final pCommand = parser.commands['p'];
-  if (pCommand != null) {
-    pCommand.addFlag('update', negatable: false);
   }
 
   try {
@@ -113,83 +57,27 @@ Future<void> main(List<String> arguments) async {
       return;
     }
     if (command == null) {
-      print('Error: No command specified');
+      if (arguments.isNotEmpty) {
+        print('Error: Unknown command: ${arguments.first}');
+        print('   Run `ww --help` to see available commands.');
+      } else {
+        print('Error: No command specified');
+      }
       exitCode = 2;
       return;
     }
 
-    // 处理不同的命令
-    // 每个 handler 返回子进程退出码：脚本失败必须让 ww 也失败，
-    // 否则 CI 与 `ww build && ./upload.sh` 这类串联都会误判为成功。
-    switch (command.name) {
-      case 'create':
-      case 'c':
-        exitCode = await w.handleCreateCommand(
-          command.arguments,
-          force: command['force'] as bool,
-        );
-        break;
-      case 'api':
-      case 'a':
-        exitCode = await w.handleApiCommand(
-          command.arguments,
-          debug: command['debug'] as bool,
-        );
-        break;
-      case 'update':
-      case 'u':
-        exitCode = await w.handleUpdateCommand();
-        break;
-      case 'build':
-      case 'b':
-        // 构建参数列表：从 rest 参数中提取平台类型，再添加 flags
-        final buildArgs = <String>[
-          ...command.rest.where(
-            (arg) => arg == 'apk' || arg == 'aab' || arg == 'ios',
-          ),
-          if (command['uat'] as bool) '--uat',
-          if (command['clean'] as bool) '--clean',
-          if (command['open'] as bool) '--open',
-          if (command['debug'] as bool) '--debug',
-          if (command['name'] != null) '--name=${command['name']}',
-          if (command['export-options'] != null)
-            '--export-options=${command['export-options']}',
-        ];
-        exitCode = await w.handleBuildCommand(buildArgs);
-        break;
-      case 'project':
-      case 'p':
-        // 构建参数列表：从 rest 参数提取位置参数，再添加 flags
-        final projectArgs = <String>[
-          ...command.rest,
-          if (command['update'] as bool) '--update',
-        ];
-        exitCode = await w.handleProjectCommand(projectArgs);
-        break;
-      case 'open':
-      case 'o':
-        exitCode = await w.handleOpenCommand(command.rest);
-        break;
-      case 'common':
-      case 'co':
-        exitCode = await w.handleCommonCommand(
-          command.rest,
-          debug: command['debug'] as bool,
-        );
-        break;
-      case 'clean':
-      case 'cl':
-        exitCode = await w.handleCleanCommand(<String>[
-          ...command.rest,
-          if (command['lock'] as bool) '--lock',
-          if (command['pod'] as bool) '--pod',
-          if (command['debug'] as bool) '--debug',
-        ]);
-        break;
-      default:
-        print('Error: Unknown command: ${command.name}');
-        exitCode = 2;
+    // 按命令表分派：每个 handler 返回子进程退出码
+    final spec = specs.firstWhere(
+      (candidate) => candidate.allNames.contains(command.name),
+      orElse: () => specs.first,
+    );
+    if (!spec.allNames.contains(command.name)) {
+      print('Error: Unknown command: ${command.name}');
+      exitCode = 2;
+      return;
     }
+    exitCode = await spec.run(command);
   } on FormatException catch (e) {
     // 参数解析失败（例如未知选项）属于用法错误，用 2 区分于运行时失败。
     // 旧写法（--init / --models / --full）在这里给一句指路，而不是原始异常。
