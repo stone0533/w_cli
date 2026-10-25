@@ -275,6 +275,34 @@ shellcheck --severity=warning lib/sh/*.sh test/shell/run.sh   # 需要先安装 
 - 脚本退出码约定：`0` 成功，`1` 运行失败，`2` 用法错误（未知参数、参数组合非法）。
 - `ww` 会把脚本的退出码原样返回，所以脚本里不要"报错但 exit 0"。
 
+## Using as a library / 作为库使用
+
+`ww` 是主要用法，但公开出口 `package:w_cli/w_cli.dart` 也导出了一些可复用的零件
+（`ProcessRunner`、`Cli`、`executeScript`、各命令处理器）。适合的场景是：
+在自家脚本里复用「统一的进程封装 + 输出约定」，而不是重新实现一遍。
+
+```dart
+import 'package:w_cli/w_cli.dart';
+
+Future<void> main() async {
+  const runner = SystemProcessRunner();
+
+  // 统一的输出约定：横幅、颜色、-d 才显示明细
+  Cli.begin('dart analyze');
+  final result = await runner.run('dart', ['analyze']);
+  if (result.exitCode != 0) {
+    Cli.error('分析失败：${result.stdout}${result.stderr}');
+    Cli.end(code: result.exitCode);
+    return;
+  }
+  Cli.ok('分析通过');
+  Cli.end();
+}
+```
+
+> 生成逻辑（`lib/src/api/`、`lib/src/models/`）**没有**导出：它们与具体的工程约定
+> 绑得很紧，直接用 `ww api` / `ww api models` 更安全。
+
 ## License / 许可证
 
 MIT
