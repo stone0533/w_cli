@@ -130,7 +130,8 @@ void showHelp() {
     '  ww open|o [ios|i|android|a|build|b|root|r]  # Open project directories',
   );
   print('  ww gen [-- <flags>]                  # Run build_runner');
-  print('  ww fmt | get | pod | analyze         # 常用长命令的短写法');
+  print('  ww fmt [--check] | get | pod         # 常用长命令的短写法');
+  print('  ww analyze | test | l10n | outdated  # 同上（flutter 侧）');
   print('  ww run [任务名]                      # 执行 .ww/tasks 里的任务');
   print('  ww clean|cl [options] [platform]     # Clean Flutter project');
   print('  ww -v, --version                     # Show version information');

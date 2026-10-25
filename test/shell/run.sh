@@ -126,6 +126,19 @@ assert_contains "ww fmt <路径> 替换默认目标" "dart format lib/app" "$(ca
 run_verb analyze -- --fatal-infos
 assert_contains "ww analyze -- 之后的 flag 透传" "flutter analyze --fatal-infos" "$(cat "$common_root/calls.log")"
 
+run_verb fmt --check
+assert_contains "ww fmt --check 不改文件" \
+  "format --output=none --set-exit-if-changed ." "$(cat "$common_root/calls.log")"
+
+run_verb test test/foo_test.dart
+assert_contains "ww test 透传目标" "flutter test test/foo_test.dart" "$(cat "$common_root/calls.log")"
+
+run_verb l10n
+assert_contains "ww l10n" "flutter gen-l10n" "$(cat "$common_root/calls.log")"
+
+run_verb outdated
+assert_contains "ww outdated" "flutter pub outdated" "$(cat "$common_root/calls.log")"
+
 # ww common 已移除
 run_verb common drbb
 assert_eq "ww common 已移除（退出 2）" 2 "$?"

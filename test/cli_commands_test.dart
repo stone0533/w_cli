@@ -254,6 +254,51 @@ void main() {
       expect(runner.starts, isEmpty);
     });
 
+    test('fmt --check 不改文件（--output=none --set-exit-if-changed）', () async {
+      final runner = FakeProcessRunner();
+      await TaskRunner(
+        root: project.path,
+        runner: runner,
+      ).run(builtinTask('fmt')!, check: true);
+      expect(
+        runner.starts.single.args.join(' '),
+        'format --output=none --set-exit-if-changed .',
+      );
+    });
+
+    test('fmt --check 带路径时保留路径', () async {
+      final runner = FakeProcessRunner();
+      await TaskRunner(
+        root: project.path,
+        runner: runner,
+      ).run(builtinTask('fmt')!, extra: ['lib'], check: true);
+      expect(
+        runner.starts.single.args.join(' '),
+        'format --output=none --set-exit-if-changed lib',
+      );
+    });
+
+    test('test / l10n / outdated 的 argv', () async {
+      final runner = FakeProcessRunner();
+      await TaskRunner(
+        root: project.path,
+        runner: runner,
+      ).run(builtinTask('test')!, extra: ['test/foo_test.dart']);
+      await TaskRunner(
+        root: project.path,
+        runner: runner,
+      ).run(builtinTask('l10n')!);
+      await TaskRunner(
+        root: project.path,
+        runner: runner,
+      ).run(builtinTask('outdated')!);
+      expect(runner.starts.map((c) => '${c.exe} ${c.args.join(' ')}'), [
+        'flutter test test/foo_test.dart',
+        'flutter gen-l10n',
+        'flutter pub outdated',
+      ]);
+    });
+
     test('进程失败时退出码透传', () async {
       final runner = FakeProcessRunner(startExitCode: 3);
       expect(
