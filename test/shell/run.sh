@@ -469,6 +469,8 @@ if printf ' %s ' "$*" | grep -q " archive "; then
   mkdir -p "$app"
   printf 'plist\n' > "$app/Info.plist"
   printf 'bin\n' > "$app/Runner"
+  mkdir -p "build/ios/archive/Runner.xcarchive/dSYMs/Runner.app.dSYM"
+  printf 'dsym\n' > "build/ios/archive/Runner.xcarchive/dSYMs/Runner.app.dSYM/Contents"
 fi
 if [ "$1" = "-exportArchive" ]; then
   while [ $# -gt 0 ]; do
@@ -496,6 +498,8 @@ assert_contains "手动签名把证书名原样传给 xcodebuild" \
   "$(cat "$ios_root/xcode.log" 2>/dev/null)"
 assert_contains "导出使用 ios.plist" "-exportOptionsPlist w_build/ios.plist" \
   "$(cat "$ios_root/xcode.log" 2>/dev/null)"
+assert_eq "dSYM 已放进输出目录" "present" \
+  "$([ -f "$ios_root/demo/w_build/demo_live_1.2.3.dSYMs.zip" ] && echo present || echo gone)"
 assert_eq "archive 里的 Runner.app 已生成" "present" \
   "$([ -f "$ios_root/demo/build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Info.plist" ] && echo present || echo gone)"
 assert_eq "archive 父目录已创建" "present" \

@@ -133,6 +133,7 @@ w_build/
 ├── <app>_uat_<时间戳>.apk        # UAT 模式
 ├── <app>_live_<version>.aab
 ├── <app>_live_<version>.ipa
+├── <app>_live_<version>.dSYMs.zip # iOS 符号文件（App Store / Crashlytics 用）
 ├── ios.plist                     # iOS 导出配置（首次构建生成模板）
 └── build.log                     # 每次构建追加的日志
 ```

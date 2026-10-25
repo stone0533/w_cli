@@ -1103,7 +1103,35 @@ build_ios() {
   fi
   
   local file_size=$(du -h "$ipa_file" | cut -f1)
+
+  # dSYM：崩溃符号化 / 上传 App Store 都需要，跟 IPA 一起放进输出目录，
+  # 否则 flutter clean 之后 archive 就没了，想找也找不回来
+  local dsym_dir="build/ios/archive/Runner.xcarchive/dSYMs"
+  if [ -d "$dsym_dir" ] && [ -n "$(ls -A "$dsym_dir" 2>/dev/null)" ]; then
+    local dsym_zip="${ipa_file%.ipa}.dSYMs.zip"
+    delete_existing_file "$dsym_zip"
+    local dsym_zip_abs="$(pwd)/$dsym_zip"
+    if command_available ditto; then
+      ditto -c -k --sequesterRsrc --keepParent "$dsym_dir" "$dsym_zip_abs" 2>/dev/null || true
+    else
+      ( cd "$(dirname "$dsym_dir")" && zip -qr "$dsym_zip_abs" "$(basename "$dsym_dir")" ) || true
+    fi
+    if [ -f "$dsym_zip" ]; then
+      log_info "dSYM: $(pwd)/$dsym_zip ($(du -h "$dsym_zip" | cut -f1))"
+    else
+      log_warn "dSYM 打包失败（不影响 IPA）"
+    fi
+  else
+    log_debug "没有 dSYM 目录，跳过"
+  fi
+
+  local method_value
+  method_value=$(get_plist_value "$export_options_file" "method")
+  local bundle_id
+  bundle_id=$(xcodeproj_value PRODUCT_BUNDLE_IDENTIFIER || true)
+
   log_info "iOS 构建成功: $(pwd)/$ipa_file ($file_size)"
+  log_info "  签名 $signing_style · method ${method_value:-未知} · team $team_id · bundle ${bundle_id:-未知} · 用时 ${duration}s"
   log_to_file "Built iOS: $ipa_file ($file_size) in ${duration}s"
   
   return 0

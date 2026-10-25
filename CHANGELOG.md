@@ -46,6 +46,8 @@
 
 ### Added
 
+- iOS 产物多一份 `<app>_<version>.dSYMs.zip`（符号化/上传用），并输出一行构建摘要
+  （签名方式 / method / team / bundle / 用时）
 - iOS 零配置构建：从 `ios/Runner.xcodeproj` 读 `DEVELOPMENT_TEAM`，按自动签名直接出包，
   不再需要先生成再手填 `ios.plist`
 - `ww build ios` 新增签名覆盖参数：`--method=` `--team=` `--bundle-id=` `--cert=`
