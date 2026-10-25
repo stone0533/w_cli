@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:args/args.dart';
 import 'package:w_cli/src/cli/help.dart' as cli_help;
+import 'package:w_cli/src/commands/run_command.dart' as runcmd;
 import 'package:w_cli/src/commands/task_commands.dart' as tasks;
 import 'package:w_cli/w_cli.dart' as w;
 
@@ -182,6 +183,15 @@ List<CommandSpec> commandSpecs() => [
       usage: task.usage,
       run: (results) => tasks.TaskRunner().run(task),
     ),
+  CommandSpec(
+    name: 'run',
+    usage: 'ww run [任务名]                   # 执行 .ww/tasks 里的任务',
+    flags: const [FlagSpec('dry-run')],
+    run: (results) => runcmd.RunCommand().run([
+      ...results.rest,
+      if (_flag(results, 'dry-run')) '--dry-run',
+    ]),
+  ),
   CommandSpec(
     name: 'gen',
     usage:
