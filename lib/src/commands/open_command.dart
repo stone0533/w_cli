@@ -174,3 +174,12 @@ class OpenCommand {
     (asError ? stderr : stdout).write(buffer);
   }
 }
+
+/// 处理打开命令
+/// [arguments] - 命令参数
+Future<int> handleOpenCommand(List<String> arguments) async {
+  return OpenCommand().run(arguments);
+}
+
+/// 处理打开命令
+/// [arguments] - 命令参数

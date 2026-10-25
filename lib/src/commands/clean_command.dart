@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../cli/help.dart';
 import '../cli/output.dart';
 import '../cli/process.dart';
 
@@ -196,4 +197,21 @@ class CleanCommand {
       ..writeln('  --pod      清理 iOS Pods（仅适用于 iOS 平台）');
     (asError ? stderr : stdout).write(buffer);
   }
+}
+
+/// 处理 common 命令
+/// [arguments] - 命令参数
+
+/// 处理 clean 命令
+/// [arguments] - 命令参数
+Future<int> handleCleanCommand(List<String> arguments) async {
+  // 无参数时只打印帮助：`ww clean` 曾经会立刻清空所有构建产物
+  if (arguments.isEmpty) {
+    final help = commandHelp('clean');
+    if (help != null) {
+      print(help);
+    }
+    return 0;
+  }
+  return CleanCommand().run(arguments);
 }
