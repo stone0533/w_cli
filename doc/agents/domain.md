@@ -23,9 +23,10 @@ Single-context repo (this repo):
 /
 ├── GLOSSARY.md
 ├── doc/
+│   ├── commands.md
 │   ├── adr/
-│   │   ├── 0001-event-sourced-orders.md
-│   │   └── 0002-postgres-for-write-model.md
+│   │   ├── 0001-client-codegen-in-dart.md
+│   │   └── 0002-generation-ownership.md
 │   └── agents/
 │       ├── issue-tracker.md
 │       ├── triage-labels.md
