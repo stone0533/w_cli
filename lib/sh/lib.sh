@@ -49,6 +49,11 @@ log_debug() {
   fi
 }
 
+# 去掉 Flutter / xcodebuild 输出里的 ANSI 颜色码（四处调用，抽出来）
+ww::strip_ansi() {
+  sed 's/\x1B\[[0-9;]*[mK]//g'
+}
+
 command_available() {
   command -v "$1" > /dev/null 2>&1
 }

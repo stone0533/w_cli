@@ -462,17 +462,11 @@ build_android_package() {
   log_info "执行构建命令..."
   log_debug "完整命令: ${build_command[*]}"
   local timeout=1800  # 30 分钟
-  # 管道最后一个命令是 sed，必须取 PIPESTATUS[0] 才是构建本身的退出码；
-  # 又因为脚本开了 -e，失败管道要放进 if 才不会被当场终止
   local build_status=0
-  if ! ww::run_with_timeout "$timeout" "${build_command[@]}" | sed 's/\x1B\[[0-9;]*[mK]//g'; then
-    build_status=${PIPESTATUS[0]}
-  fi
+  run_build_step "构建 $package_type_upper" "$timeout" "${build_command[@]}" || build_status=$?
   if [ "$build_status" -ne 0 ]; then
-    local exit_code=$build_status
-    if [ "$exit_code" -eq 124 ]; then
-      log_error "构建 $package_type_upper 超时（超过 ${timeout}s）"
-    else
+    # 124 的超时文案由 run_build_step 打印，这里只补失败原因
+    if [ "$build_status" -ne 124 ]; then
       log_error "构建 $package_type_upper 失败"
       log_error "错误原因可能包括:"
       log_error "  1. Flutter 环境未正确配置"
@@ -516,71 +510,7 @@ build_android_package() {
   return 0
 }
 
-# 创建 IPA 文件
-create_ipa() {
-  local app_path="$1"
-  local output_path="$2"
-  
-  log_warn "正在创建 IPA 文件..."
-  
-  # 验证 app 路径
-  if [ ! -d "$app_path" ]; then
-    log_error "应用包未找到: $app_path"
-    return 1
-  fi
-  
-  # 验证必需文件
-  if [ ! -f "$app_path/Info.plist" ]; then
-    log_error "应用包中未找到 Info.plist"
-    return 1
-  fi
-  
-  # 确保输出目录存在
-  mkdir -p "$OUTPUT_DIR"
-  
-  # 保存当前目录
-  local current_dir=$(pwd)
-  
-  # 创建临时目录并注册到全局数组
-  local temp_dir=$(mktemp -d)
-  TEMP_DIRS+=("$temp_dir")
-  log_debug "创建临时目录: $temp_dir"
-  
-  mkdir -p "$temp_dir/Payload"
-  
-  # 复制 Runner.app 到 Payload 目录
-  if ! cp -r "$app_path" "$temp_dir/Payload/"; then
-    log_error "复制应用包失败"
-    return 1
-  fi
-  
-  # 压缩成 IPA 文件
-  cd "$temp_dir"
-  local abs_ipa_file="$current_dir/$output_path"
-  log_warn "正在创建 IPA 文件: $abs_ipa_file"
-  
-  # 使用安静模式和最大压缩
-  if ! zip -qr -9 "$abs_ipa_file" Payload/; then
-    log_error "创建 IPA 压缩包失败"
-    cd - > /dev/null
-    return 1
-  fi
-  
-  cd - > /dev/null
-  
-  # 验证 IPA 文件
-  if [ ! -f "$abs_ipa_file" ]; then
-    log_error "IPA 文件未创建"
-    return 1
-  fi
-  
-  local file_size=$(du -h "$abs_ipa_file" | cut -f1)
-  log_info "IPA 创建成功: $file_size"
-  
-  return 0
-}
-
-# 从 plist 文件中提取字段值
+# 从 plist 里取一个 key 的字符串值
 get_plist_value() {
   local plist_file="$1"
   local key="$2"
@@ -845,14 +775,10 @@ build_ios() {
   # 执行 Flutter 构建命令（设置超时时间为 30 分钟）
   local timeout=1800  # 30 分钟
   local build_status=0
-  if ! ww::run_with_timeout "$timeout" "${flutter_build_command[@]}" | sed 's/\x1B\[[0-9;]*[mK]//g'; then
-    build_status=${PIPESTATUS[0]}
-  fi
+  run_build_step "Flutter 构建" "$timeout" "${flutter_build_command[@]}" || build_status=$?
   if [ "$build_status" -ne 0 ]; then
-    local exit_code=$build_status
-    if [ "$exit_code" -eq 124 ]; then
-      log_error "Flutter 构建超时（超过 ${timeout}s）"
-    else
+    # 124 的超时文案由 run_build_step 打印，这里只补失败原因
+    if [ "$build_status" -ne 124 ]; then
       log_error "Flutter 构建失败"
       log_error "错误原因可能包括:"
       log_error "  1. Flutter 环境未正确配置"
@@ -930,7 +856,7 @@ build_ios() {
 
   log_info "创建 Xcode Archive..."
   log_debug "Archive 命令: ${archive_command[*]}"
-  if ! ww::run_with_timeout "$timeout" "${archive_command[@]}" 2>&1 | sed 's/\x1B\[[0-9;]*[mK]//g'; then
+  if ! run_build_step "Xcode Archive" "$timeout" "${archive_command[@]}"; then
     log_error "Xcode Archive 创建失败"
     cleanup_failed_build "ios"
     return 1
@@ -942,7 +868,7 @@ build_ios() {
   fi
 
   log_info "导出 IPA..."
-  if ! ww::run_with_timeout "$timeout" "${xcodebuild_command[@]}" 2>&1 | sed 's/\x1B\[[0-9;]*[mK]//g'; then
+  if ! run_build_step "xcodebuild 导出 IPA" "$timeout" "${xcodebuild_command[@]}"; then
     log_error "xcodebuild 导出 IPA 失败"
     log_error "错误原因可能包括:"
     log_error "  1. 开发者证书未正确配置"
@@ -1018,6 +944,32 @@ build_ios() {
   log_to_file "Built iOS: $ipa_file ($file_size) in ${duration}s"
   
   return 0
+}
+
+# 跑一个构建步骤：超时、去颜色、统一超时文案
+# 参数: 标签 超时秒数 命令...
+# 返回: 子进程退出码（124 = 超时）
+run_build_step() {
+  local label="$1"
+  local timeout="$2"
+  shift 2
+
+  log_debug "命令: $*"
+  local status=0
+  if ! ww::run_with_timeout "$timeout" "$@" 2>&1 | ww::strip_ansi; then
+    status=${PIPESTATUS[0]}
+  fi
+  if [ "$status" -eq 124 ]; then
+    log_error "$label 超时（超过 ${timeout}s）"
+  fi
+  return "$status"
+}
+
+# 运行时页脚（开始 / 结束各一处，内容不同）
+print_footer() {
+  printf "${GREEN}======================================================${NC}\n"
+  printf "${GREEN}Flutter 应用打包脚本运行结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
+  printf "${GREEN}======================================================${NC}\n"
 }
 
 # 验证参数
@@ -1312,10 +1264,7 @@ run_build() {
   if [ "$BUILD_FAILURE" == "true" ]; then
     log_error "部分构建失败!"
     send_notification "构建失败，请检查错误信息"
-    # 添加运行结束分隔线
-    printf "${GREEN}======================================================${NC}\n"
-    printf "${GREEN}Flutter 应用打包脚本运行结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
-    printf "${GREEN}======================================================${NC}\n"
+    print_footer
     return 1
   fi
 
@@ -1342,10 +1291,7 @@ run_build() {
     fi
   fi
 
-  # 添加运行结束分隔线
-  printf "${GREEN}======================================================${NC}\n"
-  printf "${GREEN}Flutter 应用打包脚本运行结束${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
-  printf "${GREEN}======================================================${NC}\n"
+  print_footer
 }
 
 # 入口：只有直接执行时才跑，被 source 时只提供函数（方便测试）
