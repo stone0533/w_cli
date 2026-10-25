@@ -422,121 +422,16 @@ install_dependencies() {
   mkdir -p "$PROJECT_NAME/lib/app/routes"
   
   # 创建 home_controller.dart
-  cat > "$PROJECT_NAME/lib/app/modules/home/controllers/home_controller.dart" << 'EOF'
-import 'package:get/get.dart';
-
-class HomeController extends GetxController {
-  final count = 0.obs;
-  
-  void increment() {
-    count.value++;
-  }
-}
-EOF
   
   # 创建 home_view.dart
-  cat > "$PROJECT_NAME/lib/app/modules/home/views/home_view.dart" << 'EOF'
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import '../controllers/home_controller.dart';
-
-class HomeView extends GetView<HomeController> {
-  const HomeView({super.key});
-  
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Home'),
-        centerTitle: true,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Obx(() => Text(
-              '${controller.count}',
-            )),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: controller.increment,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-}
-EOF
   
   # 创建 home_binding.dart
-  cat > "$PROJECT_NAME/lib/app/modules/home/bindings/home_binding.dart" << 'EOF'
-import 'package:get/get.dart';
-import '../controllers/home_controller.dart';
-
-class HomeBinding extends Bindings {
-  @override
-  void dependencies() {
-    Get.lazyPut<HomeController>(
-      () => HomeController(),
-    );
-  }
-}
-EOF
   
   # 创建 app_routes.dart
-  cat > "$PROJECT_NAME/lib/app/routes/app_routes.dart" << 'EOF'
-part of 'app_pages.dart';
-
-abstract class AppRoutes {
-  AppRoutes._();
-  static const HOME = '/home';
-}
-EOF
   
   # 创建 app_pages.dart
-  cat > "$PROJECT_NAME/lib/app/routes/app_pages.dart" << 'EOF'
-import 'package:get/get.dart';
-import '../modules/home/bindings/home_binding.dart';
-import '../modules/home/views/home_view.dart';
-
-part 'app_routes.dart';
-
-class AppPages {
-  AppPages._();
-  
-  static const INITIAL = AppRoutes.HOME;
-  
-  static final routes = [
-    GetPage(
-      name: AppRoutes.HOME,
-      page: () => const HomeView(),
-      binding: HomeBinding(),
-    ),
-  ];
-}
-EOF
   
   # 更新 main.dart 文件
-  cat > "$PROJECT_NAME/lib/main.dart" << 'EOF'
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'app/routes/app_pages.dart';
-
-void main() {
-  runApp(
-    GetMaterialApp(
-      title: "Application",
-      initialRoute: AppPages.INITIAL,
-      getPages: AppPages.routes,
-    ),
-  );
-}
-EOF
   
   log_info "首页创建完成"
 }
@@ -750,13 +645,6 @@ create_core_files() {
   # 创建 .env 文件
   # 环境配置文件
   log_info "创建环境配置文件..."
-  cat > "$project_dir/.env" << EOF
-# API 基础 URL
-API_BASE_URL=$API_BASE_URL
-
-# 其他配置
-DEBUG=true
-EOF
   log_info "已创建 .env 文件"
   
   # 创建 main.dart
@@ -765,27 +653,6 @@ EOF
   # main.dart 按 w_tools_app 1.x 的 WApp API 生成：
   #   - WApp 没有 designWidth / envFileName（旧版 API），屏幕适配与 .env 由插件负责
   #   - 用 start() 而不是 init() + run()，避免漏掉 init 的时序问题
-  cat > "$project_dir/lib/main.dart" << EOF
-import 'package:flutter/material.dart';
-import 'package:${PROJECT_NAME}/app/w/toolkit.dart';
-
-import 'app/routes/app_pages.dart';
-
-Future<void> main() async {
-  final app = WApp()
-    // run() 会校验 title / initialRoute / getPages 非空，title 必须在启动前设置
-    ..title = 'Flutter W Example'
-    ..theme = ThemeData(primarySwatch: Colors.blue);
-
-  // 一站式启动 = await init() + run()
-  // 屏幕适配（ScreenUtil）/.env/日志等能力用插件注册：
-  //   app.addPlugins([...])，参考 w_tools_app 的 WAppPlugin
-  await app.start(
-    initialRoute: AppPages.INITIAL,
-    getPages: AppPages.routes,
-  );
-}
-EOF
    
   log_info "核心文件创建完成"
 }
@@ -831,15 +698,6 @@ update_analysis_options() {
 # 初始化测试
 initialize_tests() {
   log_info "初始化测试..."
-  cat > "$PROJECT_NAME/test/widget_test.dart" << 'EOF'
-import 'package:flutter_test/flutter_test.dart';
-
-void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // 测试代码
-  });
-}
-EOF
   log_info "测试文件初始化完成"
 }
 
@@ -876,36 +734,6 @@ initialize_git() {
 create_ci_cd_config() {
   log_info "创建 CI/CD 配置..."
   # 创建 GitHub Actions 配置
-  cat > "$PROJECT_NAME/.github/workflows/ci.yml" << 'EOF'
-name: CI
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.10.0'
-
-    - name: Install dependencies
-      run: flutter pub get
-
-    - name: Run tests
-      run: flutter test
-
-    - name: Build app
-      run: flutter build apk
-EOF
   log_info "CI/CD 配置创建完成"
 }
 

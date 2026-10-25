@@ -10,6 +10,7 @@ import 'src/api/scaffolder.dart';
 import 'src/models/models_generator.dart';
 import 'src/commands/clean_command.dart';
 import 'src/commands/project_command.dart';
+import 'src/project/project_scaffolder.dart';
 import 'src/tools/build_runner.dart';
 
 /// 获取当前版本号
@@ -251,6 +252,13 @@ Future<int> handleCreateProject(String projectName) async {
     );
     if (status != 0) {
       return status;
+    }
+
+    // 工程文件（main.dart / home / routes / CI / toolkit）由 Dart 写
+    print('\n🚀 Scaffolding project files');
+    final projectStatus = ProjectScaffolder(root: projectName).run();
+    if (projectStatus != 0) {
+      return projectStatus;
     }
 
     // API 层（client / paths / data_source / mixin / repository）由 Dart 生成，

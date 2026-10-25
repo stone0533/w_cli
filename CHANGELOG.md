@@ -39,6 +39,9 @@
 
 ### Changed
 
+- `ww create` 的生成文本全部迁到 Dart：`lib/src/project/project_templates.dart` +
+  `ProjectScaffolder`（main.dart / home / routes / CI / .env / toolkit），
+  `setup.sh` 只剩编排
 - `ww clean` / `ww project` 改为 Dart 实现，`lib/sh/clean.sh`、`lib/sh/project.sh` 删除：
   `--lock` / `--pod` 以前会被 ww 的参数解析拒绝，现在可用；Windows 也可用
 - `ww common drbb` 改为 Dart 实现（`lib/src/tools/build_runner.dart`），`lib/sh/common.sh` 删除：

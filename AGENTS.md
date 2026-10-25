@@ -21,10 +21,11 @@ single-context — one `GLOSSARY.md` at the repo root, architecture decisions in
 | `lib/src/api/scaffolder.dart` | `init`：五个骨架文件 + `data_source.dart` 的 marker 同步 | 存在即跳过（marker 段除外） |
 | `lib/src/api/api_generator.dart` | `generate`：`data_source_mixin.dart` / `repository.dart` | 整份重写，**有手写成员时拒绝**（`--force` 才覆盖） |
 | `lib/src/models/models_generator.dart` | `models`：`w_json/*.json` → 模型 | 增量（mtime），批量校验后落盘 |
-| `lib/sh/setup.sh` | `ww create` 的工程编排 + `main.dart`/home/routes/CI 模板 | API 层与 build_runner 已交给 Dart；其余模板仍在脚本里 |
+| `lib/src/project/project_scaffolder.dart` | `ww create`：`main.dart` / home / routes / CI / .env / toolkit | 存在即跳过（toolkit 只在缺失时兜底） |
+| `lib/sh/setup.sh` | `ww create` 的编排（flutter create / pub add / git / 目录） | 不再写任何生成文本 |
 
-改模板/导入/头部这类「生成文本」时，记得 `grep -rn "要改的那段文本" lib/`：
-`lib/sh/setup.sh` 里还留着一份工程模板（main.dart / home / routes / CI），只改 Dart 会让新老项目产物不一致。
+改模板/导入/头部这类「生成文本」时，记得 `grep -rn "要改的那段文本" lib/`——
+生成文本已经全部在 Dart，`lib/sh/setup.sh` 只剩编排。
 判定规则只有一份：`lib/src/api/project_imports.dart` 的 `resolveWtoolsImport`。
 
 ### 生成器改动约定（models）
