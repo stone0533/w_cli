@@ -4,14 +4,14 @@ How the engineering skills should consume this repo's domain documentation when 
 
 ## Layout: single-context
 
-This repo is **single-context**: one `GLOSSARY.md` at the repo root, shared by the whole repository, and architecture decisions in `docs/adr/`.
+This repo is **single-context**: one `GLOSSARY.md` at the repo root, shared by the whole repository, and architecture decisions in `doc/adr/`.
 
 Concretely: no `GLOSSARY-MAP.md` and no per-subproject `GLOSSARY.md` exist, and none should be created until the first real glossary entry is actually written. Create them lazily, not speculatively — the same rule that governs the files below.
 
 ## Before exploring, read these
 
 - **`GLOSSARY.md`** at the repo root (single-context: this is the only glossary).
-- **`docs/adr/`**: read ADRs that touch the area you're about to work in.
+- **`doc/adr/`**: read ADRs that touch the area you're about to work in.
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
 
@@ -22,7 +22,7 @@ Single-context repo (this repo):
 ```
 /
 ├── GLOSSARY.md
-├── docs/
+├── doc/
 │   ├── adr/
 │   │   ├── 0001-event-sourced-orders.md
 │   │   └── 0002-postgres-for-write-model.md
@@ -33,7 +33,7 @@ Single-context repo (this repo):
 └── lib/
 ```
 
-Multi-context is **not** in use here. For reference, it would mean a root `GLOSSARY-MAP.md` pointing at one `GLOSSARY.md` per context, with context-scoped ADRs in `src/<context>/docs/adr/`. If this repo ever grows into that shape, switch by writing the map file and updating this section — the skills decide which layout they're in by the presence of `GLOSSARY-MAP.md` at the root.
+Multi-context is **not** in use here. For reference, it would mean a root `GLOSSARY-MAP.md` pointing at one `GLOSSARY.md` per context, with context-scoped ADRs in `src/<context>/doc/adr/`. If this repo ever grows into that shape, switch by writing the map file and updating this section — the skills decide which layout they're in by the presence of `GLOSSARY-MAP.md` at the root.
 
 ## Use the glossary's vocabulary
 

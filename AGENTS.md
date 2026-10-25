@@ -2,15 +2,15 @@
 
 ### Issue tracker
 
-Issues live as GitHub issues in `stone0533/w_cli`, driven by the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues live as GitHub issues in `stone0533/w_cli`, driven by the `gh` CLI. See `doc/agents/issue-tracker.md`.
 
 ### Triage labels
 
-The five canonical triage roles map to same-named labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+The five canonical triage roles map to same-named labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `doc/agents/triage-labels.md`.
 
 ### Domain docs
 
-single-context — one `GLOSSARY.md` at the repo root, architecture decisions in `docs/adr/`. See `docs/agents/domain.md`.
+single-context — one `GLOSSARY.md` at the repo root, architecture decisions in `doc/adr/`. See `doc/agents/domain.md`.
 
 ### 生成逻辑的归属（ADR-0002）
 
