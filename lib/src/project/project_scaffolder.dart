@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'project_templates.dart';
+import '../cli/output.dart';
 
 /// `ww create` 里「写工程文件」的那一半（ADR-0002）。
 ///
@@ -68,6 +69,6 @@ class ProjectScaffolder {
     final file = File('$root/$relativePath');
     file.parent.createSync(recursive: true);
     file.writeAsStringSync(content.endsWith('\n') ? content : '$content\n');
-    stdout.writeln('写入 $relativePath');
+    Cli.detail('写入 $relativePath');
   }
 }

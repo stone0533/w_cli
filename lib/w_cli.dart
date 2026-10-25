@@ -74,7 +74,7 @@ Future<int> handleCreateProject(
     return 2;
   }
 
-  print('\n🚀 Creating Flutter project: $projectName');
+  Cli.info('Creating Flutter project: $projectName');
   try {
     return await ProjectCreator(name: projectName, force: force).run();
   } catch (e) {

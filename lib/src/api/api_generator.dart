@@ -4,6 +4,7 @@ import 'client_parser.dart';
 import 'generated_file_guard.dart';
 import 'client_renderer.dart';
 import 'project_imports.dart';
+import '../cli/output.dart';
 
 /// 生成 `data_source_mixin.dart` 与 `repository.dart`。
 ///
@@ -32,7 +33,7 @@ class ApiGenerator {
   Future<int> generate({bool force = false}) async {
     final clientFile = File(clientPath);
     if (!clientFile.existsSync()) {
-      stderr.writeln('文件不存在: $clientPath');
+      Cli.error('文件不存在: $clientPath');
       return 1;
     }
 
@@ -40,18 +41,18 @@ class ApiGenerator {
     try {
       methods = parseApiClient(clientFile.readAsStringSync());
     } on ApiParseException catch (error) {
-      stderr.writeln('解析 $clientPath 失败：$error');
+      Cli.error('解析 $clientPath 失败：$error');
       return 1;
     }
 
     if (methods.isEmpty) {
-      stderr.writeln('未解析到任何 API 方法：$clientPath');
+      Cli.error('未解析到任何 API 方法：$clientPath');
       return 1;
     }
 
-    stdout.writeln('解析到 ${methods.length} 个 API 方法：');
+    Cli.detail('解析到 ${methods.length} 个 API 方法：');
     for (final method in methods) {
-      stdout.writeln('  - ${method.name} -> ${method.returnType}');
+      Cli.detail('  - ${method.name} -> ${method.returnType}');
     }
 
     final modelFiles = _modelFilesFor(methods);
@@ -87,8 +88,8 @@ class ApiGenerator {
     _writeAtomically(mixinPath, mixin);
     _writeAtomically(repositoryPath, repository);
 
-    stdout.writeln('已更新: $mixinPath');
-    stdout.writeln('已更新: $repositoryPath');
+    Cli.detail('已更新: $mixinPath');
+    Cli.detail('已更新: $repositoryPath');
     return 0;
   }
 
@@ -115,11 +116,11 @@ class ApiGenerator {
   }
 
   void _reportHandwritten(Map<String, Set<String>> blocked) {
-    stderr.writeln('检测到手写成员，已拒绝覆盖（确认要覆盖请加 --force）：');
+    Cli.error('检测到手写成员，已拒绝覆盖（确认要覆盖请加 --force）：');
     for (final entry in blocked.entries) {
-      stderr.writeln('  ${entry.key}: ${entry.value.join(', ')}');
+      Cli.error('  ${entry.key}: ${entry.value.join(', ')}');
     }
-    stderr.writeln('建议把业务方法放进扩展（extension），或先备份再 --force 覆盖。');
+    Cli.error('建议把业务方法放进扩展（extension），或先备份再 --force 覆盖。');
   }
 
   Set<String> _existingMethods() {

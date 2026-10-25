@@ -228,17 +228,25 @@ void main() {
       expect(runner.starts.single.args.join(' '), 'analyze --fatal-infos');
     });
 
-    test('gen 走 TaskRunner，30 分钟超时', () async {
-      final runner = FakeProcessRunner();
+    test('gen 走 capture：输出落盘、不直连终端', () async {
+      final runner = FakeProcessRunner(
+        runStdout: 'Built with build_runner in 2s; wrote 0 outputs.\n',
+      );
       await TaskRunner(
         root: project.path,
         runner: runner,
       ).run(builtinTask('gen')!);
-      final call = runner.starts.single;
+
+      final call = runner.runs.single;
       expect(call.exe, 'dart');
       expect(
         call.args.join(' '),
         'run build_runner build --delete-conflicting-outputs',
+      );
+      expect(runner.starts, isEmpty, reason: 'capture 模式不走 inheritStdio');
+      expect(
+        File('${project.path}/w_build/gen.log').readAsStringSync(),
+        contains('Built with build_runner'),
       );
     });
 

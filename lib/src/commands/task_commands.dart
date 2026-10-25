@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../cli/output.dart';
 import '../cli/process.dart';
 
 /// 内置的「短命令」：把常用但难记的长命令收成 `ww <动词>`。
@@ -21,6 +22,7 @@ class BuiltinTask {
     this.availableOnAllPlatforms = true,
     this.requiresDirectory,
     this.transform,
+    this.capture = false,
   });
 
   final String name;
@@ -43,6 +45,9 @@ class BuiltinTask {
 
   /// 需要的目录（相对项目根）；不存在时直接给中文提示
   final String? requiresDirectory;
+
+  /// 是否把子进程输出收集起来落盘（默认直连终端，如 `watch`）
+  final bool capture;
 
   /// 参数改写：`ww add --dev x` 要变成 `dev:x`
   final List<String> Function(List<String> positionals, Set<String> flags)?
@@ -117,6 +122,7 @@ const List<BuiltinTask> builtinTasks = [
     executable: 'dart',
     arguments: ['run', 'build_runner', 'build', '--delete-conflicting-outputs'],
     timeout: Duration(minutes: 30),
+    capture: true,
   ),
   BuiltinTask(
     name: 'watch',
@@ -194,12 +200,46 @@ class TaskRunner {
     }
 
     stdout.writeln('\$ ${task.executable} ${args.join(' ')}');
-    return runner.start(
+
+    if (!task.capture || Cli.verbose) {
+      return runner.start(
+        task.executable,
+        args,
+        workingDirectory: root,
+        timeout: _timeoutFor(task),
+      );
+    }
+
+    // capture：输出落盘，终端只留最后一句结果
+    final result = await runner.run(
       task.executable,
       args,
       workingDirectory: root,
-      timeout: _timeoutFor(task),
     );
+    final code = result.exitCode;
+    final output = '${result.stdout}${result.stderr}';
+
+    final logFile = File('$root/w_build/${task.name}.log');
+    logFile.parent.createSync(recursive: true);
+    logFile.writeAsStringSync(output, mode: FileMode.append);
+
+    if (code != 0) {
+      Cli.error('ww ${task.name} 失败（退出码 $code），末尾输出：');
+      for (final line in output.trimRight().split('\n').take(10)) {
+        Cli.error('    $line');
+      }
+      Cli.error('完整输出: ${logFile.path}');
+      return code;
+    }
+
+    final summary = output
+        .split('\n')
+        .lastWhere((line) => line.trim().isNotEmpty, orElse: () => '')
+        .trim();
+    if (summary.isNotEmpty) {
+      Cli.detail(summary);
+    }
+    return 0;
   }
 
   bool _requiresPackage(BuiltinTask task) => task.name == 'add';
