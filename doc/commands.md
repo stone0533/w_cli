@@ -147,6 +147,25 @@ w_build/
 - 每个构建步骤超时 30 分钟，超时退出 124
 - 任一平台失败，整体退出 1；已成功的平台产物保留
 
+### 日志
+
+默认只留关键行（约 10 行），xcodebuild / gradle 的逐行输出写进 `w_build/build.log`：
+
+```console
+=== 构建 ios 1.0.0 (PROD) ===
+[INFO] 未找到签名配置，按自动签名构建: team=ABC123DEF4 bundle=hk.app method=development
+[INFO] Archive（xcodebuild）...
+[INFO] 导出 IPA...
+[INFO] dSYM: w_build/app_live_1.0.0.dSYMs.zip (41M)
+[INFO] iOS 构建成功: w_build/app_live_1.0.0.ipa (37M)
+[INFO]   签名 automatic · method development · team ABC123DEF4 · bundle hk.app · 用时 77s
+=== 完成（14:42:57）===
+[INFO] 构建细节: w_build/build.log（-d 可实时显示）
+```
+
+- `-d` / `--debug`：实时输出全部内容（排障用）
+- 失败时自动打印子进程末尾 20 行 + 完整日志路径
+
 ### iOS 签名
 
 **默认零配置**：只要 `ios/Runner.xcodeproj` 里有 `DEVELOPMENT_TEAM`，`ww build ios`
