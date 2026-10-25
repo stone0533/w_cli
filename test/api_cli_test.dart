@@ -45,27 +45,34 @@ void main() {
     test('--force 不能配合 init', () {
       expect(
         () => resolveApiArgs(['init', '--force']),
-        throwsA(isA<ApiUsageError>().having(
-          (error) => error.message,
-          'message',
-          contains('不能配合 init'),
-        )),
+        throwsA(
+          isA<ApiUsageError>().having(
+            (error) => error.message,
+            'message',
+            contains('不能配合 init'),
+          ),
+        ),
       );
     });
 
     test('未知子命令报错并列出用法', () {
       expect(
         () => resolveApiArgs(['bogus']),
-        throwsA(isA<ApiUsageError>().having(
-          (error) => error.message,
-          'message',
-          contains('ww api models'),
-        )),
+        throwsA(
+          isA<ApiUsageError>().having(
+            (error) => error.message,
+            'message',
+            contains('ww api models'),
+          ),
+        ),
       );
     });
 
     test('多个子命令报错', () {
-      expect(() => resolveApiArgs(['init', 'models']), throwsA(isA<ApiUsageError>()));
+      expect(
+        () => resolveApiArgs(['init', 'models']),
+        throwsA(isA<ApiUsageError>()),
+      );
     });
 
     test('旧写法被拒绝，并给出新写法', () {
@@ -76,11 +83,13 @@ void main() {
       }.entries) {
         expect(
           () => resolveApiArgs([entry.key]),
-          throwsA(isA<ApiUsageError>().having(
-            (error) => error.message,
-            'message',
-            contains(entry.value),
-          )),
+          throwsA(
+            isA<ApiUsageError>().having(
+              (error) => error.message,
+              'message',
+              contains(entry.value),
+            ),
+          ),
           reason: entry.key,
         );
       }
@@ -89,14 +98,21 @@ void main() {
 
   group('legacyFlagHint', () {
     test('从参数解析异常里认出旧写法', () {
-      expect(legacyFlagHint('Could not find an option or flag "--models".'),
-          contains('ww api models'));
-      expect(legacyFlagHint('Could not find an option or flag "--full".'),
-          contains('ww api models --force'));
+      expect(
+        legacyFlagHint('Could not find an option or flag "--models".'),
+        contains('ww api models'),
+      );
+      expect(
+        legacyFlagHint('Could not find an option or flag "--full".'),
+        contains('ww api models --force'),
+      );
     });
 
     test('普通错误不误判', () {
-      expect(legacyFlagHint('Could not find an option or flag "--nope".'), isNull);
+      expect(
+        legacyFlagHint('Could not find an option or flag "--nope".'),
+        isNull,
+      );
     });
   });
 }

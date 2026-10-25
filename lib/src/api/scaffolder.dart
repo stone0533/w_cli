@@ -84,7 +84,9 @@ class ApiScaffolder {
         runInShell: true,
       );
       if (result.exitCode != 0) {
-        stderr.writeln('添加 $dep 失败，请手动执行: flutter pub add ${isDev ? '--dev ' : ''}$dep');
+        stderr.writeln(
+          '添加 $dep 失败，请手动执行: flutter pub add ${isDev ? '--dev ' : ''}$dep',
+        );
       }
     }
   }
@@ -162,7 +164,10 @@ String dataSourceTemplate(String uri) {
 String repositoryTemplate(String uri) {
   return "${repositoryPrefix}import '$uri';\n$repositoryTail";
 }
-const String dataSourceTail = '\n' r'''
+
+const String dataSourceTail =
+    '\n'
+    r'''
 import '../client.dart';
 import '../paths.dart';
 import 'data_source_mixin.dart';
@@ -184,10 +189,13 @@ class AppRemoteDataSource extends BaseRemoteDataSource
 }
 
 ''';
-const String repositoryPrefix = r'''// 由 api.sh 首次创建；之后的内容由 ww api 依据 client.dart 整份重写。
+const String repositoryPrefix =
+    r'''// 由 api.sh 首次创建；之后的内容由 ww api 依据 client.dart 整份重写。
 // 直接在这里加方法会让 ww api 拒绝覆盖（它会提示用手写扩展或 --force）。
 ''';
-const String repositoryTail = '\n' r'''
+const String repositoryTail =
+    '\n'
+    r'''
 import 'remote/data_source.dart';
 import 'remote/data_source_mixin.dart';
 
@@ -236,14 +244,16 @@ abstract class ApiClient {
   // 这里新增需要的 API，然后执行 ww api generate 来自动生成对应的代码
 }
 ''';
-String pathsTemplate(String baseUrl) => '''class ApiPath {
+String pathsTemplate(String baseUrl) =>
+    '''class ApiPath {
   static const String baseUrl = '$baseUrl';
 
   // 认证相关
   static const String login = '/auth/login';
 }
 ''';
-const String dataSourceMixinTemplate = r'''// **************************************************************************
+const String dataSourceMixinTemplate =
+    r'''// **************************************************************************
 // Auto-generated file. Do not edit manually.
 // **************************************************************************
 import '../client.dart';

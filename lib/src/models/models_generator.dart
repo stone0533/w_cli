@@ -28,7 +28,8 @@ class ModelsGenerator {
   /// 测试里可以关掉 `dart format`，直接比对渲染结果
   final bool formatOutput;
 
-  static const String _header = '// **************************************************************************\n'
+  static const String _header =
+      '// **************************************************************************\n'
       '// Auto-generated file. Do not edit manually.\n'
       '// **************************************************************************';
 
@@ -50,12 +51,13 @@ class ModelsGenerator {
     Directory('$base$jsonDir').createSync(recursive: true);
     Directory('$base$modelsDir').createSync(recursive: true);
 
-    final jsonFiles = Directory('$base$jsonDir')
-        .listSync()
-        .whereType<File>()
-        .where((file) => file.path.endsWith('.json'))
-        .toList()
-      ..sort((a, b) => a.path.compareTo(b.path));
+    final jsonFiles =
+        Directory('$base$jsonDir')
+            .listSync()
+            .whereType<File>()
+            .where((file) => file.path.endsWith('.json'))
+            .toList()
+          ..sort((a, b) => a.path.compareTo(b.path));
 
     if (jsonFiles.isEmpty) {
       stderr.writeln('未找到 json 文件: $jsonDir');
@@ -254,8 +256,9 @@ class ModelsGenerator {
 
       if (!force && dartFile.existsSync()) {
         final jsonTime = File(spec.jsonPath).lastModifiedSync();
-        final configTime =
-            configFile.existsSync() ? configFile.lastModifiedSync() : jsonTime;
+        final configTime = configFile.existsSync()
+            ? configFile.lastModifiedSync()
+            : jsonTime;
         final dartTime = dartFile.lastModifiedSync();
         if (!jsonTime.isAfter(dartTime) && !configTime.isAfter(dartTime)) {
           stdout.writeln('  - $dartName.dart (无需更新)');
@@ -285,13 +288,10 @@ class ModelsGenerator {
 
   /// 增量判断；返回 null 表示全部最新。
   List<({String jsonPath, String dartPath, String dartName, String name})>?
-      _collectTargets(
-    List<File> jsonFiles,
-    File configFile,
-    String base,
-  ) {
-    final configTime =
-        configFile.existsSync() ? configFile.lastModifiedSync() : null;
+  _collectTargets(List<File> jsonFiles, File configFile, String base) {
+    final configTime = configFile.existsSync()
+        ? configFile.lastModifiedSync()
+        : null;
     final referenced = <String>{};
 
     // 配置里引用过的 json：配置比产物新时也要重生成
@@ -304,8 +304,10 @@ class ModelsGenerator {
       }
     }
 
-    final all = <({String jsonPath, String dartPath, String dartName, String name})>[];
-    final changed = <({String jsonPath, String dartPath, String dartName, String name})>[];
+    final all =
+        <({String jsonPath, String dartPath, String dartName, String name})>[];
+    final changed =
+        <({String jsonPath, String dartPath, String dartName, String name})>[];
 
     for (final file in jsonFiles) {
       final name = _basename(file.path).replaceFirst(RegExp(r'\.json$'), '');
@@ -369,8 +371,11 @@ class ModelsGenerator {
     required String partName,
     required List<StandaloneClass> standalones,
   }) {
-    final modelContent =
-        renderModelClasses(className, data, standalones).join('\n\n');
+    final modelContent = renderModelClasses(
+      className,
+      data,
+      standalones,
+    ).join('\n\n');
 
     final buffer = StringBuffer()
       ..write('$_header\n\n')
@@ -412,11 +417,10 @@ class ModelsGenerator {
 
     if (formatOutput && _commandAvailable('dart')) {
       stdout.writeln('校验生成的代码...');
-      final result = Process.runSync(
-        'dart',
-        ['format', ..._pending.map((entry) => entry.temp)],
-        runInShell: true,
-      );
+      final result = Process.runSync('dart', [
+        'format',
+        ..._pending.map((entry) => entry.temp),
+      ], runInShell: true);
       if (result.exitCode != 0) {
         for (final entry in _pending) {
           File(entry.temp).deleteSync();
@@ -483,7 +487,6 @@ class ModelsGenerator {
     }
     stdout.writeln('build_runner build 执行完成');
   }
-
 
   static String _basename(String path) => path.split('/').last;
 

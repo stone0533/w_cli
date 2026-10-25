@@ -43,13 +43,14 @@ void main() {
 
   // 脚本清单从仓库目录动态取：删掉一个脚本时测试自动跟随，
   // 不再依赖「pub cache 里还留着旧版本」这种本地假象
-  final repoScripts = Directory('lib/sh')
-      .listSync()
-      .whereType<File>()
-      .map((file) => file.uri.pathSegments.last)
-      .where((name) => name.endsWith('.sh'))
-      .toList()
-    ..sort();
+  final repoScripts =
+      Directory('lib/sh')
+          .listSync()
+          .whereType<File>()
+          .map((file) => file.uri.pathSegments.last)
+          .where((name) => name.endsWith('.sh'))
+          .toList()
+        ..sort();
 
   group('scriptExists', () {
     test('should return true for existing scripts', () async {
@@ -296,7 +297,10 @@ void main() {
     });
 
     test('只有 Windows 才会提到 WSL', () {
-      expect(bashMissingHint('open.sh', isWindows: false), isNot(contains('WSL')));
+      expect(
+        bashMissingHint('open.sh', isWindows: false),
+        isNot(contains('WSL')),
+      );
     });
   });
 

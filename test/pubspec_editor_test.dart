@@ -31,8 +31,11 @@ void main() {
 
     expect(assetsIndex, greaterThan(flutterIndex));
     expect(flutterIndex, greaterThan(depsIndex));
-    expect(lines.sublist(assetsIndex + 1, assetsIndex + 4),
-        ['    - .env', '    - assets/', '    - assets/images/']);
+    expect(lines.sublist(assetsIndex + 1, assetsIndex + 4), [
+      '    - .env',
+      '    - assets/',
+      '    - assets/images/',
+    ]);
 
     // dependencies 段里的 flutter 依赖没被动过
     expect(updated, contains('  flutter:\n    sdk: flutter'));

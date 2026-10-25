@@ -70,8 +70,9 @@ Set<String> handwrittenMembers({
   required String existingContent,
   required String generatedContent,
 }) {
-  return declaredMemberNames(existingContent)
-      .difference(declaredMemberNames(generatedContent));
+  return declaredMemberNames(
+    existingContent,
+  ).difference(declaredMemberNames(generatedContent));
 }
 
 final _memberPattern = RegExp(
