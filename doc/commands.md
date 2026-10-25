@@ -143,7 +143,26 @@ w_build/
 
 ### iOS 签名
 
-首次构建 iOS 且 `OUTPUT_DIR` 里没有 `ios.plist` 时，会生成模板并退出，提示填写：
+**默认零配置**：只要 `ios/Runner.xcodeproj` 里有 `DEVELOPMENT_TEAM`，`ww build ios`
+会直接按自动签名构建（`automatic` + `development`），不需要任何配置文件。
+
+需要更多控制时，优先级从高到低：
+
+| 优先级 | 位置 | 用途 |
+| --- | --- | --- |
+| 1 | `--method= --team= --bundle-id= --cert= --profile= --automatic --manual` | 临时切换，不写文件 |
+| 2 | `w_build/ios.plist` | 个人覆盖（`w_build/` 已被 gitignore） |
+| 3 | `ios/ExportOptions.plist` | 团队共用，可提交到仓库 |
+| 4 | 自动探测 `DEVELOPMENT_TEAM` | 零配置，自动签名 |
+
+```bash
+ww build ios                                        # 本地/测试，无需配置
+ww build ios --method=ad-hoc                        # 换分发方式
+ww build ios --method=app-store --team=ABC123DEF4 \
+             --bundle-id=com.x.y --cert="Apple Distribution: X (ID)" --profile="Profile 名"
+```
+
+配置文件格式就是 Xcode 的 ExportOptions.plist：
 
 ```xml
 <key>method</key><string>app-store</string>          <!-- app-store / ad-hoc / enterprise / development -->
