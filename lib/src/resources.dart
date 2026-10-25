@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:path/path.dart' as path;
+import 'cli/output.dart';
 import 'version.dart';
 
 /// 资源文件访问工具类
@@ -149,7 +150,7 @@ class Resources {
         root.deleteSync(recursive: true);
       }
     } catch (e) {
-      print('Warning: Failed to clean up temp files: $e');
+      Cli.warn('清理临时文件失败: $e');
     }
   }
 

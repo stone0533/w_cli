@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../cli/capture.dart';
 import '../cli/output.dart';
 import '../cli/process.dart';
 
@@ -167,7 +168,7 @@ class TaskRunner {
     bool check = false,
   }) async {
     if (!task.availableOnAllPlatforms && Platform.isWindows) {
-      stderr.writeln('ww ${task.name} 在 Windows 上不可用');
+      Cli.error('ww ${task.name} 在 Windows 上不可用');
       return 1;
     }
 
@@ -176,16 +177,16 @@ class TaskRunner {
 
     final required = task.requiresDirectory;
     if (required != null && !Directory('$root/$required').existsSync()) {
-      stderr.writeln('当前项目没有 $required 目录，ww ${task.name} 不适用');
+      Cli.error('当前项目没有 $required 目录，ww ${task.name} 不适用');
       return 1;
     }
     if (positionals.isEmpty && _requiresPackage(task)) {
-      stderr.writeln('用法: ww ${task.name} <包名>...');
+      Cli.error('用法: ww ${task.name} <包名>...');
       return 2;
     }
     if (!runner.which(task.executable)) {
-      stderr.writeln('找不到 ${task.executable}，无法执行 ww ${task.name}');
-      stderr.writeln('  命令: ${task.commandLine}');
+      Cli.error('找不到 ${task.executable}，无法执行 ww ${task.name}');
+      Cli.error('  命令: ${task.commandLine}');
       return 1;
     }
 
@@ -199,7 +200,7 @@ class TaskRunner {
       ];
     }
 
-    stdout.writeln('\$ ${task.executable} ${args.join(' ')}');
+    Cli.info('\$ ${task.executable} ${args.join(' ')}');
 
     if (!task.capture || Cli.verbose) {
       return runner.start(
@@ -211,24 +212,20 @@ class TaskRunner {
     }
 
     // capture：输出落盘，终端只留最后一句结果
-    final result = await runner.run(
+    final run = await runCaptured(
+      runner,
       task.executable,
       args,
-      workingDirectory: root,
+      root: root,
+      logName: '${task.name}.log',
     );
-    final code = result.exitCode;
-    final output = '${result.stdout}${result.stderr}';
-
-    final logFile = File('$root/w_build/${task.name}.log');
-    logFile.parent.createSync(recursive: true);
-    logFile.writeAsStringSync(output, mode: FileMode.append);
+    final output = run.text;
+    final code = run.code;
 
     if (code != 0) {
       Cli.error('ww ${task.name} 失败（退出码 $code），末尾输出：');
-      for (final line in output.trimRight().split('\n').take(10)) {
-        Cli.error('    $line');
-      }
-      Cli.error('完整输出: ${logFile.path}');
+      captureTail(output);
+      Cli.error('完整输出: ${captureLogPath(root, '${task.name}.log')}');
       return code;
     }
 

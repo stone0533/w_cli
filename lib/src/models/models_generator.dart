@@ -45,7 +45,7 @@ class ModelsGenerator {
     final base = root == '.' ? '' : '$root/';
     final pubspec = File('${base}pubspec.yaml');
     if (!pubspec.existsSync()) {
-      stderr.writeln('文件不存在: ${pubspec.path}');
+      Cli.error('文件不存在: ${pubspec.path}');
       return 1;
     }
 
@@ -65,7 +65,7 @@ class ModelsGenerator {
           ..sort((a, b) => a.path.compareTo(b.path));
 
     if (jsonFiles.isEmpty) {
-      stderr.writeln('未找到 json 文件: $jsonDir');
+      Cli.error('未找到 json 文件: $jsonDir');
       return 1;
     }
 
@@ -101,7 +101,7 @@ class ModelsGenerator {
       try {
         data = jsonDecode(jsonText);
       } on FormatException catch (error) {
-        stderr.writeln('解析 JSON 失败: ${_basename(target.jsonPath)} ($error)');
+        Cli.error('解析 JSON 失败: ${_basename(target.jsonPath)} ($error)');
         return 1;
       }
 
@@ -149,7 +149,7 @@ class ModelsGenerator {
       final args = ['pub', 'add', if (entry.value) '--dev', entry.key];
       final result = await runner.run(tool, args, workingDirectory: root);
       if (result.exitCode != 0) {
-        stderr.writeln('添加 ${entry.key} 失败，请手动执行: $tool ${args.join(' ')}');
+        Cli.error('添加 ${entry.key} 失败，请手动执行: $tool ${args.join(' ')}');
         return false;
       }
     }
@@ -186,13 +186,13 @@ class ModelsGenerator {
       final jsonFile = match.group(1)!;
       final node = match.group(2)!;
       if (currentClass.isEmpty) {
-        stderr.writeln('跳过配置行，缺少类名: $line');
+        Cli.error('跳过配置行，缺少类名: $line');
         continue;
       }
 
       final path = '$jsonDirPath/$jsonFile';
       if (!File(path).existsSync()) {
-        stderr.writeln('JSON 文件不存在: $path');
+        Cli.error('JSON 文件不存在: $path');
         continue;
       }
       specs.add((className: currentClass, jsonPath: path, node: node));
@@ -261,7 +261,7 @@ class ModelsGenerator {
 
       final node = _extractNode(spec.jsonPath, spec.node);
       if (node == null) {
-        stderr.writeln('无法提取节点内容: ${spec.node}');
+        Cli.error('无法提取节点内容: ${spec.node}');
         continue;
       }
 
@@ -419,7 +419,7 @@ class ModelsGenerator {
           File(entry.temp).deleteSync();
         }
         _pending.clear();
-        stderr.writeln('生成的模型不是合法 Dart，已放弃写入（原有文件未改动）');
+        Cli.error('生成的模型不是合法 Dart，已放弃写入（原有文件未改动）');
         return false;
       }
     }
@@ -460,9 +460,9 @@ class ModelsGenerator {
     }
 
     if (problems.isNotEmpty) {
-      stderr.writeln('生成的模型文件自检未通过：');
+      Cli.error('生成的模型文件自检未通过：');
       for (final problem in problems) {
-        stderr.writeln(problem);
+        Cli.error(problem);
       }
       return false;
     }
@@ -475,7 +475,7 @@ class ModelsGenerator {
     Cli.detail('执行 build_runner build...');
     final status = await BuildRunner(root: root).run();
     if (status != 0) {
-      stderr.writeln('build_runner build 失败（退出码 $status）');
+      Cli.error('build_runner build 失败（退出码 $status）');
       return;
     }
     Cli.detail('build_runner build 执行完成');

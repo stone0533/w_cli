@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import '../cli/output.dart';
+import '../cli/capture.dart';
 import '../cli/process.dart';
 
 /// 统一的 `build_runner build` 入口。
@@ -28,7 +29,7 @@ class BuildRunner {
   Future<int> run({bool deleteConflicting = true}) async {
     final tool = runner.which('dart') ? 'dart' : 'flutter';
     if (tool == 'flutter' && !runner.which('flutter')) {
-      stderr.writeln('Dart 和 Flutter 命令都不可用，无法执行 build_runner');
+      Cli.error('Dart 和 Flutter 命令都不可用，无法执行 build_runner');
       return 1;
     }
 
@@ -56,15 +57,14 @@ class BuildRunner {
       }
 
       // 非 verbose：收集输出，落盘 + 只留一行结果
-      final result = await runner
-          .run(tool, args, workingDirectory: root)
-          .timeout(timeout, onTimeout: () => ProcessResult(0, 124, '', ''));
-      final code = result.exitCode;
-      final output = '${result.stdout}${result.stderr}';
-
-      final logFile = File('$root/w_build/build-runner.log');
-      logFile.parent.createSync(recursive: true);
-      logFile.writeAsStringSync(output, mode: FileMode.append);
+      final run = await runCaptured(
+        runner,
+        tool,
+        args,
+        root: root,
+        logName: 'build-runner.log',
+      );
+      final code = run.code;
 
       if (code == 124) {
         Cli.error('build_runner 超时（${timeout.inMinutes} 分钟）');
@@ -72,21 +72,12 @@ class BuildRunner {
       }
       if (code != 0) {
         Cli.error('build_runner 失败（退出码 $code），末尾输出：');
-        for (final line in output.trimRight().split('\n').take(10)) {
-          stderr.writeln('    $line');
-        }
-        Cli.error('完整输出: ${logFile.path}');
+        captureTail(run.text);
+        Cli.error('完整输出: ${captureLogPath(root, 'build-runner.log')}');
         return code;
       }
 
-      // 成功：把 build_runner 自己那句总结挑出来（如 "Built with build_runner in 2s"）
-      final summary = output
-          .split('\n')
-          .lastWhere(
-            (line) => line.contains('Built with build_runner'),
-            orElse: () => '',
-          )
-          .trim();
+      final summary = captureLastLine(run.text);
       Cli.detail(summary.isEmpty ? 'build_runner 完成' : summary);
       return 0;
     } on ProcessException catch (error) {

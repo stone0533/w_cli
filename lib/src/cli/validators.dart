@@ -7,6 +7,8 @@ library;
 
 import 'dart:io';
 
+import 'output.dart';
+
 final RegExp _startsWithLower = RegExp(r'^[a-z]');
 final RegExp _allowedChars = RegExp(r'^[a-z0-9_]+$');
 
@@ -19,16 +21,16 @@ bool insideExistingProject({String dir = '.'}) =>
 /// 项目名必须小写字母开头、只含小写字母/数字/下划线。
 bool validateProjectName(String projectName) {
   if (projectName.isEmpty) {
-    print('❌ Error: Project name is required');
-    print('   Usage: ww create project name');
+    Cli.error('❌ Error: Project name is required');
+    Cli.error('   Usage: ww create project name');
     return false;
   }
   if (!_startsWithLower.hasMatch(projectName)) {
-    print('❌ Error: Project name must start with a lowercase letter');
+    Cli.error('❌ Error: Project name must start with a lowercase letter');
     return false;
   }
   if (!_allowedChars.hasMatch(projectName)) {
-    print(
+    Cli.error(
       '❌ Error: Project name can only contain lowercase letters, numbers, and underscores',
     );
     return false;
