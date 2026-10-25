@@ -17,6 +17,8 @@
 
 ### Added
 
+- `example/example.dart`：演示如何复用 `ProcessRunner` + `Cli`（pub.dev 的 Example 项）
+
 - `tool/check_doc_anchors.dart` + CI 步骤：校验 Markdown 内部锚点，
   防止「章节删了、链接还在」这类断链（`docs/commands.md` 就发生过一次）
 
