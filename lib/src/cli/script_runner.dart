@@ -83,17 +83,19 @@ Future<int> executeScript(
         .forEach((chunk) {
           final output = chunk.trimRight();
           if (output.isNotEmpty) {
-            print(output);
+            stdout.writeln(output);
           }
         });
 
-    // 实时显示错误输出
+    // 实时转发错误输出。
+    // 不要加 `Error: ` 前缀：脚本自己已经用 [WARN]/[ERROR] 标好级别，
+    // 再套一层会变成 `Error: [WARN] 创建输出目录: w_build` 这种自相矛盾的输出。
     final stderrDone = process.stderr
         .transform(const Utf8Decoder(allowMalformed: true))
         .forEach((chunk) {
           final output = chunk.trimRight();
           if (output.isNotEmpty) {
-            print('Error: $output');
+            stderr.writeln(output);
           }
         });
 

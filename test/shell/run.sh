@@ -476,6 +476,35 @@ head -c 100 /dev/zero > "$build_root/demo/w_build/keep_live_9.9.9.apk"
 assert_eq "失败清理保留输出目录里的成品" "present" \
   "$([ -f "$build_root/demo/w_build/keep_live_9.9.9.apk" ] && echo present || echo gone)"
 
+# 8.5) ww build：脚本的 stderr 原样转发，不再套一层 "Error: "
+stderr_root="$(mktemp -d)"
+mkdir -p "$stderr_root/bin" "$stderr_root/demo/android" "$stderr_root/demo/w_build"
+cat > "$stderr_root/bin/flutter" << 'STUB'
+#!/bin/bash
+case "$1" in
+  --version) echo "Flutter 3.24.0 • channel stable"; exit 0 ;;
+  build)
+    echo "[WARN] 这是脚本自己的警告" >&2
+    mkdir -p build/app/outputs/flutter-apk
+    head -c 20000 /dev/zero > build/app/outputs/flutter-apk/app-release.apk
+    exit 0 ;;
+  *) exit 0 ;;
+esac
+STUB
+chmod +x "$stderr_root/bin/flutter"
+printf 'name: demo\nversion: 1.2.3\n' > "$stderr_root/demo/pubspec.yaml"
+
+ww_build_out="$(
+  cd "$stderr_root/demo" && PATH="$stderr_root/bin:$PATH" CI=true \
+    "$(command -v dart)" run "$ROOT/bin/w_cli.dart" build apk 2>&1
+)"
+ww_build_status=$?
+assert_eq "ww build 带 stderr 警告时退出 0" 0 "$ww_build_status"
+assert_contains "脚本 stderr 原样转发" "[WARN] 这是脚本自己的警告" "$ww_build_out"
+assert_eq "stderr 未被套上 Error: 前缀" "no" \
+  "$(printf '%s' "$ww_build_out" | grep -q "Error: \[WARN\]" && echo yes || echo no)"
+rm -rf "$stderr_root"
+
 # 9) 无参数 = 帮助（ww clean 曾经一按回车就清空产物）
 noarg_root="$(mktemp -d)"
 mkdir -p "$noarg_root/keep"
