@@ -37,6 +37,13 @@
 - `ww create` 生成的 API 层改用 `ApiScaffolder`（与 `ww api init` 同一份模板），
   `setup.sh` 里重复的那份模板已删除
 
+### Removed
+
+- 删除 `lib/w_cli.dart` 里 10 个从未被命令分发的 stub handler
+  （`handleCreatePage/Screen/Controller/View/Provider`、`handleInitCommand`、
+  `handleGenerateLocales/Model`、`handleInstallCommand`、`handleRemoveCommand`）：
+  它们都只打印「not yet implemented」，对应命令也从未在 `bin` 注册
+
 ### Changed
 
 - `lib/sh/lib.sh` 精简为「只服务 build.sh」：删掉 `ww::die` / `ww::require` /
