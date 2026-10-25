@@ -9,7 +9,8 @@
 | [`ww common`](#ww-common) | Dart | 跑 build_runner |
 | [`ww clean`](#ww-clean) | Dart | 清构建产物 / 锁文件 / Pods |
 | [`ww open`](#ww-open) | Dart | 打开 IDE 或目录 |
-| [`ww project`](#ww-project) | Dart | 升级依赖与 Gradle |
+| [`ww deps`](#ww-deps) | Dart | 升级依赖与 Gradle |
+| [`ww gen`](#ww-gen) | Dart | 跑 build_runner |
 | [`ww build`](#ww-build) | **bash** | 打包 APK / AAB / IPA |
 
 > 除 `build` 外全部是纯 Dart，Windows 可直接用；`build` 需要 bash（Git Bash / WSL）。
@@ -68,12 +69,14 @@ ww create my_app --force          # 覆盖同名目录（默认拒绝）
 - 任何一步失败：退出非零，并**删除本次创建的目录**
 - 目标目录原本就存在：永远不删（除非显式 `--force`）
 
-## ww common
+## ww gen
 
 ```bash
-ww common drbb           # dart run build_runner build --delete-conflicting-outputs
-ww common drbb --debug   # 带调试日志（等同 -d）
+ww gen                   # dart run build_runner build --delete-conflicting-outputs
+ww gen --debug           # 带调试日志（等同 -d）
 ```
+
+旧写法 `ww common drbb` 仍可用，会提示一次改用 `ww gen`。
 
 - 优先用 `dart`，没有就退回 `flutter`
 - 30 分钟超时，超时返回 124（先 SIGTERM，5 秒后 SIGKILL）
@@ -117,11 +120,13 @@ ww o b             # 短别名：i / a / b / r
 
 无参数或 `--help` 打印帮助（退出 0）；未知参数退出 2；打开失败返回非零。
 
-## ww project
+## ww deps
 
 ```bash
-ww project --update      # flutter pub upgrade + Gradle wrapper 指到 8.0
+ww deps upgrade          # flutter pub upgrade + Gradle wrapper 指到 8.0
 ```
+
+旧写法 `ww project --update` 仍可用。
 
 1. 检查 `flutter`（不可用退出 1）
 2. 打印当前 Flutter 版本
@@ -137,7 +142,7 @@ ww project --update      # flutter pub upgrade + Gradle wrapper 指到 8.0
 ww build apk                 # 生产模式 APK
 ww build apk aab ios         # 多平台（顺序执行；重复平台会去重）
 ww build apk --uat           # UAT 模式，文件名带时间戳
-ww build apk --clean         # 构建前清理旧的工具产物
+ww build apk --fresh         # 构建前清理旧的工具产物
 ww build apk --name=MyApp    # 自定义产物文件名中的应用名
 ww build ios --export-options=uat.plist
 ww build apk -d              # 调试日志
@@ -151,7 +156,7 @@ ww build apk -d              # 调试日志
 | --- | --- |
 | `apk` / `aab` / `ios` | 目标平台，可给多个 |
 | `--uat` | UAT 模式（文件名用时间戳） |
-| `--clean` | 构建前清理 `OUTPUT_DIR` 里本工具的旧产物（保留 `ios.plist` 等用户文件） |
+| `--fresh` | 构建前清理 `OUTPUT_DIR` 里本工具的旧产物（保留 `ios.plist` 等用户文件）；旧名 `--clean` 仍可用 |
 | `--open` | 构建完打开输出目录 |
 | `--name=<name>` | 产物文件名中的应用名，默认取当前目录名 |
 | `--export-options=<file>` | iOS 导出配置，纯文件名时在 `OUTPUT_DIR` 里找 |

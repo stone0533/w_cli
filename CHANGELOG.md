@@ -46,6 +46,13 @@
 
 ### Changed
 
+- 命令改名（旧名保留一版并提示）：
+  | 旧 | 新 |
+  |---|---|
+  | `ww update` | `ww self-update`（`su`） |
+  | `ww project --update` | `ww deps upgrade` |
+  | `ww common drbb` | `ww gen` |
+  | `ww build --clean` | `ww build --fresh` |
 - `ww clean` 无参数改为打印帮助（以前会立刻清空所有构建产物），要清理请显式写 `ww clean all`
 - `ww create <name>` 不再要求写 `project`（`ww create project <name>` 仍可用）
 - `ww <命令> --help` 打印该命令自己的帮助；`ww build` / `ww common` 无参数也打印帮助
