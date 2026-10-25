@@ -19,6 +19,7 @@ class CommandSpec {
     this.aliases = const [],
     this.flags = const [],
     this.options = const [],
+    this.framed = true,
     required this.run,
   });
 
@@ -29,6 +30,9 @@ class CommandSpec {
   final List<String> aliases;
   final List<FlagSpec> flags;
   final List<OptionSpec> options;
+
+  /// 是否由 Dart 侧打印开始/结束横幅（build 用脚本自己的横幅）
+  final bool framed;
 
   /// 参数映射 + 调 handler；返回值即进程退出码
   final Future<int> Function(ArgResults results) run;
@@ -83,6 +87,7 @@ List<CommandSpec> commandSpecs() => [
   CommandSpec(
     name: 'build',
     aliases: const ['b'],
+    framed: false,
     usage: 'ww build|b [apk|aab|ios]...      # 打包（bash 脚本）',
     flags: const [
       FlagSpec('uat', abbr: 'u'),

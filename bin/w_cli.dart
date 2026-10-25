@@ -79,11 +79,19 @@ Future<void> main(List<String> arguments) async {
       orElse: () => specs.first,
     );
     if (!spec.allNames.contains(command.name)) {
-      print('Error: Unknown command: ${command.name}');
-      exitCode = 2;
+      Cli.error('Unknown command: ${command.name}');
       return;
     }
+
+    // 开始/结束横幅由 Dart 侧统一打（build 自己有一套，跳过）
+    if (spec.framed) {
+      final tail = command.rest.isEmpty ? '' : ' ${command.rest.join(' ')}';
+      Cli.begin('ww ${command.name}$tail');
+    }
     exitCode = await spec.run(command);
+    if (spec.framed) {
+      Cli.end(code: exitCode);
+    }
   } on FormatException catch (e) {
     // 参数解析失败（例如未知选项）属于用法错误，用 2 区分于运行时失败。
     // 旧写法（--init / --models / --full）在这里给一句指路，而不是原始异常。
