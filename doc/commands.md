@@ -31,6 +31,8 @@ ww api --force          # 覆盖 repository.dart 里检测到的手写成员
 
 要点：
 
+- **只在 Flutter 工程里运行**：`init` / `generate` 要求当前目录有 `pubspec.yaml` 的 `flutter:` 段
+  或 `lib/main.dart`，否则拒绝，避免在仓库根长出 `lib/app/`
 - `client.dart` 用 Dart 写的扫描器解析（不是正则）：解析失败直接报错并给偏移量，不会写出半截文件
 - `repository.dart` / `data_source_mixin.dart` 每次整份重写；文件里有生成器不认识的方法时**拒绝覆盖**，需 `--force`
 - `data_source.dart` 是「生成一次、之后手写」的骨架，只有 marker 段里的 w_tools 导入由工具维护
@@ -47,6 +49,9 @@ ww create my_app --force          # 覆盖同名目录（默认拒绝）
 ```
 
 项目名必须小写字母开头、只含小写字母/数字/下划线，否则退出 2。
+
+**不在已有工程里创建**：当前目录已有 `pubspec.yaml` 时直接拒绝（错误提示会告诉你去父目录），
+除非显式加 `--force`——否则会在工程里套出一个子工程。
 
 ### 它做了什么
 
