@@ -756,7 +756,7 @@ printf 'name: demo\nversion: 1.0.0\n' > "$frame_root/demo/pubspec.yaml"
 printf 'void main() {}\n' > "$frame_root/demo/lib/main.dart" 2>/dev/null || mkdir -p "$frame_root/demo/lib" && printf 'void main() {}\n' > "$frame_root/demo/lib/main.dart"
 
 frame_out="$( cd "$frame_root/demo" && CI=true "$(command -v dart)" run "$ROOT/bin/w_cli.dart" doctor 2>&1 )"
-assert_contains "有开始横幅（含工程版本）" "=== ww doctor" "$frame_out"
+assert_contains "有开始横幅" "=== ww doctor ===" "$frame_out"
 assert_eq "有结束横幅（成功或失败）" "yes" \
   "$(printf '%s' "$frame_out" | grep -Eq '=== (完成|失败)' && echo yes || echo no)"
 assert_eq "管道下不输出 ANSI 颜色" "0" \
@@ -766,6 +766,8 @@ color_out="$( cd "$frame_root/demo" && CI=true env -u NO_COLOR CLICOLOR_FORCE=1 
   "$(command -v dart)" run "$ROOT/bin/w_cli.dart" doctor 2>&1 )"
 assert_eq "CLICOLOR_FORCE=1 输出 ANSI 颜色" "1" \
   "$(printf '%s' "$color_out" | grep -q $'\x1b\[' && echo 1 || echo 0)"
+assert_eq "横幅绿色与 build 一致（0;32）" "yes" \
+  "$(printf '%s' "$color_out" | grep -q $'\x1b\[0;32m=== ww doctor ===' && echo yes || echo no)"
 
 no_color_out="$( cd "$frame_root/demo" && CI=true NO_COLOR=1 CLICOLOR_FORCE=1 "$(command -v dart)" run "$ROOT/bin/w_cli.dart" doctor 2>&1 )"
 assert_eq "NO_COLOR 优先于 CLICOLOR_FORCE" "0" \
@@ -971,7 +973,7 @@ assert_eq "ww api models 产出模型文件" "present" \
   "$([ -f "$scaffold_root/demo/lib/app/data/models/user.dart" ] && echo present || echo gone)"
 assert_eq "默认输出只剩一行汇总" "1" \
   "$(printf '%s\n' "$models_quiet" | grep -c '\[INFO\]')"
-assert_contains "有开始横幅（含工程版本）" "=== ww api models" "$models_quiet"
+assert_contains "有开始横幅" "=== ww api models ===" "$models_quiet"
 assert_eq "build_runner 输出不进终端" "0" \
   "$(printf '%s' "$models_quiet" | grep -c 'Built with build_runner' || true)"
 assert_contains "build_runner 输出落盘" "Built with build_runner" \

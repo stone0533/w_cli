@@ -86,10 +86,7 @@ Future<void> main(List<String> arguments) async {
     // 开始/结束横幅由 Dart 侧统一打（build 自己有一套，跳过）
     if (spec.framed) {
       final tail = command.rest.isEmpty ? '' : ' ${command.rest.join(' ')}';
-      final project = _projectLabel();
-      Cli.begin(
-        'ww ${command.name}$tail${project.isEmpty ? '' : ' · $project'}',
-      );
+      Cli.begin('ww ${command.name}$tail');
     }
     exitCode = await spec.run(command);
     if (spec.framed) {
@@ -115,27 +112,6 @@ Future<void> main(List<String> arguments) async {
 }
 
 /// 显示帮助信息
-/// 当前工程的 `name version`（不在工程里时返回空串）
-String _projectLabel() {
-  final pubspec = File('pubspec.yaml');
-  if (!pubspec.existsSync()) {
-    return '';
-  }
-  final content = pubspec.readAsStringSync();
-  final name = RegExp(
-    r'^name:\s*(\S+)',
-    multiLine: true,
-  ).firstMatch(content)?.group(1);
-  final version = RegExp(
-    r'^version:\s*(\S+)',
-    multiLine: true,
-  ).firstMatch(content)?.group(1);
-  if (name == null && version == null) {
-    return '';
-  }
-  return [?name, ?version].join(' ');
-}
-
 void showHelp() {
   print('ww - A command-line tool for Flutter projects');
   print('');
