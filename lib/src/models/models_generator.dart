@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../tools/build_runner.dart';
 import 'model_renderer.dart';
+import '../cli/process.dart';
 
 /// `ww api models` 的 Dart 实现（ADR-0002 Phase 3）。
 ///
@@ -17,6 +18,7 @@ class ModelsGenerator {
     this.force = false,
     this.runBuildRunner = true,
     this.formatOutput = true,
+    this.runner = const SystemProcessRunner(),
   });
 
   final String root;
@@ -27,6 +29,7 @@ class ModelsGenerator {
 
   /// 测试里可以关掉 `dart format`，直接比对渲染结果
   final bool formatOutput;
+  final ProcessRunner runner;
 
   static const String _header =
       '// **************************************************************************\n'
@@ -44,7 +47,7 @@ class ModelsGenerator {
       return 1;
     }
 
-    if (!_ensureDependencies(pubspec)) {
+    if (!await _ensureDependencies(pubspec)) {
       return 1;
     }
 
@@ -79,7 +82,7 @@ class ModelsGenerator {
       if (!_generateStandalones(specs, standalones, configFile, base)) {
         return 1;
       }
-      if (!_flush()) {
+      if (!await _flush()) {
         return 1;
       }
     }
@@ -109,7 +112,7 @@ class ModelsGenerator {
       _enqueue(target.dartPath, content);
     }
 
-    if (!_flush()) {
+    if (!await _flush()) {
       return 1;
     }
 
@@ -125,7 +128,7 @@ class ModelsGenerator {
     return 0;
   }
 
-  bool _ensureDependencies(File pubspec) {
+  Future<bool> _ensureDependencies(File pubspec) async {
     final content = pubspec.readAsStringSync();
     const required = {
       'json_annotation': false,
@@ -139,28 +142,15 @@ class ModelsGenerator {
         continue;
       }
       stdout.writeln('添加 ${entry.key} 依赖...');
-      final tool = _commandAvailable('flutter') ? 'flutter' : 'dart';
+      final tool = runner.which('flutter') ? 'flutter' : 'dart';
       final args = ['pub', 'add', if (entry.value) '--dev', entry.key];
-      final result = Process.runSync(
-        tool,
-        args,
-        workingDirectory: root,
-        runInShell: true,
-      );
+      final result = await runner.run(tool, args, workingDirectory: root);
       if (result.exitCode != 0) {
         stderr.writeln('添加 ${entry.key} 失败，请手动执行: $tool ${args.join(' ')}');
         return false;
       }
     }
     return true;
-  }
-
-  bool _commandAvailable(String name) {
-    try {
-      return Process.runSync('which', [name], runInShell: true).exitCode == 0;
-    } on ProcessException {
-      return false;
-    }
   }
 
   /// 配置：`# ClassName` 行声明类名，下一行 `file.json node.path` 声明来源
@@ -410,17 +400,17 @@ class ModelsGenerator {
   }
 
   /// 一次 format 校验全部临时文件，全合法才落盘。
-  bool _flush() {
+  Future<bool> _flush() async {
     if (_pending.isEmpty) {
       return true;
     }
 
-    if (formatOutput && _commandAvailable('dart')) {
+    if (formatOutput && runner.which('dart')) {
       stdout.writeln('校验生成的代码...');
-      final result = Process.runSync('dart', [
+      final result = await runner.run('dart', [
         'format',
         ..._pending.map((entry) => entry.temp),
-      ], runInShell: true);
+      ]);
       if (result.exitCode != 0) {
         for (final entry in _pending) {
           File(entry.temp).deleteSync();

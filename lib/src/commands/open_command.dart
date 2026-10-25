@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../cli/process.dart';
 
 /// `ww open`（原 `lib/sh/open.sh`）。
 ///
@@ -6,9 +7,10 @@ import 'dart:io';
 /// - 支持 help 里早就写着的短别名（`i` / `a` / `b` / `r`），以前只认全名
 /// - 打开失败返回非零：旧脚本在 `main` 末尾继续打印分隔线，退出码永远是 0
 class OpenCommand {
-  OpenCommand({this.root = '.'});
+  OpenCommand({this.root = '.', this.runner = const SystemProcessRunner()});
 
   final String root;
+  final ProcessRunner runner;
 
   Future<int> run(List<String> args) async {
     if (args.isEmpty || args.first == '--help') {
@@ -111,7 +113,7 @@ class OpenCommand {
       ], 'Android 项目');
     }
     if (Platform.isLinux) {
-      if (!_available('studio.sh')) {
+      if (!runner.which('studio.sh')) {
         stderr.writeln('Android Studio 命令未找到，请确保已正确安装并添加到 PATH');
         return 1;
       }
@@ -137,7 +139,7 @@ class OpenCommand {
       return 1;
     }
 
-    if (!_available(opener)) {
+    if (!runner.which(opener)) {
       stderr.writeln('$opener 命令未找到，请确保已正确安装');
       return 1;
     }
@@ -147,11 +149,7 @@ class OpenCommand {
   }
 
   Future<int> _run(String executable, List<String> args, String label) async {
-    final code = await Process.run(
-      executable,
-      args,
-      runInShell: true,
-    ).then((result) => result.exitCode);
+    final code = (await runner.run(executable, args)).exitCode;
 
     if (code == 0) {
       stdout.writeln('$label已成功打开');
@@ -159,14 +157,6 @@ class OpenCommand {
       stderr.writeln('打开$label失败');
     }
     return code;
-  }
-
-  static bool _available(String name) {
-    try {
-      return Process.runSync('which', [name], runInShell: true).exitCode == 0;
-    } on ProcessException {
-      return false;
-    }
   }
 
   void printVersion() {

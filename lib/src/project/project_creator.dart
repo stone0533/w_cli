@@ -4,6 +4,7 @@ import '../api/scaffolder.dart';
 import '../tools/build_runner.dart';
 import 'project_scaffolder.dart';
 import 'pubspec_editor.dart';
+import '../cli/process.dart';
 
 /// `ww create project <name>` 的完整实现（ADR-0002：`lib/sh/setup.sh` 的最后一块）。
 ///
@@ -21,6 +22,7 @@ class ProjectCreator {
     this.apiBaseUrl = 'https://api.example.com',
     this.runBuildRunner = true,
     this.openAfterCreate = true,
+    this.runner = const SystemProcessRunner(),
   });
 
   final String name;
@@ -28,6 +30,7 @@ class ProjectCreator {
   final String apiBaseUrl;
   final bool runBuildRunner;
   final bool openAfterCreate;
+  final ProcessRunner runner;
 
   static const String _org = 'com.sampras';
   static const List<String> _wToolsSubpackages = [
@@ -74,7 +77,7 @@ class ProjectCreator {
   }
 
   Future<int> _runSteps() async {
-    if (!_available('flutter')) {
+    if (!runner.which('flutter')) {
       stderr.writeln('Flutter 未安装或未添加到 PATH');
       return 1;
     }
@@ -331,21 +334,21 @@ class ProjectCreator {
       return;
     }
 
-    if (_available('trae')) {
+    if (runner.which('trae')) {
       stdout.writeln('使用 trae 打开项目');
-      Process.runSync('trae', [name], runInShell: true);
+      runner.run('trae', [name]);
       return;
     }
-    if (_available('studio')) {
+    if (runner.which('studio')) {
       stdout.writeln('使用 Android Studio 打开项目');
-      Process.runSync('studio', [name], runInShell: true);
+      runner.run('studio', [name]);
       return;
     }
     // macOS 上 Android Studio 通常只有 .app，没有命令行入口（旧脚本也走这条兜底）
     if (Platform.isMacOS &&
         Directory('/Applications/Android Studio.app').existsSync()) {
       stdout.writeln('使用 macOS 打开 Android Studio');
-      Process.runSync('open', ['-a', 'Android Studio', name], runInShell: true);
+      runner.run('open', ['-a', 'Android Studio', name]);
       return;
     }
     stdout.writeln('未找到 trae / studio，跳过打开项目');
@@ -360,21 +363,6 @@ class ProjectCreator {
     List<String> args, {
     String? workingDirectory,
   }) async {
-    final process = await Process.start(
-      executable,
-      args,
-      workingDirectory: workingDirectory,
-      runInShell: true,
-      mode: ProcessStartMode.inheritStdio,
-    );
-    return process.exitCode;
-  }
-
-  static bool _available(String name) {
-    try {
-      return Process.runSync('which', [name], runInShell: true).exitCode == 0;
-    } on ProcessException {
-      return false;
-    }
+    return runner.start(executable, args, workingDirectory: workingDirectory);
   }
 }
