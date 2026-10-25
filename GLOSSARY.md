@@ -6,7 +6,7 @@
 
 | 术语 | 含义 |
 | --- | --- |
-| **生成文本** | 由工具写出的代码：`client.dart`、`paths.dart`、`data_source.dart`、`data_source_mixin.dart`、`repository.dart`、`models/*.dart`、`main.dart` 等。owner 只有 Dart 一侧（[ADR-0002](doc/adr/0002-generation-ownership.md)） |
+| **生成文本** | 由工具写出的代码：`client.dart`、`paths.dart`、`data_source.dart`、`data_source_mixin.dart`、`repository.dart`、`models/*.dart`、`main.dart` 等。owner 只有 Dart 一侧（[ADR-0002](docs/adr/0002-generation-ownership.md)） |
 | **marker 段** | `data_source.dart` 里 `// <<<GENERATED w_tools import …` 到 `// GENERATED>>>` 之间的区域。只有这一段由工具维护，其余手写 |
 | **增量（mtime）** | `models` 的默认策略：JSON 比产物新才重新生成；`--force` 忽略增量全量重写 |
 | **覆盖保护** | 整份重写的文件（`repository.dart` / `data_source_mixin.dart`）在发现「生成器不认识的方法」时**拒绝覆盖**，需 `--force`（[generated_file_guard.dart](lib/src/api/generated_file_guard.dart)） |

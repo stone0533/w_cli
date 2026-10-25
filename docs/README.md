@@ -1,4 +1,4 @@
-# doc/
+# docs/
 
 文档分三类，各管一件事：
 
@@ -14,7 +14,7 @@
 - **`commands.md` 随代码走**：加/改子命令时同步更新，它是对外唯一的行为说明
 - `agents/` 里的文件由 skill 读取，路径写在仓库根的 `AGENTS.md` 里，改名要一起改
 
-## 不在 doc/ 里的
+## 不在 docs/ 里的
 
 - `README.md`（仓库根）：面向使用者的入口，只放安装、平台支持、常用命令
-- `AGENTS.md`（仓库根）：给 agent 的硬约束，比 `doc/agents/` 更具体
+- `AGENTS.md`（仓库根）：给 agent 的硬约束，比 `docs/agents/` 更具体

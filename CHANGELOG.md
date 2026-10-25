@@ -18,7 +18,7 @@
 ### Added
 
 - `tool/check_doc_anchors.dart` + CI 步骤：校验 Markdown 内部锚点，
-  防止「章节删了、链接还在」这类断链（`doc/commands.md` 就发生过一次）
+  防止「章节删了、链接还在」这类断链（`docs/commands.md` 就发生过一次）
 
 - iOS 产物多一份 `<app>_<version>.dSYMs.zip`（符号化/上传用），并输出一行构建摘要
   （签名方式 / method / team / bundle / 用时）
@@ -50,6 +50,8 @@
 - `ww api -d/--debug` 可以传到脚本（之前会被参数解析拒绝）
 
 ### Changed
+
+- 文档目录 `doc/` → `docs/`（`docs/` 已加入 `.pubignore`，发布包不再带内部文档）
 
 - `Resources.readResource` 找不到脚本时列出所有搜索过的路径；新增 `WW_SCRIPT_DIR`
   环境变量（开发脚本时绕开 pub-cache）；命中 pub-cache 时在 `-d` 下提示

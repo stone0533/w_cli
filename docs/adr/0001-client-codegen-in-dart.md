@@ -43,7 +43,7 @@
 ## 分阶段
 
 1. **本阶段**：解析 + 渲染 + 写入，接入 `ww api`；golden 测试对着现有 shell 产物比对。
-2. 下一阶段：删除 `api.sh` 的 client 解析路径与 `parse_client`/`generate_*_datasource`/`generate_repository`/`update_files`，同步更新 `doc/api_sh_usage.md`。
+2. 下一阶段：删除 `api.sh` 的 client 解析路径与 `parse_client`/`generate_*_datasource`/`generate_repository`/`update_files`，同步更新 `docs/api_sh_usage.md`。
 3. 可选：`--models` 的 JSON 生成也迁到 Dart，`api.sh` 只留 `--init` 的模板初始化。
 
 ## 后续（2026-10-25）
@@ -52,6 +52,6 @@
 
 1. ~~删除 client 解析路径~~ —— 已完成（#15）
 2. ~~`--models` 的 JSON 生成迁 Dart~~ —— 已完成（PR #27，见 ADR-0002 Phase 3）
-3. `doc/api_sh_usage.md` 已并入 [`../commands.md`](../commands.md)
+3. `docs/api_sh_usage.md` 已并入 [`../commands.md`](../commands.md)
 
 现在生成文本的归属与修改约定见 [ADR-0002](0002-generation-ownership.md)。

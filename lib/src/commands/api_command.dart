@@ -60,7 +60,7 @@ Future<int> handleApiCommand(
     }
   }
 
-  // client.dart -> mixin / repository 走 Dart 侧（见 doc/adr/0001）
+  // client.dart -> mixin / repository 走 Dart 侧（见 docs/adr/0001）
   if (invocation.mode == ApiMode.generate) {
     try {
       return await ApiGenerator().generate(force: invocation.force);
