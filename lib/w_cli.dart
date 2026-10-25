@@ -258,77 +258,6 @@ Future<int> handleCreateProject(
   }
 }
 
-/// 处理页面创建
-/// [arguments] - 命令参数
-Future<void> handleCreatePage(List<String> arguments) async {
-  if (arguments.isEmpty) {
-    print('❌ Error: No page name specified');
-    print('   Usage: ww create page name');
-    return;
-  }
-  final pageName = arguments[0];
-  print('\n🚀 Creating page: $pageName');
-  print('   Note: Page creation functionality is not yet implemented');
-}
-
-/// 处理屏幕创建
-/// [arguments] - 命令参数
-Future<void> handleCreateScreen(List<String> arguments) async {
-  if (arguments.isEmpty) {
-    print('❌ Error: No screen name specified');
-    print('   Usage: ww create screen name');
-    return;
-  }
-  final screenName = arguments[0];
-  print('\n🚀 Creating screen: $screenName');
-  print('   Note: Screen creation functionality is not yet implemented');
-}
-
-/// 处理控制器创建
-/// [arguments] - 命令参数
-Future<void> handleCreateController(List<String> arguments) async {
-  if (arguments.isEmpty) {
-    print('❌ Error: No controller name specified');
-    print('   Usage: ww create controller name');
-    return;
-  }
-  final controllerName = arguments[0];
-  print('\n🚀 Creating controller: $controllerName');
-  print('   Note: Controller creation functionality is not yet implemented');
-}
-
-/// 处理视图创建
-/// [arguments] - 命令参数
-Future<void> handleCreateView(List<String> arguments) async {
-  if (arguments.isEmpty) {
-    print('❌ Error: No view name specified');
-    print('   Usage: ww create view name');
-    return;
-  }
-  final viewName = arguments[0];
-  print('\n🚀 Creating view: $viewName');
-  print('   Note: View creation functionality is not yet implemented');
-}
-
-/// 处理提供者创建
-/// [arguments] - 命令参数
-Future<void> handleCreateProvider(List<String> arguments) async {
-  if (arguments.isEmpty) {
-    print('❌ Error: No provider name specified');
-    print('   Usage: ww create provider name');
-    return;
-  }
-  final providerName = arguments[0];
-  print('\n🚀 Creating provider: $providerName');
-  print('   Note: Provider creation functionality is not yet implemented');
-}
-
-/// 处理初始化命令
-Future<void> handleInitCommand() async {
-  print('\n🚀 Initializing project structure');
-  print('   Note: Init functionality is not yet implemented');
-}
-
 /// 处理 API 代码生成命令
 /// [arguments] - 命令参数
 Future<int> handleApiCommand(
@@ -372,52 +301,6 @@ Future<int> handleApiCommand(
     handleError(e, 'Model generation');
     return 1;
   }
-}
-
-/// 处理本地化文件生成
-/// [arguments] - 命令参数
-Future<void> handleGenerateLocales(List<String> arguments) async {
-  if (arguments.isEmpty) {
-    print('❌ Error: No locales directory specified');
-    print('   Usage: ww generate locales directory');
-    return;
-  }
-  final localesDir = arguments[0];
-  print('\n🚀 Generating locales from: $localesDir');
-  print('   Note: Locales generation functionality is not yet implemented');
-}
-
-/// 处理模型生成
-/// [arguments] - 命令参数
-Future<void> handleGenerateModel(List<String> arguments) async {
-  print('\n🚀 Generating model');
-  print('   Note: Model generation functionality is not yet implemented');
-}
-
-/// 处理包安装命令
-/// [arguments] - 命令参数
-Future<void> handleInstallCommand(List<String> arguments) async {
-  if (arguments.isEmpty) {
-    print('❌ Error: No package specified');
-    print('   Usage: ww install package1 [package2 ...]');
-    return;
-  }
-  final packages = arguments.join(' ');
-  print('\n🚀 Installing packages: $packages');
-  print('   Note: Package installation functionality is not yet implemented');
-}
-
-/// 处理包移除命令
-/// [arguments] - 命令参数
-Future<void> handleRemoveCommand(List<String> arguments) async {
-  if (arguments.isEmpty) {
-    print('❌ Error: No package specified');
-    print('   Usage: ww remove package1 [package2 ...]');
-    return;
-  }
-  final packages = arguments.join(' ');
-  print('\n🚀 Removing packages: $packages');
-  print('   Note: Package removal functionality is not yet implemented');
 }
 
 /// 处理更新命令
