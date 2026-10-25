@@ -737,6 +737,18 @@ show_after="$( cd "$setup_root/demo" && bash "$SH/build.sh" ios --show-config 2>
 assert_contains "show-config 报告配置文件来源" "ios/ExportOptions.plist" "$show_after"
 rm -rf "$setup_root"
 
+# 8.36) 没有 team 时 ios setup 给出明确提示（且不再补一句空的 ❌ 文案）
+noteam_root="$(mktemp -d)"
+mkdir -p "$noteam_root/demo/ios/Runner.xcodeproj"
+printf 'name: demo\nversion: 1.0.0\n' > "$noteam_root/demo/pubspec.yaml"
+printf '/* no team */\n' > "$noteam_root/demo/ios/Runner.xcodeproj/project.pbxproj"
+noteam_out="$( cd "$noteam_root/demo" && CI=true "$(command -v dart)" run "$ROOT/bin/w_cli.dart" ios setup 2>&1 )"
+assert_eq "没有 team 时 ios setup 退出 1" 1 "$?"
+assert_contains "提示怎么补 team" "--team=" "$noteam_out"
+assert_eq "不再输出空的失败文案" "no" \
+  "$(printf '%s' "$noteam_out" | grep -q 'with exit code' && echo yes || echo no)"
+rm -rf "$noteam_root"
+
 # 8.4) 日志精简：子进程输出进 build.log，终端只留关键行
 quiet_root="$(mktemp -d)"
 mkdir -p "$quiet_root/bin" "$quiet_root/demo/android" "$quiet_root/demo/w_build"
