@@ -50,7 +50,13 @@ const Map<String, String> _help = {
   --fresh                 构建前清理 w_build/ 里本工具的旧产物（旧名 --clean）
   --open                  构建完打开输出目录
   --name=<name>           产物文件名中的应用名（默认取目录名）
-  --export-options=<file> iOS 导出配置（默认 w_build/ios.plist）
+  --export-options=<file> 指定 iOS 导出配置（默认按下方顺序查找）
+
+iOS 签名（优先级从高到低）:
+  1. --method= / --team= / --bundle-id= / --cert= / --profile= / --automatic / --manual
+  2. w_build/ios.plist（个人覆盖，不提交）
+  3. ios/ExportOptions.plist（团队共用，可提交）
+  4. 零配置：从 ios/Runner.xcodeproj 读 DEVELOPMENT_TEAM，按自动签名构建
   -d, --debug             调试日志
 
 环境变量: OUTPUT_DIR / PARALLEL_BUILD / MIN_BUILD_SIZE / ENABLE_NOTIFICATIONS''',

@@ -87,11 +87,21 @@ List<CommandSpec> commandSpecs() => [
     flags: const [
       FlagSpec('uat', abbr: 'u'),
       FlagSpec('fresh'),
+      FlagSpec('automatic'),
+      FlagSpec('manual'),
       FlagSpec('clean', abbr: 'c'),
       FlagSpec('open', abbr: 'o'),
       FlagSpec('debug', abbr: 'd'),
     ],
-    options: const [OptionSpec('name'), OptionSpec('export-options')],
+    options: const [
+      OptionSpec('name'),
+      OptionSpec('export-options'),
+      OptionSpec('method'),
+      OptionSpec('team'),
+      OptionSpec('bundle-id'),
+      OptionSpec('cert'),
+      OptionSpec('profile'),
+    ],
     run: (results) {
       if (_flag(results, 'clean') && !_flag(results, 'fresh')) {
         stderr.writeln('提示：`--clean` 已更名为 `--fresh`（清输出目录），旧名将在下个版本移除');
@@ -108,6 +118,13 @@ List<CommandSpec> commandSpecs() => [
         if (results['name'] != null) '--name=${results['name']}',
         if (results['export-options'] != null)
           '--export-options=${results['export-options']}',
+        if (results['method'] != null) '--method=${results['method']}',
+        if (results['team'] != null) '--team=${results['team']}',
+        if (results['bundle-id'] != null) '--bundle-id=${results['bundle-id']}',
+        if (results['cert'] != null) '--cert=${results['cert']}',
+        if (results['profile'] != null) '--profile=${results['profile']}',
+        if (_flag(results, 'automatic')) '--automatic',
+        if (_flag(results, 'manual')) '--manual',
       ]);
     },
   ),

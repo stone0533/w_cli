@@ -502,6 +502,106 @@ assert_eq "archive 父目录已创建" "present" \
   "$([ -d "$ios_root/demo/build/ios/archive" ] && echo present || echo gone)"
 rm -rf "$ios_root" "$plist_dir"
 
+# 7.5) iOS 零配置：没有 plist 也能出包（从 xcodeproj 推断 team + bundle）
+zero_root="$(mktemp -d)"
+mkdir -p "$zero_root/bin" "$zero_root/demo/ios/Runner.xcodeproj"
+cat > "$zero_root/bin/flutter" << 'STUB'
+#!/bin/bash
+case "$1" in
+  --version) echo "Flutter 3.24.0 • channel stable"; exit 0 ;;
+  build) mkdir -p ios/Flutter; printf 'config\n' > ios/Flutter/Generated.xcconfig; exit 0 ;;
+  *) exit 0 ;;
+esac
+STUB
+cat > "$zero_root/bin/xcodebuild" << 'STUB'
+#!/bin/bash
+printf '%s\n' "$*" >> "$XCODE_LOG"
+if printf ' %s ' "$*" | grep -q " archive "; then
+  app="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
+  mkdir -p "$app"; printf 'plist\n' > "$app/Info.plist"; printf 'bin\n' > "$app/Runner"
+fi
+case "$*" in
+  *-exportOptionsPlist*)
+    prev=""
+    for arg in "$@"; do
+      if [ "$prev" = "-exportOptionsPlist" ]; then cp "$arg" "$XCODE_LOG.options"; fi
+      prev="$arg"
+    done
+    ;;
+esac
+if [ "$1" = "-exportArchive" ]; then
+  while [ $# -gt 0 ]; do
+    if [ "$1" = "-exportPath" ]; then mkdir -p "$2"; printf 'ipa\n' > "$2/Runner.ipa"; fi
+    shift
+  done
+fi
+exit 0
+STUB
+chmod +x "$zero_root/bin/flutter" "$zero_root/bin/xcodebuild"
+printf 'name: demo\nversion: 2.0.0\n' > "$zero_root/demo/pubspec.yaml"
+cat > "$zero_root/demo/ios/Runner.xcodeproj/project.pbxproj" << 'PBX'
+DEVELOPMENT_TEAM = ABC123DEF4;
+PRODUCT_BUNDLE_IDENTIFIER = com.example.demo;
+PBX
+
+run_zero() { # 参数...（在 demo 工程里跑 build.sh）
+  ( cd "$zero_root/demo" && XCODE_LOG="$zero_root/xcode.log" PATH="$zero_root/bin:$PATH" \
+      bash "$SH/build.sh" "$@" ) > /dev/null 2>&1
+}
+
+run_zero ios
+assert_eq "零配置 iOS 构建成功" 0 "$?"
+assert_eq "零配置产物已生成" "present" \
+  "$([ -f "$zero_root/demo/w_build/demo_live_2.0.0.ipa" ] && echo present || echo gone)"
+assert_contains "零配置使用自动签名" "<string>automatic</string>" \
+  "$(cat "$zero_root/xcode.log.options" 2>/dev/null)"
+assert_contains "零配置带上了推断出的 teamID" "<string>ABC123DEF4</string>" \
+  "$(cat "$zero_root/xcode.log.options" 2>/dev/null)"
+assert_eq "零配置不写用户配置文件" "absent" \
+  "$([ -f "$zero_root/demo/w_build/ios.plist" ] && echo present || echo absent)"
+
+# 命令行覆盖 method：仍用自动签名，但 method 变成 ad-hoc
+run_zero ios --method=ad-hoc
+assert_eq "命令行 --method 构建成功" 0 "$?"
+assert_contains "命令行 --method 生效" "<string>ad-hoc</string>" \
+  "$(cat "$zero_root/xcode.log.options" 2>/dev/null)"
+
+# 个人 w_build/ios.plist 优先于自动探测
+mkdir -p "$zero_root/demo/w_build"
+cat > "$zero_root/demo/w_build/ios.plist" << 'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store</string>
+    <key>teamID</key>
+    <string>ABC123DEF4</string>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>Apple Distribution: My Company (GHI567JKL8)</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.example.demo</key>
+        <string>AppStore Demo</string>
+    </dict>
+</dict>
+</plist>
+PLIST
+run_zero ios
+assert_eq "个人 ios.plist 仍最优先（手动签名）" 0 "$?"
+assert_contains "个人 ios.plist 被使用" "<string>manual</string>" \
+  "$(cat "$zero_root/xcode.log.options" 2>/dev/null)"
+rm -rf "$zero_root/demo/w_build"
+
+# 既没有 plist 也没有 team → 明确报错并指路
+# 去掉 team 行（用 grep -v，避免 BSD/GNU sed 的 -i 差异）
+pbx="$zero_root/demo/ios/Runner.xcodeproj/project.pbxproj"
+grep -v "DEVELOPMENT_TEAM" "$pbx" > "$pbx.tmp" && mv "$pbx.tmp" "$pbx"
+run_zero ios
+assert_eq "无配置且无 team 时退出非零" 1 "$?"
+rm -rf "$zero_root"
+
 # 8) 失败清理不再动输出目录里的成品
 head -c 100 /dev/zero > "$build_root/demo/w_build/keep_live_9.9.9.apk"
 ( cd "$build_root/demo" && bash -c ". '$SH/build.sh'; cleanup_failed_build apk" ) > /dev/null 2>&1

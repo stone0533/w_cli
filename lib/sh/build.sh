@@ -322,22 +322,25 @@ send_notification() {
 
 # 显示帮助信息
 show_help() {
-  log_info "Usage: ./build.sh [apk] [aab] [ios] [--uat] [--clean] [--open] [--debug] [--version] [--help]"
+  log_info "用法: ww build [apk] [aab] [ios] [选项]   （或 bash lib/sh/build.sh ...）"
   log_info "Options:"
   log_info "  --uat                      # Build in UAT mode with timestamp"
-  log_info "  --clean                    # Clear build directory before building"
+  log_info "  --fresh                    # 构建前清理输出目录里本工具的旧产物（旧名 --clean）"
   log_info "  --open                     # Open output directory in Finder after build"
   log_info "  --debug                    # Enable debug mode with verbose logging"
   log_info "  --version                  # Show script version information"
   log_info "  --help                     # Show this help message"
   log_info "  --name=<name>              # Specify app name for output files"
-  log_info "iOS 代码签名配置:"
-  log_info "  默认配置: 在 w_build/ 目录下放置 ios.plist 文件"
-  log_info "  文件格式: Xcode ExportOptions.plist（XML 格式）"
-  log_info "  用途: 指定代码签名证书、Provisioning Profile、团队 ID 等"
-  log_info "  多配置支持: 在 w_build/ 目录下放置多个 plist 文件（如 uat.plist）"
-  log_info "              使用: ./build.sh ios --export-options=uat.plist"
-  log_info "  如果找到 ios.plist，构建时会自动使用它进行代码签名"
+  log_info "iOS 签名（优先级从高到低）:"
+  log_info "  1. 命令行参数: --method= --team= --bundle-id= --cert= --profile= --automatic --manual"
+  log_info "  2. w_build/ios.plist            # 个人覆盖（不提交）"
+  log_info "  3. ios/ExportOptions.plist      # 团队共用（可提交）"
+  log_info "  4. 零配置: 从 ios/Runner.xcodeproj 读 DEVELOPMENT_TEAM，按自动签名构建"
+  log_info ""
+  log_info "  例: ww build ios                                    # 本地/测试，无需配置"
+  log_info "      ww build ios --method=ad-hoc                    # 换分发方式"
+  log_info "      ww build ios --method=app-store --team=ABC123DEF4 \\"
+  log_info "                   --bundle-id=com.x.y --cert=\"Apple Distribution: X (ID)\" --profile=\"Profile 名\""
   log_info "Environment variables:"
   log_info "  PARALLEL_BUILD=true         # Enable parallel builds"
   log_info "  ENABLE_NOTIFICATIONS=true   # Enable build notifications"
@@ -789,6 +792,120 @@ EOF
   log_info "  provisioningProfiles/value: AppStore_MyApp"
 }
 
+# 从 Xcode 工程里读一项配置（DEVELOPMENT_TEAM / PRODUCT_BUNDLE_IDENTIFIER）
+xcodeproj_value() {
+  local key="$1"
+  local pbxproj="ios/Runner.xcodeproj/project.pbxproj"
+  [ -f "$pbxproj" ] || return 1
+  local value
+  value=$(grep -m1 "$key = " "$pbxproj" 2>/dev/null | sed 's/.*= *//; s/;.*//; s/^"//; s/"$//')
+  [ -n "$value" ] || return 1
+  printf '%s' "$value"
+}
+
+# 合成一份 ExportOptions（不写用户目录，放临时目录）
+write_synthesized_options() {
+  local target="$1"
+
+  local method="${CLI_METHOD:-${SYNTH_METHOD:-development}}"
+  local style="${CLI_SIGNING_STYLE:-${SYNTH_STYLE:-automatic}}"
+  local team="${CLI_TEAM:-${SYNTH_TEAM:-}}"
+  local bundle_id="${CLI_BUNDLE_ID:-${SYNTH_BUNDLE_ID:-}}"
+
+  {
+    printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>'
+    printf '%s\n' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+    printf '%s\n' '<plist version="1.0">'
+    printf '%s\n' '<dict>'
+    printf '    <key>method</key>\n    <string>%s</string>\n' "$method"
+    printf '    <key>signingStyle</key>\n    <string>%s</string>\n' "$style"
+    if [ -n "$team" ]; then
+      printf '    <key>teamID</key>\n    <string>%s</string>\n' "$team"
+    fi
+    if [ "$style" = "manual" ]; then
+      if [ -n "${CLI_CERT:-}" ]; then
+        printf '    <key>signingCertificate</key>\n    <string>%s</string>\n' "$CLI_CERT"
+      fi
+      if [ -n "$bundle_id" ] && [ -n "${CLI_PROFILE:-}" ]; then
+        printf '    <key>provisioningProfiles</key>\n    <dict>\n'
+        printf '        <key>%s</key>\n        <string>%s</string>\n' "$bundle_id" "$CLI_PROFILE"
+        printf '    </dict>\n'
+      fi
+    fi
+    printf '%s\n' '</dict>'
+    printf '%s\n' '</plist>'
+  } > "$target"
+}
+
+# 解析签名配置：CLI > w_build/ios.plist（个人覆盖）> ios/ExportOptions.plist（可提交）
+# > 自动探测（automatic + development）。结果写入全局 $export_options_file。
+resolve_export_options() {
+  # 1) 显式 --export-options 最优先
+  if [ -n "$EXPORT_OPTIONS_PLIST" ]; then
+    if [ -f "$EXPORT_OPTIONS_PLIST" ]; then
+      export_options_file="$EXPORT_OPTIONS_PLIST"
+      log_info "使用命令行指定的 Export Options: $export_options_file"
+      return 0
+    fi
+    log_error "命令行指定的 Export Options 文件不存在: $EXPORT_OPTIONS_PLIST"
+    return 1
+  fi
+
+  # 2) 只要给了任一覆盖参数，就合成一份（不动用户文件）
+  if [ -n "$CLI_METHOD$CLI_TEAM$CLI_BUNDLE_ID$CLI_CERT$CLI_PROFILE$CLI_SIGNING_STYLE" ]; then
+    # 没显式给的，仍然从 Xcode 工程推断
+    SYNTH_TEAM="${CLI_TEAM:-$(xcodeproj_value DEVELOPMENT_TEAM || true)}"
+    SYNTH_BUNDLE_ID="${CLI_BUNDLE_ID:-$(xcodeproj_value PRODUCT_BUNDLE_IDENTIFIER || true)}"
+    local options_dir
+    options_dir=$(mktemp -d)
+    TEMP_DIRS+=("$options_dir")
+    local synthesized="$options_dir/ExportOptions.plist"
+    write_synthesized_options "$synthesized"
+    export_options_file="$synthesized"
+    log_info "使用命令行签名参数（未修改任何配置文件）"
+    return 0
+  fi
+
+  # 3) 配置文件：个人覆盖优先，其次可提交的那份
+  local candidate
+  for candidate in "$OUTPUT_DIR/ios.plist" "ios/ExportOptions.plist"; do
+    if [ -f "$candidate" ]; then
+      export_options_file="$candidate"
+      log_info "使用签名配置: $export_options_file"
+      return 0
+    fi
+  done
+
+  # 4) 零配置：从 Xcode 工程推断（automatic + development）
+  local team bundle_id
+  team=$(xcodeproj_value DEVELOPMENT_TEAM) || true
+  bundle_id=$(xcodeproj_value PRODUCT_BUNDLE_IDENTIFIER) || true
+  if [ -n "$team" ]; then
+    SYNTH_TEAM="$team"
+    SYNTH_BUNDLE_ID="${bundle_id:-}"
+    local options_dir
+    options_dir=$(mktemp -d)
+    TEMP_DIRS+=("$options_dir")
+    local synthesized="$options_dir/ExportOptions.plist"
+    write_synthesized_options "$synthesized"
+    export_options_file="$synthesized"
+    log_info "未找到签名配置，按自动签名构建: team=$team bundle=${bundle_id:-未知} method=development"
+    return 0
+  fi
+
+  # 5) 什么都没有：生成模板并给出明确指引
+  local template_path="$OUTPUT_DIR/ios.plist"
+  if [ ! -f "$template_path" ]; then
+    generate_ios_plist_template "$template_path" || return 1
+  fi
+  log_error "无法确定签名配置：没有 ios/ExportOptions.plist，工程里也没读到 DEVELOPMENT_TEAM"
+  log_info "三种做法（任选其一）:"
+  log_info "  ww build ios --team=ABC123DEF4                    # 只用自动签名"
+  log_info "  ww build ios --method=app-store --team=... --bundle-id=... --cert=... --profile=..."
+  log_info "  编辑 $template_path（或提交 ios/ExportOptions.plist 给团队共用）"
+  return 1
+}
+
 # 构建 iOS
 build_ios() {
   log_info "=== 构建 iOS ==="
@@ -796,43 +913,18 @@ build_ios() {
   # 记录开始时间
   local start_time=$(date +%s)
   
-  # 自动查找 ExportOptions.plist（从 OUTPUT_DIR 查找 ios.plist）
-  local default_export_options="$OUTPUT_DIR/ios.plist"
-  local export_options_file=""
-  
-  # 优先检查命令行参数
-  if [ -n "$EXPORT_OPTIONS_PLIST" ]; then
-    if [ -f "$EXPORT_OPTIONS_PLIST" ]; then
-      export_options_file="$EXPORT_OPTIONS_PLIST"
-      log_info "使用命令行指定的 Export Options: $export_options_file"
-    else
-      log_warn "命令行指定的 Export Options 文件不存在: $EXPORT_OPTIONS_PLIST"
-      log_warn "将尝试自动检测..."
-    fi
+  # 解析签名配置：CLI > w_build/ios.plist > ios/ExportOptions.plist > 自动探测
+  export_options_file=""
+  if ! resolve_export_options; then
+    cleanup_failed_build "ios"
+    return 1
   fi
-  
-  # 如果命令行参数未指定或文件不存在，尝试自动检测
-  if [ -z "$export_options_file" ]; then
-    if [ -f "$default_export_options" ]; then
-      # 文件存在，验证内容
-      if validate_ios_plist "$default_export_options"; then
-        export_options_file="$default_export_options"
-        log_info "自动检测到 Export Options: $export_options_file"
-      else
-        log_error "ios.plist 文件配置不正确，构建终止"
-        return 1
-      fi
-    else
-      # 文件不存在，生成模板
-      if ! generate_ios_plist_template "$default_export_options"; then
-        log_error "无法生成 ios.plist 模板文件，构建终止"
-        return 1
-      fi
-      log_error "请修改 ios.plist 文件后重新运行构建"
-      return 1
-    fi
+  if ! validate_ios_plist "$export_options_file"; then
+    log_error "签名配置校验未通过，构建终止"
+    cleanup_failed_build "ios"
+    return 1
   fi
-  
+
   # 只生成构建配置（Generated.xcconfig / .flutter-plugins-dependencies），不编译。
   # xcodebuild archive 自己会跑 Flutter 的 build phase（AOT + 资源打包），
   # 这里若跑完整 build 等于把同一份代码编译两遍——实测多花 40%~60% 的时间。
@@ -1070,6 +1162,10 @@ validate_parameters() {
         ;;
       --name=*|--export-options=*)
         ;;
+      --method=*|--team=*|--bundle-id=*|--cert=*|--profile=*)
+        ;;
+      --automatic|--manual)
+        ;;
       *)
         if is_valid_platform "$arg"; then
           has_platform=true
@@ -1130,6 +1226,13 @@ parse_args() {
   CODE_SIGN_IDENTITY=""
   PROVISIONING_PROFILE=""
   EXPORT_OPTIONS_PLIST=""
+  # iOS 签名覆盖（命令行 > 配置文件 > 自动探测）
+  CLI_METHOD=""
+  CLI_TEAM=""
+  CLI_BUNDLE_ID=""
+  CLI_CERT=""
+  CLI_PROFILE=""
+  CLI_SIGNING_STYLE=""
   for arg in "$@"; do
     case "$arg" in
       "apk"|"aab"|"ios")
@@ -1174,6 +1277,27 @@ parse_args() {
           log_error "--name 参数不允许包含路径分隔符: $APP_NAME"
           return 1
         fi
+        ;;
+      --method=* )
+        CLI_METHOD="${arg#--method=}"
+        ;;
+      --team=* )
+        CLI_TEAM="${arg#--team=}"
+        ;;
+      --bundle-id=* )
+        CLI_BUNDLE_ID="${arg#--bundle-id=}"
+        ;;
+      --cert=* )
+        CLI_CERT="${arg#--cert=}"
+        ;;
+      --profile=* )
+        CLI_PROFILE="${arg#--profile=}"
+        ;;
+      --automatic )
+        CLI_SIGNING_STYLE="automatic"
+        ;;
+      --manual )
+        CLI_SIGNING_STYLE="manual"
         ;;
       --export-options=* )
         EXPORT_OPTIONS_PLIST="${arg#--export-options=}"
