@@ -13,6 +13,7 @@ String _canonical(String name) {
     'c': 'create',
     'a': 'api',
     'u': 'update',
+    'su': 'self-update',
     'b': 'build',
     'p': 'project',
     'o': 'open',
@@ -47,7 +48,7 @@ const Map<String, String> _help = {
 
 选项:
   --uat                   UAT 模式（文件名带时间戳）
-  --clean                 构建前清理 w_build/ 里本工具的旧产物
+  --fresh                 构建前清理 w_build/ 里本工具的旧产物（旧名 --clean）
   --open                  构建完打开输出目录
   --name=<name>           产物文件名中的应用名（默认取目录名）
   --export-options=<file> iOS 导出配置（默认 w_build/ios.plist）
@@ -73,18 +74,31 @@ const Map<String, String> _help = {
   android, a    Android Studio 打开 android/
   build, b      文件管理器打开 w_build/
   root, r       文件管理器打开项目根目录''',
+  'deps': '''
+用法: ww deps upgrade
+
+升级项目依赖（flutter pub upgrade）并把 Gradle wrapper 指到 8.0。
+等价于旧写法 `ww project --update`。''',
   'project': '''
 用法: ww project [选项]
 
 选项:
-  --update      升级依赖（flutter pub upgrade）并把 Gradle wrapper 指到 8.0''',
-  'common': '''
-用法: ww common drbb [--debug]
+  --update      升级依赖与 Gradle（旧写法，请改用 ww deps upgrade）''',
+  'gen': '''
+用法: ww gen [--debug]
 
 执行 dart run build_runner build --delete-conflicting-outputs。
 优先用 dart，缺失时退回 flutter；30 分钟超时，退出码原样透传。''',
-  'update': '''
-用法: ww update
+  'common': '''
+用法: ww common drbb [--debug]（旧写法，请改用 ww gen）
+
+执行 dart run build_runner build --delete-conflicting-outputs。''',
+  'self-update': '''
+用法: ww self-update
 
 把 w_cli 自身升级到 pub 上的最新版本（dart pub global activate w_cli）。''',
+  'update': '''
+用法: ww update（旧名，请改用 ww self-update）
+
+把 w_cli 自身升级到 pub 上的最新版本。''',
 };

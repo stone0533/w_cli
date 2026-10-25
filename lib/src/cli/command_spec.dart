@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:args/args.dart';
+import 'package:w_cli/src/cli/help.dart' as cli_help;
 import 'package:w_cli/w_cli.dart' as w;
 
 /// 一个 `ww` 子命令的完整声明。
@@ -81,23 +83,30 @@ List<CommandSpec> commandSpecs() => [
     usage: 'ww build|b [apk|aab|ios]...      # 打包（bash 脚本）',
     flags: const [
       FlagSpec('uat', abbr: 'u'),
+      FlagSpec('fresh'),
       FlagSpec('clean', abbr: 'c'),
       FlagSpec('open', abbr: 'o'),
       FlagSpec('debug', abbr: 'd'),
     ],
     options: const [OptionSpec('name'), OptionSpec('export-options')],
-    run: (results) => w.handleBuildCommand([
-      ...results.rest.where(
-        (arg) => arg == 'apk' || arg == 'aab' || arg == 'ios',
-      ),
-      if (_flag(results, 'uat')) '--uat',
-      if (_flag(results, 'clean')) '--clean',
-      if (_flag(results, 'open')) '--open',
-      if (_flag(results, 'debug')) '--debug',
-      if (results['name'] != null) '--name=${results['name']}',
-      if (results['export-options'] != null)
-        '--export-options=${results['export-options']}',
-    ]),
+    run: (results) {
+      if (_flag(results, 'clean') && !_flag(results, 'fresh')) {
+        stderr.writeln('提示：`--clean` 已更名为 `--fresh`（清输出目录），旧名将在下个版本移除');
+      }
+      return w.handleBuildCommand([
+        ...results.rest.where(
+          (arg) => arg == 'apk' || arg == 'aab' || arg == 'ios',
+        ),
+        if (_flag(results, 'uat')) '--uat',
+        if (_flag(results, 'fresh')) '--clean',
+        if (_flag(results, 'clean')) '--clean',
+        if (_flag(results, 'open')) '--open',
+        if (_flag(results, 'debug')) '--debug',
+        if (results['name'] != null) '--name=${results['name']}',
+        if (results['export-options'] != null)
+          '--export-options=${results['export-options']}',
+      ]);
+    },
   ),
   CommandSpec(
     name: 'clean',
@@ -136,15 +145,70 @@ List<CommandSpec> commandSpecs() => [
     aliases: const ['co'],
     usage: 'ww common|co drbb                 # 跑 build_runner',
     flags: const [FlagSpec('debug', abbr: 'd')],
-    run: (results) =>
-        w.handleCommonCommand(results.rest, debug: _flag(results, 'debug')),
+    run: (results) => _deprecated(
+      'common drbb',
+      '跑 build_runner',
+      'ww gen',
+      () => w.handleCommonCommand(results.rest, debug: _flag(results, 'debug')),
+    ),
+  ),
+  CommandSpec(
+    name: 'self-update',
+    aliases: const ['su'],
+    usage: 'ww self-update|su                # 升级 w_cli 自身',
+    run: (results) => w.handleUpdateCommand(),
   ),
   CommandSpec(
     name: 'update',
     aliases: const ['u'],
-    usage: 'ww update|u                       # 升级 w_cli 自身',
-    run: (results) => w.handleUpdateCommand(),
+    usage: 'ww update|u                       # 同上（旧名，请改用 self-update）',
+    run: (results) => _deprecated(
+      'update',
+      '自升级',
+      'ww self-update',
+      () => w.handleUpdateCommand(),
+    ),
+  ),
+  CommandSpec(
+    name: 'deps',
+    usage: 'ww deps upgrade                   # 升级项目依赖与 Gradle',
+    run: (results) => _deps(results),
+  ),
+  CommandSpec(
+    name: 'gen',
+    usage:
+        'ww gen                            # 跑 build_runner（原 ww common drbb）',
+    flags: const [FlagSpec('debug', abbr: 'd')],
+    run: (results) =>
+        w.handleCommonCommand(['drbb'], debug: _flag(results, 'debug')),
   ),
 ];
+
+Future<int> _deps(ArgResults results) async {
+  if (results.rest.isEmpty) {
+    final help = cli_help.commandHelp('deps');
+    if (help != null) {
+      print(help);
+    }
+    return 0;
+  }
+  if (results.rest.first != 'upgrade') {
+    stderr.writeln('未知子命令: ${results.rest.first}');
+    stderr.writeln('用法: ww deps upgrade');
+    return 2;
+  }
+  return w.handleProjectCommand(['--update']);
+}
+
+/// 旧命令名：跑完提醒一次新写法。
+Future<int> _deprecated(
+  String oldName,
+  String what,
+  String replacement,
+  Future<int> Function() run,
+) async {
+  stderr.writeln('提示：`ww $oldName` 已更名为 `$replacement`（$what），旧名将在下个版本移除');
+  return run();
+}
 
 bool _flag(ArgResults results, String name) => results[name] == true;
