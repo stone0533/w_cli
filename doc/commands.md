@@ -33,16 +33,19 @@ ww api --force          # 覆盖 repository.dart 里检测到的手写成员
 
 ```console
 $ ww api models
-=== ww api models ===
+=== ww api models · demo 1.0.0+1 ===
 [INFO] 生成 7 个模型文件 → lib/app/data/models
-=== 完成（0.8s）===
+=== 完成（16:15:06）===
 ```
+
+- 开始横幅带**工程名与版本**（参照 build 的「构建 apk aab 1.0.0+1 (UAT …)」）
+- 结束横幅是**完成时刻**；耗时在 `-d` 下以 `[INFO] 耗时 0.8s` 出现
 
 - 每个命令有**开始 / 结束**横幅（结束行带耗时；失败时红色并带退出码）
 - 前缀固定 `[INFO]` / `[WARN]` / `[ERROR]`；`INFO` 绿、`WARN` 黄、`ERROR` 红
 - 颜色只在终端下输出；`NO_COLOR=1` 关闭，`CLICOLOR_FORCE=1` 强制开（CI 想看颜色时）
 - 默认只留关键行；明细用 `-d` / `--debug` 打开
-- 子进程输出（xcodebuild / build_runner）默认写入 `w_build/build.log`
+- 子进程输出默认落盘：build → `w_build/build.log`，build_runner → `w_build/build-runner.log`
 
 要点：
 
