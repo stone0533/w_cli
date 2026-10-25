@@ -13,6 +13,7 @@
 | `ww gen` | Dart | 跑 build_runner（30 分钟超时） |
 | [`ww fmt`](#内置短命令-fmt--get--pod--analyze) / `get` / `pod` / `analyze` | Dart | 常用长命令的短写法 |
 | [`ww run`](#ww-run) | Dart | 执行 `.ww/tasks` 里的自定义任务 |
+| `ww doctor` | Dart | 检查环境（flutter / dart / pod / 工程文件） |
 | [`ww build`](#ww-build) | **bash** | 打包 APK / AAB / IPA |
 
 > 除 `build` 外全部是纯 Dart，Windows 可直接用；`build` 需要 bash（Git Bash / WSL）。

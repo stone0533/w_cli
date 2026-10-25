@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:args/args.dart';
 import 'package:w_cli/src/cli/help.dart' as cli_help;
+import 'package:w_cli/src/commands/doctor_command.dart' as doctor;
 import 'package:w_cli/src/commands/run_command.dart' as runcmd;
 import 'package:w_cli/src/commands/task_commands.dart' as tasks;
 import 'package:w_cli/w_cli.dart' as w;
@@ -173,9 +174,19 @@ List<CommandSpec> commandSpecs() => [
       run: (results) => tasks.TaskRunner().run(
         task,
         extra: results.rest,
+        flags: {
+          for (final flag in task.flagNames)
+            if (_flag(results, flag)) flag,
+        },
         check: _flag(results, 'check'),
       ),
     ),
+  CommandSpec(
+    name: 'doctor',
+    usage:
+        'ww doctor                       # 检查环境（flutter / dart / pod / 工程文件）',
+    run: (results) => doctor.DoctorCommand().run(),
+  ),
   CommandSpec(
     name: 'run',
     usage: 'ww run [任务名]                   # 执行 .ww/tasks 里的任务',

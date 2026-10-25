@@ -96,6 +96,26 @@ const Map<String, String> _help = {
 用法: ww analyze [-- <flags>]
 
 执行 flutter analyze。额外 flag 写在 `--` 之后，例如 `ww analyze -- --fatal-infos`。''',
+  'add': '''
+用法: ww add <包>... [--dev]
+
+执行 flutter pub add。`--dev` 会改写成 pub 的 `dev:` 前缀：
+  ww add dio              → flutter pub add dio
+  ww add build_runner --dev → flutter pub add dev:build_runner''',
+  'fix': '''
+用法: ww fix
+
+执行 dart fix --apply。''',
+  'watch': '''
+用法: ww watch
+
+执行 dart run build_runner watch --delete-conflicting-outputs。
+长驻进程，不设超时；Ctrl+C 退出（退出码 130）。''',
+  'doctor': '''
+用法: ww doctor
+
+检查本工具依赖的环境：flutter / dart / pod、pubspec.yaml、ios/、android/、.ww/tasks。
+必需项缺失退出 1。''',
   'test': '''
 用法: ww test [目标...] [-- <flags>]
 

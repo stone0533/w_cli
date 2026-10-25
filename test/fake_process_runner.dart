@@ -23,6 +23,10 @@ class FakeProcessRunner implements ProcessRunner {
   final List<({String exe, List<String> args, String? cwd})> runs = [];
   final List<String> whichCalls = [];
 
+  /// 最近一次 start 传入的超时，用来断言「watch 不限时」
+  Duration? lastTimeout;
+  bool lastTimeoutSet = false;
+
   @override
   Future<int> start(
     String executable,
@@ -33,6 +37,8 @@ class FakeProcessRunner implements ProcessRunner {
     Duration? timeout,
   }) async {
     starts.add((exe: executable, args: arguments, cwd: workingDirectory));
+    lastTimeout = timeout;
+    lastTimeoutSet = true;
     onCreate?.call(executable, arguments);
     return startExitCode;
   }

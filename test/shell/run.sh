@@ -139,6 +139,23 @@ assert_contains "ww l10n" "flutter gen-l10n" "$(cat "$common_root/calls.log")"
 run_verb outdated
 assert_contains "ww outdated" "flutter pub outdated" "$(cat "$common_root/calls.log")"
 
+run_verb add dio retrofit
+assert_contains "ww add 透传包名" "flutter pub add dio retrofit" "$(cat "$common_root/calls.log")"
+
+run_verb add build_runner --dev
+assert_contains "ww add --dev 改写为 dev: 前缀" \
+  "flutter pub add dev:build_runner" "$(cat "$common_root/calls.log")"
+
+run_verb add
+assert_eq "ww add 不给包名退出 2" 2 "$?"
+
+run_verb fix
+assert_contains "ww fix 跑 dart fix --apply" "dart fix --apply" "$(cat "$common_root/calls.log")"
+
+run_verb watch
+assert_contains "ww watch 跑 build_runner watch" \
+  "run build_runner watch --delete-conflicting-outputs" "$(cat "$common_root/calls.log")"
+
 # ww common 已移除
 run_verb common drbb
 assert_eq "ww common 已移除（退出 2）" 2 "$?"
