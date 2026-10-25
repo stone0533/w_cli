@@ -1,11 +1,14 @@
 #!/bin/bash
 
 # ======================================================
-# lib.sh - w_cli 脚本共享库
+# lib.sh - build.sh 的共享库
 #
-# 这个文件不单独执行，只被其它脚本 source：
+# 这个文件不单独执行，只被 build.sh source：
 #   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #   . "$SCRIPT_DIR/lib.sh"
+#
+# 2026-10 起其余脚本都迁到了 Dart（ADR-0002），这里只保留 build.sh 用到的东西：
+# 日志、DEBUG 开关、版本号、带超时的命令执行。
 #
 # 严格模式由调用方声明为 `set -eo pipefail`。
 # 刻意不启用 `set -u`：macOS 自带的 bash 3.2 在 set -u 下展开空数组
@@ -39,10 +42,6 @@ log_error() {
   printf '%s[ERROR]%s %s\n' "$RED" "$NC" "$1" >&2
 }
 
-log_success() {
-  printf '%s[OK]%s %s\n' "$GREEN" "$NC" "$1"
-}
-
 # 调试信息走 stderr：stdout 留给脚本产物
 log_debug() {
   if ww::debug_enabled; then
@@ -55,42 +54,15 @@ command_available() {
 }
 
 # 失败即退出：所有脚本的唯一出口
-ww::die() {
-  log_error "${1:-未知错误}"
-  exit "${2:-1}"
-}
 
 # 依赖检查
-ww::require() {
-  local cmd="$1"
-  local hint="${2:-请先安装 ${1}}"
-  if ! command_available "$cmd"; then
-    ww::die "$hint" 1
-  fi
-}
 
 # 版本号由 Dart 侧通过 WW_VERSION 注入（来自 pubspec），脚本内不再各写一份
 ww::version() {
   printf '%s' "${WW_VERSION:-dev}"
 }
 
-ww::show_version() {
-  local description="${1:-}"
-  printf '%s %s\n' "$(basename "${0:-w_cli}")" "$(ww::version)"
-  if [ -n "$description" ]; then
-    printf 'Description: %s\n' "$description"
-  fi
-}
-
 # 用法错误：打印帮助到 stderr 并以 2 退出（区别于运行失败）
-ww::usage_error() {
-  local message="$1"
-  log_error "$message"
-  if [ -n "${2:-}" ]; then
-    printf '%s\n' "$2" >&2
-  fi
-  exit 2
-}
 
 # 直接执行一条命令；参数按数组传递，不经过 eval
 ww::run() {

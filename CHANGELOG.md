@@ -39,6 +39,8 @@
 
 ### Changed
 
+- `lib/sh/lib.sh` 精简为「只服务 build.sh」：删掉 `ww::die` / `ww::require` /
+  `ww::show_version` / `ww::usage_error` / `log_success`（其余脚本迁 Dart 后无人使用）
 - `ww open` 改为 Dart 实现，`lib/sh/open.sh` 删除：支持 `i`/`a`/`b`/`r` 短别名，
   打开失败返回非零（旧脚本永远退 0）
 - `lib/sh/setup.sh` 删除：`ww create` 编排也迁到 Dart（`lib/src/project/`），
