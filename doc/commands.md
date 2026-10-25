@@ -10,7 +10,7 @@
 | [`ww clean`](#ww-clean) | Dart | 清构建产物 / 锁文件 / Pods |
 | [`ww open`](#ww-open) | Dart | 打开 IDE 或目录 |
 | [`ww deps`](#ww-deps) | Dart | 升级依赖与 Gradle |
-| [`ww gen`](#ww-gen) | Dart | 跑 build_runner |
+| `ww gen` | Dart | 跑 build_runner（30 分钟超时） |
 | [`ww fmt`](#内置短命令-fmt--get--pod--analyze) / `get` / `pod` / `analyze` | Dart | 常用长命令的短写法 |
 | [`ww run`](#ww-run) | Dart | 执行 `.ww/tasks` 里的自定义任务 |
 | [`ww build`](#ww-build) | **bash** | 打包 APK / AAB / IPA |
@@ -70,101 +70,6 @@ ww create my_app --force          # 覆盖同名目录（默认拒绝）
 
 - 任何一步失败：退出非零，并**删除本次创建的目录**
 - 目标目录原本就存在：永远不删（除非显式 `--force`）
-
-## ww gen
-
-```bash
-ww gen                   # dart run build_runner build --delete-conflicting-outputs
-ww gen --debug           # 带调试日志（等同 -d）
-```
-
-旧写法 `ww common drbb` 仍可用，会提示一次改用 `ww gen`。
-
-- 优先用 `dart`，没有就退回 `flutter`
-- 30 分钟超时，超时返回 124（先 SIGTERM，5 秒后 SIGKILL）
-- build_runner 自己的退出码原样透传
-- 与 `ww api models`、`ww create` 内部用的是同一个 `BuildRunner`
-
-## ww clean
-
-```bash
-ww clean                 # 只打印帮助（不会清任何东西）
-ww clean all             # 清理所有平台的构建文件
-ww clean android         # 只清 Android
-ww clean ios             # 只清 iOS
-ww clean --lock          # 额外删 pubspec.lock（iOS 时还删 Podfile.lock）
-ww clean ios --pod       # 删 ios/Pods + Podfile.lock，然后 pod update
-```
-
-执行顺序：`--lock` 删锁文件 → `--pod` 删 Pods → `flutter clean` → `flutter pub get` → 必要时 `pod update`（最多重试 30 次）。
-
-**无参数只打印帮助**：`ww clean` 以前会立刻清空所有构建产物，现在要显式写 `all`。
-
-- `--pod` 配 `android` 会直接报错退出 2
-- 任何一步失败退出 1；参数错误退出 2
-
-## ww open
-
-```bash
-ww open ios        # Xcode 打开 ios/Runner.xcworkspace（仅 macOS）
-ww open android    # Android Studio 打开 android/
-ww open build      # 文件管理器打开 w_build/
-ww open root       # 文件管理器打开项目根目录
-ww o b             # 短别名：i / a / b / r
-```
-
-| 目标 | 前置条件 |
-| --- | --- |
-| `ios` | 存在 `ios/Runner.xcworkspace`；仅 macOS |
-| `android` | 存在 `android/`；macOS 用 `open -a`，Linux 用 `studio.sh` |
-| `build` | 存在 `w_build/`；macOS `open` / Linux `xdg-open` |
-| `root` | 项目根目录；同上 |
-
-无参数或 `--help` 打印帮助（退出 0）；未知参数退出 2；打开失败返回非零。
-
-## 内置短命令：fmt / get / pod / analyze
-
-四条长命令的短写法，都在项目根目录执行，退出码原样透传：
-
-| 命令 | 等价于 |
-| --- | --- |
-| `ww fmt` | `dart format .` |
-| `ww get` | `flutter pub get` |
-| `ww pod` | `pod install --project-directory=ios`（不用手动 `cd ios`） |
-| `ww analyze` | `flutter analyze` |
-
-执行前会打印展开后的命令行，不是黑魔法：
-
-```console
-$ ww fmt
-$ dart format .
-Formatted 38 files (0 changed) in 0.05 seconds.
-```
-
-项目特有的命令用 `.ww/tasks` + `ww run`（见下一节）。
-
-## ww run
-
-项目特有的命令写在 `.ww/tasks`（`ww create` 会生成一份默认的），提交到仓库即可团队/CI 共用：
-
-```ini
-# .ww/tasks —— 一行一条 `名字 = 命令`
-map = dart run w_tools_cli:map
-gen = dart run build_runner build --delete-conflicting-outputs
-fmt = dart format .
-```
-
-```bash
-ww run               # 列出所有任务
-ww run map           # 执行
-ww run map --dry-run # 只打印命令，不执行
-```
-
-- 按**第一个** `=` 切分，命令里可以继续有 `=`（`--define=FOO=1`）
-- 名字只允许字母/数字/`_`/`-`；坏行会被跳过并提示行号；重名保留第一条
-- 命令走 `bash -c`（Windows 用 `cmd /c`），所以 `&&`、`cd`、管道都能用
-- 在项目根执行，退出码原样透传
-- 没有 `.ww/tasks` 时：`ww run` 打印用法（退出 0），`ww run <名字>` 报错（退出 1）
 
 ## ww deps
 

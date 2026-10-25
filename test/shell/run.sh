@@ -87,7 +87,7 @@ assert_eq "不可执行的 build.sh --version 退出 0" 0 "$?"
 rm -rf "$noexec_dir"
 
 echo
-echo "== 3. ww common drbb（Dart 实现） =="
+echo "== 3. 内置动词走 TaskRunner =="
 common_root="$(mktemp -d)"
 mkdir -p "$common_root/bin"
 cat > "$common_root/bin/dart" <<'STUB'
@@ -96,29 +96,39 @@ echo "dart $*" >> "$COMMON_LOG"
 if [ "$1" = "format" ]; then exec "$REAL_DART" "$@"; fi
 exit "${COMMON_EXIT:-0}"
 STUB
-chmod +x "$common_root/bin/dart"
+cat > "$common_root/bin/flutter" <<'STUB'
+#!/bin/bash
+echo "flutter $*" >> "$COMMON_LOG"
+exit "${COMMON_EXIT:-0}"
+STUB
+chmod +x "$common_root/bin/dart" "$common_root/bin/flutter"
 
-run_common() { # 参数...
+run_verb() { # 参数...
+  : > "$common_root/calls.log"
   ( cd "$common_root" && CI=true REAL_DART="$(command -v dart)" \
       COMMON_LOG="$common_root/calls.log" COMMON_EXIT="${COMMON_EXIT:-0}" \
       PATH="$common_root/bin:$PATH" \
-      "$(command -v dart)" run "$ROOT/bin/w_cli.dart" common "$@" ) > /dev/null 2>&1
+      "$(command -v dart)" run "$ROOT/bin/w_cli.dart" "$@" ) > /dev/null 2>&1
 }
 
-: > "$common_root/calls.log"
-run_common drbb
-assert_eq "ww common drbb 退出 0" 0 "$?"
-assert_contains "ww common drbb 调用了 build_runner" \
+run_verb gen
+assert_eq "ww gen 退出 0" 0 "$?"
+assert_contains "ww gen 调用了 build_runner" \
   "run build_runner build --delete-conflicting-outputs" "$(cat "$common_root/calls.log")"
 
-run_common drbb --debug
-assert_eq "ww common drbb --debug 退出 0" 0 "$?"
-
-COMMON_EXIT=1 run_common drbb
+COMMON_EXIT=1 run_verb gen
 assert_eq "build_runner 失败会透传退出码" 1 "$?"
 
-run_common
-assert_eq "ww common 无参数打印帮助并退出 0" 0 "$?"
+# 额外参数：位置参数替换目标，flag 走 -- 
+run_verb fmt lib/app
+assert_contains "ww fmt <路径> 替换默认目标" "dart format lib/app" "$(cat "$common_root/calls.log")"
+
+run_verb analyze -- --fatal-infos
+assert_contains "ww analyze -- 之后的 flag 透传" "flutter analyze --fatal-infos" "$(cat "$common_root/calls.log")"
+
+# ww common 已移除
+run_verb common drbb
+assert_eq "ww common 已移除（退出 2）" 2 "$?"
 rm -rf "$common_root"
 
 echo

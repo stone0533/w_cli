@@ -17,7 +17,6 @@ String _canonical(String name) {
     'b': 'build',
     'p': 'project',
     'o': 'open',
-    'co': 'common',
     'cl': 'clean',
   };
   return aliases[name] ?? name;
@@ -107,14 +106,10 @@ const Map<String, String> _help = {
 选项:
   --update      升级依赖与 Gradle（旧写法，请改用 ww deps upgrade）''',
   'gen': '''
-用法: ww gen [--debug]
+用法: ww gen [-- <build_runner flags>]
 
-执行 dart run build_runner build --delete-conflicting-outputs。
-优先用 dart，缺失时退回 flutter；30 分钟超时，退出码原样透传。''',
-  'common': '''
-用法: ww common drbb [--debug]（旧写法，请改用 ww gen）
-
-执行 dart run build_runner build --delete-conflicting-outputs。''',
+执行 dart run build_runner build --delete-conflicting-outputs（30 分钟超时）。
+额外参数写在 `--` 之后会原样转发。''',
   'self-update': '''
 用法: ww self-update
 

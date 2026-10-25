@@ -46,6 +46,9 @@
 
 ### Added
 
+- 内置动词支持额外参数：位置参数替换默认目标（`ww fmt lib/app`），flag 写在 `--` 后原样转发
+- 内置动词统一超时（默认 10 分钟，`WW_TASK_TIMEOUT` 覆盖，超时 124）；`ww gen` 30 分钟
+- `ww pod` 在没有 `ios/` 目录时直接给中文提示而不是 CocoaPods 报错
 - `ww run [任务名]` + `.ww/tasks`：项目自定义快捷键（一行一条 `名字 = 命令`，
   可提交到仓库给团队/CI 共用）；`ww run` 列任务、`--dry-run` 只打印
 - `ww create` 会生成一份默认 `.ww/tasks`（gen / fmt / get）

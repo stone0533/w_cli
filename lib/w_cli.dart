@@ -17,7 +17,6 @@ import 'src/commands/clean_command.dart';
 import 'src/commands/open_command.dart';
 import 'src/commands/project_command.dart';
 import 'src/project/project_creator.dart';
-import 'src/tools/build_runner.dart';
 
 /// 获取当前版本号
 /// 从自动生成的版本文件中读取版本号
@@ -222,32 +221,6 @@ Future<bool> scriptExists(String scriptName) async {
 
 /// 处理 common 命令
 /// [arguments] - 命令参数
-Future<int> handleCommonCommand(
-  List<String> arguments, {
-  bool debug = false,
-}) async {
-  if (arguments.isEmpty) {
-    final help = commandHelp('common');
-    if (help != null) {
-      print(help);
-    }
-    return 0;
-  }
-
-  final command = arguments.first;
-  if (command != 'drbb') {
-    stderr.writeln('未知命令: $command');
-    stderr.writeln('用法: ww common drbb');
-    return 2;
-  }
-
-  if (debug) {
-    print('debug 模式已开启');
-  }
-
-  print('🚀 执行 build_runner build');
-  return BuildRunner().run();
-}
 
 /// 处理 clean 命令
 /// [arguments] - 命令参数

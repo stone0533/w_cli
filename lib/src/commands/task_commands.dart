@@ -14,7 +14,10 @@ class BuiltinTask {
     required this.usage,
     required this.executable,
     required this.arguments,
+    this.acceptsTarget = false,
+    this.timeout = const Duration(minutes: 10),
     this.availableOnAllPlatforms = true,
+    this.requiresDirectory,
   });
 
   final String name;
@@ -22,8 +25,15 @@ class BuiltinTask {
   final String executable;
   final List<String> arguments;
 
+  /// 是否接受位置参数替换默认目标：`ww fmt lib/app` → `dart format lib/app`
+  final bool acceptsTarget;
+  final Duration timeout;
+
   /// `pod` 只在 macOS/Linux 上有意义
   final bool availableOnAllPlatforms;
+
+  /// 需要的目录（相对项目根）；不存在时直接给中文提示
+  final String? requiresDirectory;
 
   String get commandLine => '$executable ${arguments.join(' ')}';
 }
@@ -31,9 +41,10 @@ class BuiltinTask {
 const List<BuiltinTask> builtinTasks = [
   BuiltinTask(
     name: 'fmt',
-    usage: 'ww fmt          # dart format .',
+    usage: 'ww fmt [路径...]   # dart format（默认 .）',
     executable: 'dart',
     arguments: ['format', '.'],
+    acceptsTarget: true,
   ),
   BuiltinTask(
     name: 'get',
@@ -46,12 +57,20 @@ const List<BuiltinTask> builtinTasks = [
     usage: 'ww pod          # pod install --project-directory=ios',
     executable: 'pod',
     arguments: ['install', '--project-directory=ios'],
+    requiresDirectory: 'ios',
   ),
   BuiltinTask(
     name: 'analyze',
-    usage: 'ww analyze      # flutter analyze',
+    usage: 'ww analyze [-- <flags>]  # flutter analyze',
     executable: 'flutter',
     arguments: ['analyze'],
+  ),
+  BuiltinTask(
+    name: 'gen',
+    usage: 'ww gen [-- <flags>]      # 跑 build_runner',
+    executable: 'dart',
+    arguments: ['run', 'build_runner', 'build', '--delete-conflicting-outputs'],
+    timeout: Duration(minutes: 30),
   ),
 ];
 
@@ -71,7 +90,12 @@ class TaskRunner {
   final ProcessRunner runner;
 
   /// 返回进程退出码（0 成功、1 工具不可用、其余透传）。
-  Future<int> run(BuiltinTask task) async {
+  Future<int> run(BuiltinTask task, {List<String> extra = const []}) async {
+    final required = task.requiresDirectory;
+    if (required != null && !Directory('$root/$required').existsSync()) {
+      stderr.writeln('当前项目没有 $required 目录，ww ${task.name} 不适用');
+      return 1;
+    }
     if (!runner.which(task.executable)) {
       stderr.writeln('找不到 ${task.executable}，无法执行 ww ${task.name}');
       stderr.writeln('  命令: ${task.commandLine}');
@@ -82,11 +106,41 @@ class TaskRunner {
       return 1;
     }
 
-    stdout.writeln('\$ ${task.commandLine}');
+    final args = _argsFor(task, extra);
+    stdout.writeln('\$ ${task.executable} ${args.join(' ')}');
     return runner.start(
       task.executable,
-      task.arguments,
+      args,
       workingDirectory: root,
+      timeout: _timeoutFor(task),
     );
+  }
+
+  /// 位置参数替换默认目标（`ww fmt lib`、`ww test test/foo_test.dart`），
+  /// flag 形式的额外参数追加在最后（需要写在 `--` 之后）。
+  List<String> _argsFor(BuiltinTask task, List<String> extra) {
+    final positionals = extra.where((arg) => !arg.startsWith('-')).toList();
+    final flags = extra.where((arg) => arg.startsWith('-')).toList();
+
+    final args = [...task.arguments];
+    if (positionals.isNotEmpty) {
+      if (task.acceptsTarget && args.isNotEmpty) {
+        args.removeLast();
+      }
+      args.addAll(positionals);
+    }
+    args.addAll(flags);
+    return args;
+  }
+
+  /// `WW_TASK_TIMEOUT`（秒）可覆盖默认超时
+  Duration _timeoutFor(BuiltinTask task) {
+    final override = int.tryParse(
+      Platform.environment['WW_TASK_TIMEOUT'] ?? '',
+    );
+    if (override != null && override > 0) {
+      return Duration(seconds: override);
+    }
+    return task.timeout;
   }
 }
