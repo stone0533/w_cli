@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:w_cli/w_cli.dart' as w;
+import 'package:w_cli/src/cli/help.dart' as cli_help;
 import 'package:w_cli/src/resources.dart' as resources;
 
 /// 主函数 - 处理命令行参数并执行相应的命令
@@ -96,13 +97,21 @@ Future<void> main(List<String> arguments) async {
       return;
     }
 
-    // 处理帮助命令或无参数情况
+    final command = results.command;
+
+    // --help 命中某个命令时打印该命令的帮助，否则打印全局帮助
     if (results.wasParsed('help') || arguments.isEmpty) {
+      final name = command?.name;
+      if (name != null) {
+        final help = cli_help.commandHelp(name);
+        if (help != null) {
+          print(help);
+          return;
+        }
+      }
       showHelp();
       return;
     }
-
-    final command = results.command;
     if (command == null) {
       print('Error: No command specified');
       exitCode = 2;
@@ -206,7 +215,7 @@ void showHelp() {
   print('');
   print('Usage:');
   print(
-    '  ww create|c project|p name           # Create a new Flutter project',
+    '  ww create|c [project|p] <name>       # Create a new Flutter project',
   );
   print('  ww api|a [generate]                  # Generate API code');
   print(
@@ -250,8 +259,8 @@ void showHelp() {
   print('');
   print('Examples:');
   print('  # Create project');
-  print('  ww create project my_app');
-  print('  ww c p my_app');
+  print('  ww create my_app');
+  print('  ww c my_app');
   print('');
   print('  # API generation');
   print('  ww api                      # Generate API code');
@@ -295,7 +304,7 @@ void showHelp() {
   print('  ww co drbb --debug          # Run with debug mode');
   print('');
   print('  # Clean commands');
-  print('  ww clean                    # Clean all platforms');
+  print('  ww clean all                # Clean all platforms');
   print('  ww clean android            # Clean Android build files');
   print('  ww clean ios                # Clean iOS build files');
   print('  ww clean --lock             # Clean with lock files');

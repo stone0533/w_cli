@@ -36,9 +36,10 @@ ww api --force          # 覆盖 repository.dart 里检测到的手写成员
 ## ww create
 
 ```bash
-ww create project my_app          # 完整写法
-ww c p my_app                     # 别名
-ww create project my_app --force  # 覆盖同名目录（默认拒绝）
+ww create my_app                  # 推荐写法
+ww create project my_app          # 旧写法，仍然可用
+ww c my_app                       # 别名
+ww create my_app --force          # 覆盖同名目录（默认拒绝）
 ```
 
 项目名必须小写字母开头、只含小写字母/数字/下划线，否则退出 2。
@@ -82,7 +83,8 @@ ww common drbb --debug   # 带调试日志（等同 -d）
 ## ww clean
 
 ```bash
-ww clean                 # 清理所有平台的构建文件
+ww clean                 # 只打印帮助（不会清任何东西）
+ww clean all             # 清理所有平台的构建文件
 ww clean android         # 只清 Android
 ww clean ios             # 只清 iOS
 ww clean --lock          # 额外删 pubspec.lock（iOS 时还删 Podfile.lock）
@@ -90,6 +92,8 @@ ww clean ios --pod       # 删 ios/Pods + Podfile.lock，然后 pod update
 ```
 
 执行顺序：`--lock` 删锁文件 → `--pod` 删 Pods → `flutter clean` → `flutter pub get` → 必要时 `pod update`（最多重试 30 次）。
+
+**无参数只打印帮助**：`ww clean` 以前会立刻清空所有构建产物，现在要显式写 `all`。
 
 - `--pod` 配 `android` 会直接报错退出 2
 - 任何一步失败退出 1；参数错误退出 2
