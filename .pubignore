@@ -9,4 +9,8 @@ tool/
 test/
 .shellcheckrc
 AGENTS.md
+# 面向贡献者/agent 的文档，使用者不需要
+GLOSSARY.md
+doc/agents/
+# 历史清理项：曾经在仓库根误生成过，留着防止再被带进发布包
 lib/app/
