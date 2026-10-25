@@ -606,6 +606,80 @@ run_zero ios
 assert_eq "无配置且无 team 时退出非零" 1 "$?"
 rm -rf "$zero_root"
 
+# 7.6) 手动签名自动探测（仅 macOS：依赖 security + plutil）
+if [ "$(uname)" = "Darwin" ] && command -v security > /dev/null 2>&1; then
+  detect_root="$(mktemp -d)"
+  mkdir -p "$detect_root/bin" "$detect_root/demo/ios/Runner.xcodeproj" \
+    "$detect_root/home/Library/MobileDevice/Provisioning Profiles"
+  printf 'name: demo\nversion: 4.0.0\n' > "$detect_root/demo/pubspec.yaml"
+  printf 'DEVELOPMENT_TEAM = ABC123DEF4;\nPRODUCT_BUNDLE_IDENTIFIER = com.example.demo;\n' \
+    > "$detect_root/demo/ios/Runner.xcodeproj/project.pbxproj"
+  cat > "$detect_root/bin/security" << 'STUB'
+#!/bin/bash
+if [ "$1" = "find-identity" ]; then
+  printf '  1) 1111 "Apple Distribution: Test Co (ZZZ9999999)"\n'
+  exit 0
+fi
+if [ "$1" = "cms" ]; then
+  for last in "$@"; do :; done
+  cat "$last"
+  exit 0
+fi
+exit 0
+STUB
+  cat > "$detect_root/bin/flutter" << 'STUB'
+#!/bin/bash
+case "$1" in
+  --version) echo "Flutter 3.24.0 • channel stable"; exit 0 ;;
+  build) mkdir -p ios/Flutter; exit 0 ;;
+  *) exit 0 ;;
+esac
+STUB
+  cat > "$detect_root/bin/xcodebuild" << 'STUB'
+#!/bin/bash
+if printf ' %s ' "$*" | grep -q " archive "; then
+  app="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
+  mkdir -p "$app"; printf 'plist\n' > "$app/Info.plist"; printf 'bin\n' > "$app/Runner"
+fi
+prev=""
+for arg in "$@"; do
+  if [ "$prev" = "-exportOptionsPlist" ]; then cp "$arg" "$XCODE_LOG.options"; fi
+  prev="$arg"
+done
+if [ "$1" = "-exportArchive" ]; then
+  while [ $# -gt 0 ]; do
+    if [ "$1" = "-exportPath" ]; then mkdir -p "$2"; printf 'ipa\n' > "$2/Runner.ipa"; fi
+    shift
+  done
+fi
+exit 0
+STUB
+  chmod +x "$detect_root/bin/security" "$detect_root/bin/flutter" "$detect_root/bin/xcodebuild"
+  cat > "$detect_root/home/Library/MobileDevice/Provisioning Profiles/p1.mobileprovision" << 'PROFILE'
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+  <key>Name</key>
+  <string>AppStore demo</string>
+  <key>Entitlements</key>
+  <dict>
+    <key>application-identifier</key>
+    <string>ZZZ9999999.com.example.demo</string>
+  </dict>
+</dict>
+</plist>
+PROFILE
+
+  ( cd "$detect_root/demo" && HOME="$detect_root/home" XCODE_LOG="$detect_root/x.log" \
+      PATH="$detect_root/bin:$PATH" bash "$SH/build.sh" ios --manual ) > /dev/null 2>&1
+  assert_eq "手动签名自动探测：构建成功" 0 "$?"
+  assert_contains "自动探测到证书" "Apple Distribution: Test Co (ZZZ9999999)" \
+    "$(cat "$detect_root/x.log.options" 2>/dev/null)"
+  assert_contains "自动探测到 profile" "AppStore demo" \
+    "$(cat "$detect_root/x.log.options" 2>/dev/null)"
+  rm -rf "$detect_root"
+fi
+
 # 8) 失败清理不再动输出目录里的成品
 head -c 100 /dev/zero > "$build_root/demo/w_build/keep_live_9.9.9.apk"
 ( cd "$build_root/demo" && bash -c ". '$SH/build.sh'; cleanup_failed_build apk" ) > /dev/null 2>&1
