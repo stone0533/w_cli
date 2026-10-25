@@ -88,128 +88,6 @@ void main() {
     });
   });
 
-  group('Command handling', () {
-    test('handleCreateCommand should execute without throwing', () async {
-      try {
-        // 测试不带参数的情况
-        await handleCreateCommand([]);
-        expect(true, isTrue);
-      } catch (e) {
-        expect(true, isTrue);
-      }
-    });
-
-    test('handleCreateProject should execute without throwing', () async {
-      try {
-        await handleCreateProject('test_project');
-        expect(true, isTrue);
-      } catch (e) {
-        expect(true, isTrue);
-      }
-    });
-
-    test('handleApiCommand should execute without throwing', () async {
-      try {
-        await handleApiCommand([]);
-        expect(true, isTrue);
-      } catch (e) {
-        expect(true, isTrue);
-      }
-    });
-
-    test('handleBuildCommand should execute without throwing', () async {
-      try {
-        await handleBuildCommand(['--help']);
-        expect(true, isTrue);
-      } catch (e) {
-        expect(true, isTrue);
-      }
-    });
-
-    test('handleProjectCommand should execute without throwing', () async {
-      try {
-        await handleProjectCommand(['--help']);
-        expect(true, isTrue);
-      } catch (e) {
-        expect(true, isTrue);
-      }
-    });
-
-    test('handleOpenCommand should execute without throwing', () async {
-      try {
-        await handleOpenCommand(['ios']);
-        expect(true, isTrue);
-      } catch (e) {
-        expect(true, isTrue);
-      }
-    });
-
-    test('handleUpdateCommand should execute without throwing', () async {
-      try {
-        await handleUpdateCommand();
-        expect(true, isTrue);
-      } catch (e) {
-        expect(true, isTrue);
-      }
-    });
-  });
-
-  group('Error handling', () {
-    test(
-      'handleError should execute without throwing for FileSystemException',
-      () {
-        try {
-          handleError(
-            FileSystemException('File not found', 'test.txt'),
-            'file operation',
-          );
-          expect(true, isTrue);
-        } catch (e) {
-          expect(true, isTrue);
-        }
-      },
-    );
-
-    test(
-      'handleError should execute without throwing for ProcessException',
-      () {
-        try {
-          handleError(ProcessException('ls', ['-la']), 'process operation');
-          expect(true, isTrue);
-        } catch (e) {
-          expect(true, isTrue);
-        }
-      },
-    );
-
-    test('handleError should execute without throwing for FormatException', () {
-      try {
-        handleError(FormatException('Invalid format'), 'format operation');
-        expect(true, isTrue);
-      } catch (e) {
-        expect(true, isTrue);
-      }
-    });
-
-    test('handleError should execute without throwing for ArgumentError', () {
-      try {
-        handleError(ArgumentError('Invalid argument'), 'argument operation');
-        expect(true, isTrue);
-      } catch (e) {
-        expect(true, isTrue);
-      }
-    });
-
-    test('handleError should execute without throwing for unknown error', () {
-      try {
-        handleError('Unknown error', 'unknown operation');
-        expect(true, isTrue);
-      } catch (e) {
-        expect(true, isTrue);
-      }
-    });
-  });
-
   group('Edge cases', () {
     test('validateProjectName should return false for empty string', () {
       expect(validateProjectName(''), isFalse);
@@ -272,8 +150,8 @@ void main() {
 
     test('脚本与共享库 lib.sh 解压到同一个目录', () async {
       final scriptPath = await Resources.extractResourceToTempFile(
-        'lib/sh/clean.sh',
-        'clean.sh',
+        'lib/sh/build.sh',
+        'build.sh',
       );
       final dir = File(scriptPath).parent;
 
@@ -284,8 +162,8 @@ void main() {
 
     test('cleanupTempFiles 会删掉整个临时目录', () async {
       final scriptPath = await Resources.extractResourceToTempFile(
-        'lib/sh/open.sh',
-        'open.sh',
+        'lib/sh/build.sh',
+        'build.sh',
       );
       final dir = File(scriptPath).parent;
       expect(dir.existsSync(), isTrue);
