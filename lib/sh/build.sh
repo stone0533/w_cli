@@ -518,11 +518,34 @@ get_plist_value() {
   # 只去掉标签和首尾空白——证书名里带空格（"Apple Distribution: My Company (ABC)"），
   # 以前用 tr -d '[:space:]' 会把它压成 "AppleDistribution:MyCompany(ABC)"，
   # 传给 xcodebuild -codeSignIdentity 必然签不过。
-  grep -A1 "<key>$key</key>" "$plist_file" 2>/dev/null \
-    | grep "<string>" \
-    | head -1 \
-    | sed 's/<[^>]*>//g' \
-    | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+  # macOS 自带 plutil：一条命令搞定，且不挑 <key>/<string> 是否同一行
+  if command_available plutil; then
+    local raw
+    raw=$(plutil -extract "$key" raw -o - "$plist_file" 2>/dev/null)
+    if [ -n "$raw" ]; then
+      printf '%s\n' "$raw"
+      return 0
+    fi
+  fi
+
+  # 兜底：awk 同时认「同一行」与「分行」两种写法（Linux 上没有 plutil）
+  awk -v key="$key" '
+    index($0, "<key>" key "</key>") {
+      rest = substr($0, index($0, "<key>" key "</key>") + length("<key>" key "</key>"))
+      if (match(rest, /<string>[^<]*<\/string>/)) {
+        value = substr(rest, RSTART + 8, RLENGTH - 17)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        print value
+        exit
+      }
+      if (getline line > 0 && match(line, /<string>[^<]*<\/string>/)) {
+        value = substr(line, RSTART + 8, RLENGTH - 17)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        print value
+        exit
+      }
+    }
+  ' "$plist_file"
 }
 
 # 验证 ios.plist 文件
@@ -964,22 +987,40 @@ print_footer() {
   printf "${GREEN}======================================================${NC}\n"
 }
 
+# 支持的平台（加平台只改这里 + build_platform）
+is_valid_platform() {
+  case "$1" in
+    apk | aab | ios) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# 平台 -> 构建产物路径（apk/aab 用；ios 的产物由 xcodebuild 导出）
+platform_output_path() {
+  case "$1" in
+    apk) printf '%s' "build/app/outputs/flutter-apk/app-release.apk" ;;
+    aab) printf '%s' "build/app/outputs/bundle/release/app-release.aab" ;;
+    *) return 1 ;;
+  esac
+}
+
 # 验证参数
 validate_parameters() {
   local has_platform=false
   
   for arg in "$@"; do
     case "$arg" in
-      apk|aab|ios)
-        has_platform=true
-        ;;
       --uat|--clean|--open|--debug|--help|--version)
         ;;
       --name=*|--export-options=*)
         ;;
       *)
-        log_error "Invalid parameter: $arg"
-        return 1
+        if is_valid_platform "$arg"; then
+          has_platform=true
+        else
+          log_error "Invalid parameter: $arg"
+          return 1
+        fi
         ;;
     esac
   done
@@ -1171,6 +1212,25 @@ prepare_build() {
 }
 
 # 真正执行构建
+# 单平台构建分发（并行与串行共用）
+build_platform() {
+  local platform="$1"
+  case "$platform" in
+    apk | aab)
+      local source_path
+      source_path="$(platform_output_path "$platform")" || return 1
+      build_android_package "$platform" "$source_path"
+      ;;
+    ios)
+      build_ios
+      ;;
+    *)
+      log_error "无效参数: $platform. 请使用: apk, aab, 或 ios"
+      return 1
+      ;;
+  esac
+}
+
 run_build() {
   # 参数已经由 main 校验过；这里只管构建
   # 根据参数执行打包命令
@@ -1197,10 +1257,7 @@ run_build() {
       (
         for platform in "${android_platforms[@]}"; do
           status=0
-          case "$platform" in
-            apk) build_android_package "apk" "build/app/outputs/flutter-apk/app-release.apk" || status=$? ;;
-            aab) build_android_package "aab" "build/app/outputs/bundle/release/app-release.aab" || status=$? ;;
-          esac
+          build_platform "$platform" || status=$?
           printf '%s\n' "$status" > "$temp_dir/status_$platform.txt"
         done
       ) &
@@ -1229,27 +1286,9 @@ run_build() {
   else
     # 串行构建
     for platform in "${PLATFORMS[@]}"; do
-      case "$platform" in
-        "apk")
-          if ! build_android_package "apk" "build/app/outputs/flutter-apk/app-release.apk"; then
-            BUILD_FAILURE=true
-          fi
-          ;;
-        "aab")
-          if ! build_android_package "aab" "build/app/outputs/bundle/release/app-release.aab"; then
-            BUILD_FAILURE=true
-          fi
-          ;;
-        "ios")
-          if ! build_ios; then
-            BUILD_FAILURE=true
-          fi
-          ;;
-        *)
-          log_error "无效参数: $platform. 请使用: apk, aab, 或 ios"
-          BUILD_FAILURE=true
-          ;;
-      esac
+      if ! build_platform "$platform"; then
+        BUILD_FAILURE=true
+      fi
     done
   fi
 
