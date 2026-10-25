@@ -401,9 +401,9 @@ cat > "$ios_root/bin/flutter" << 'STUB'
 case "$1" in
   --version) echo "Flutter 3.24.0 • channel stable"; exit 0 ;;
   build)
-    mkdir -p build/ios/iphoneos/Runner.app
-    printf 'plist\n' > build/ios/iphoneos/Runner.app/Info.plist
-    printf 'bin\n' > build/ios/iphoneos/Runner.app/Runner
+    # --config-only 只写配置，不产出 Runner.app；真实构建由 xcodebuild archive 完成
+    mkdir -p ios/Flutter
+    printf 'config\n' > ios/Flutter/Generated.xcconfig
     exit 0 ;;
   *) exit 0 ;;
 esac
@@ -411,6 +411,12 @@ STUB
 cat > "$ios_root/bin/xcodebuild" << 'STUB'
 #!/bin/bash
 echo "xcodebuild $*" >> "$XCODE_LOG"
+if printf ' %s ' "$*" | grep -q " archive "; then
+  app="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
+  mkdir -p "$app"
+  printf 'plist\n' > "$app/Info.plist"
+  printf 'bin\n' > "$app/Runner"
+fi
 if [ "$1" = "-exportArchive" ]; then
   while [ $# -gt 0 ]; do
     if [ "$1" = "-exportPath" ]; then mkdir -p "$2"; printf 'ipa\n' > "$2/Runner.ipa"; fi
@@ -437,6 +443,8 @@ assert_contains "手动签名把证书名原样传给 xcodebuild" \
   "$(cat "$ios_root/xcode.log" 2>/dev/null)"
 assert_contains "导出使用 ios.plist" "-exportOptionsPlist w_build/ios.plist" \
   "$(cat "$ios_root/xcode.log" 2>/dev/null)"
+assert_eq "archive 里的 Runner.app 已生成" "present" \
+  "$([ -f "$ios_root/demo/build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Info.plist" ] && echo present || echo gone)"
 assert_eq "archive 父目录已创建" "present" \
   "$([ -d "$ios_root/demo/build/ios/archive" ] && echo present || echo gone)"
 rm -rf "$ios_root" "$plist_dir"
