@@ -30,7 +30,7 @@ dart pub global activate w_cli
 |------|------|
 | macOS | 完整支持（开发和验证都在 macOS 上） |
 | Linux | 支持（CI 在 Ubuntu 上跑全部测试） |
-| Windows | 部分支持：`ww api` 的代码生成已经是纯 Dart 实现，可以直接用；其余命令（`create` / `build` / `clean` / `open` / `project` / `common`）是 bash 脚本，需要 Git Bash 或 WSL 提供 `bash`，否则会给出明确提示而不是静默失败 |
+| Windows | 除 `ww build` 外全部可用（`create` / `api` / `clean` / `open` / `project` / `common` 都是纯 Dart）。`build` 仍是 bash 脚本，需要 Git Bash 或 WSL，否则会给出明确提示 |
 
 ## Usage / 使用方法
 

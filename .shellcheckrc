@@ -1,6 +1,6 @@
 # ShellCheck 配置
 #
-# CI 以 `shellcheck --severity=error` 作为门禁（见 .github/workflows/ci.yml），
+# CI 以 `shellcheck --severity=warning` 作为门禁（见 .github/workflows/ci.yml），
 # 这里的 disable 只针对"已知且有意为之"的规则，避免噪声掩盖真问题。
 # 想收紧时，逐条删掉再修，而不是整体关掉 shellcheck。
 
