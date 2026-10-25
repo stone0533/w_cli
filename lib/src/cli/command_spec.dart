@@ -89,6 +89,7 @@ List<CommandSpec> commandSpecs() => [
       FlagSpec('fresh'),
       FlagSpec('automatic'),
       FlagSpec('manual'),
+      FlagSpec('show-config'),
       FlagSpec('clean', abbr: 'c'),
       FlagSpec('open', abbr: 'o'),
       FlagSpec('debug', abbr: 'd'),
@@ -123,6 +124,7 @@ List<CommandSpec> commandSpecs() => [
         if (results['bundle-id'] != null) '--bundle-id=${results['bundle-id']}',
         if (results['cert'] != null) '--cert=${results['cert']}',
         if (results['profile'] != null) '--profile=${results['profile']}',
+        if (_flag(results, 'show-config')) '--show-config',
         if (_flag(results, 'automatic')) '--automatic',
         if (_flag(results, 'manual')) '--manual',
       ]);

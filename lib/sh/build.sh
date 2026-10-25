@@ -844,6 +844,7 @@ resolve_export_options() {
   if [ -n "$EXPORT_OPTIONS_PLIST" ]; then
     if [ -f "$EXPORT_OPTIONS_PLIST" ]; then
       export_options_file="$EXPORT_OPTIONS_PLIST"
+      SIGNING_SOURCE="--export-options 指定的文件"
       log_info "使用命令行指定的 Export Options: $export_options_file"
       return 0
     fi
@@ -878,6 +879,7 @@ resolve_export_options() {
     local synthesized="$options_dir/ExportOptions.plist"
     write_synthesized_options "$synthesized"
     export_options_file="$synthesized"
+    SIGNING_SOURCE="命令行参数（--method/--team/--cert/--profile）"
     log_info "使用命令行签名参数（未修改任何配置文件）"
     return 0
   fi
@@ -887,7 +889,7 @@ resolve_export_options() {
   for candidate in "$OUTPUT_DIR/ios.plist" "ios/ExportOptions.plist"; do
     if [ -f "$candidate" ]; then
       export_options_file="$candidate"
-      log_info "使用签名配置: $export_options_file"
+      SIGNING_SOURCE="配置文件 $candidate"
       return 0
     fi
   done
@@ -905,6 +907,7 @@ resolve_export_options() {
     local synthesized="$options_dir/ExportOptions.plist"
     write_synthesized_options "$synthesized"
     export_options_file="$synthesized"
+    SIGNING_SOURCE="自动探测（ios/Runner.xcodeproj 的 DEVELOPMENT_TEAM）"
     log_info "未找到签名配置，按自动签名构建: team=$team bundle=${bundle_id:-未知} method=development"
     return 0
   fi
@@ -990,6 +993,44 @@ autodetect_signing() {
   DETECTED_PROFILE="${profiles[0]}"
   log_info "自动探测到证书与 Profile: $DETECTED_CERT / $DETECTED_PROFILE"
   return 0
+}
+
+# 打印生效的签名配置（不构建）
+show_signing_config() {
+  SIGNING_SOURCE=""
+  export_options_file=""
+  log_info "平台: ios · 版本: $(get_version 2>/dev/null || echo 未知)"
+  if ! resolve_export_options; then
+    log_error "无法确定签名配置"
+    return 1
+  fi
+
+  local method style team cert bundle profile
+  method=$(get_plist_value "$export_options_file" "method")
+  style=$(get_plist_value "$export_options_file" "signingStyle")
+  team=$(get_plist_value "$export_options_file" "teamID")
+  cert=$(get_plist_value "$export_options_file" "signingCertificate")
+  bundle=$(xcodeproj_value PRODUCT_BUNDLE_IDENTIFIER || true)
+  profile=""
+  if [ "$style" = "manual" ] && [ -n "$bundle" ] && command_available plutil; then
+    profile=$(plutil -extract "provisioningProfiles.$bundle" raw -o - "$export_options_file" 2>/dev/null || true)
+  fi
+
+  printf '\n生效的 iOS 签名配置（来源: %s）\n' "${SIGNING_SOURCE:-未知}"
+  printf '  method              %s\n' "${method:-未知}"
+  printf '  signingStyle        %s\n' "${style:-manual}"
+  printf '  teamID              %s\n' "${team:-未知}"
+  printf '  bundle id           %s\n' "${bundle:-未知}"
+  printf '  signingCertificate  %s\n' "${cert:-（自动签名不需要）}"
+  printf '  profile             %s\n' "${profile:-（自动签名不需要，或未按 bundle id 配置）}"
+  printf '\n'
+
+  local rc=0
+  if ! validate_ios_plist "$export_options_file" > /dev/null 2>&1; then
+    validate_ios_plist "$export_options_file"
+    rc=1
+  fi
+  return "$rc"
 }
 
 # 构建 iOS
@@ -1313,7 +1354,7 @@ validate_parameters() {
         ;;
       --method=*|--team=*|--bundle-id=*|--cert=*|--profile=*)
         ;;
-      --automatic|--manual)
+      --automatic|--manual|--show-config)
         ;;
       *)
         if is_valid_platform "$arg"; then
@@ -1382,6 +1423,7 @@ parse_args() {
   CLI_CERT=""
   CLI_PROFILE=""
   CLI_SIGNING_STYLE=""
+  SHOW_CONFIG=false
   for arg in "$@"; do
     case "$arg" in
       "apk"|"aab"|"ios")
@@ -1441,6 +1483,9 @@ parse_args() {
         ;;
       --profile=* )
         CLI_PROFILE="${arg#--profile=}"
+        ;;
+      --show-config )
+        SHOW_CONFIG=true
         ;;
       --automatic )
         CLI_SIGNING_STYLE="automatic"
@@ -1646,6 +1691,12 @@ main() {
 
   if [[ "$ARGS_HANDLED" = true ]]; then
     return 0
+  fi
+
+  # --show-config：只打印生效的签名配置，不构建
+  if [ "$SHOW_CONFIG" = "true" ]; then
+    show_signing_config
+    return $?
   fi
 
   # 参数校验必须在任何会删除东西的动作（--clean、建输出目录）之前
