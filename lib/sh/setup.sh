@@ -7,8 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ======================================================
 # setup.sh - Flutter 项目初始化脚本
-# Version: 1.0.0
-# Last Updated: 2026-03-23
+# Version: 1.1.0
+# Last Updated: 2026-10-25
 # Author: Stone
 # Description: 自动完成Flutter项目的初始化、依赖安装和核心文件创建
 # Features:
@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #   - 检查 Flutter 安装状态
 #   - 创建完整的目录结构
 #   - 安装必要的依赖包
+#   - 生成 w_tools 接入骨架（pub 上的分包依赖 + 聚合入口 + 暂存层 + doctor 配置）
 #   - 创建核心数据层文件
 #   - 生成 Retrofit 代码
 #   - 初始化 Git 仓库
@@ -39,15 +40,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # 常量定义
 readonly DEFAULT_PROJECT_NAME="my_flutter_app"
 readonly DEFAULT_API_BASE_URL="https://api.example.com"
-readonly DEFAULT_W_TOOLS_PATH="/Users/lei0533/flutter/github_w_tools"
-readonly DEFAULT_W_TOOLS="w_tools"
+# 只依赖用到的分包（ADR-0002）：meta 包 w_tools 会经 w_tools_map 拖进
+# google_maps_flutter 原生 SDK，而新项目几乎都用不到地图。
+# 需要地图时再单独加 w_tools_map。
+readonly W_TOOLS_SUBPACKAGES="core app form ui api toast qr"
 
 # 全局变量
 PROJECT_NAME=""
 API_BASE_URL="$DEFAULT_API_BASE_URL"
-W_TOOLS_PATH="$DEFAULT_W_TOOLS_PATH"
 OS=""
-TOTAL_STEPS=15
+TOTAL_STEPS=16
 CURRENT_STEP=0
 # --force：目标目录已存在时允许覆盖（默认拒绝，避免误删）
 FORCE=false
@@ -293,9 +295,6 @@ validate_config() {
     "API_BASE_URL")
       validate_input "$value" "url"
       ;;
-    "W_TOOLS_PATH")
-      validate_input "$value" "path"
-      ;;
     *)
       # 其他配置项，至少确保不为空
       if [ -z "$value" ]; then
@@ -399,12 +398,18 @@ install_dependencies() {
     handle_error "pubspec.yaml 文件不存在，请先创建项目"
   fi
   # 使用 flutter pub add 安装依赖，避免使用 get_cli 导致的崩溃
-  # 安装核心依赖
+  # 安装核心依赖（w_tools 分包在下一步按「本地 path / 线上版本」分别安装）
+  # json_annotation 钉 ^4.9.0：retrofit_generator 9.x 要求 json_annotation <4.10.0，
+  # 装最新版（4.12）会和 json_serializable 冲突，version solving 直接失败。
   run_command_with_timeout 600 run_in_project flutter pub add get dio flutter_screenutil \
-    flutter_form_builder form_builder_validators retrofit "$DEFAULT_W_TOOLS"
+    flutter_form_builder form_builder_validators "json_annotation:^4.9.0"
+  # retrofit 钉死 4.9.0：4.9.2 起 Parser 枚举新增 DartMappable，
+  # 而 retrofit_generator 9.x 的 switch 不认这个值，build_runner 会编译失败。
+  # 要升到 4.10+，必须同时把 retrofit_generator 升到 10.x（连带 build_runner/analyzer 升级）。
+  run_command_with_timeout 600 run_in_project flutter pub add "retrofit:4.9.0"
   # 安装开发依赖
   run_command_with_timeout 600 run_in_project flutter pub add \
-    build_runner json_serializable retrofit_generator analyzer --dev
+    build_runner json_serializable "retrofit_generator:^9.7.0" w_tools_cli --dev
   log_info "依赖包安装完成"
   
   # 手动创建首页文件，避免使用 get_cli 导致的崩溃
@@ -436,7 +441,7 @@ import 'package:get/get.dart';
 import '../controllers/home_controller.dart';
 
 class HomeView extends GetView<HomeController> {
-  const HomeView({Key? key}) : super(key: key);
+  const HomeView({super.key});
   
   @override
   Widget build(BuildContext context) {
@@ -555,63 +560,44 @@ create_directory_structure() {
   run_command mkdir -p \
     "$project_path/assets/fonts" "$project_path/assets/images" \
     "$project_path/lib/app/components" "$project_path/lib/app/utils" "$project_path/lib/app/services" \
+    "$project_path/lib/app/w" "$project_path/lib/app/design_system" \
     "$project_path/lib/app/data/models" "$project_path/lib/app/data/sources" \
     "$project_path/lib/app/data/sources/remote" \
     "$project_path/test" "$project_path/.github/workflows" "$project_path/w_json"
   log_info "目录结构创建完成"
 }
 
-# 修改 pubspec.yaml 添加依赖
+# 添加 w_tools 分包依赖
+#
+# 规则（ADR-0002）：**只依赖用到的分包，不依赖 meta 包 w_tools** ——
+# meta 包会经 w_tools_map 拖进 google_maps_flutter 原生 SDK。
+#
+# 一律使用 pub 上的发布版本（不写本地 path 依赖）：
+#   - 新项目开箱即用，不要求机器上存在 w_tools 仓库
+#   - 需要本地联调某个分包时，用 dependency_overrides 指向本地路径，
+#     不要把它写进 dependencies（否则提交后别人拉不动）
 add_w_tools_dependency() {
-  log_info "配置项目依赖..."
-  # 确保 pubspec.yaml 存在
+  log_info "配置 w_tools 分包依赖..."
+
   if [ ! -f "$PROJECT_NAME/pubspec.yaml" ]; then
     handle_error "pubspec.yaml 文件不存在，请先创建项目"
   fi
-  
+
   local pubspec_file="$PROJECT_NAME/pubspec.yaml"
-  
-  # 检查 pubspec.yaml 是否已包含必要依赖
-  if ! grep -q "w_tools" "$pubspec_file"; then
-    # 找到 dependencies 部分的位置
-    dependencies_line=$(grep -n "^dependencies:" "$pubspec_file" | cut -d: -f1)
-    if [ -n "$dependencies_line" ]; then
-      # 找到 dependencies 部分的结束位置（下一个顶级键或文件结束）
-      # 使用 awk 来找到 dependencies 部分的结束并在其前插入 w_tools 依赖
-      awk -v path="$W_TOOLS_PATH" '{
-        # 检查是否是新的顶级键（以字母开头，后面跟冒号）
-        if (NR > 1 && /^[a-zA-Z_]+:/ && in_dependencies) {
-          # 遇到新的顶级键，在其前插入 w_tools 依赖
-          print "  w_tools:"
-          print "    path: " path
-          print ""
-          in_dependencies = 0
-        }
-        print $0
-        # 标记进入 dependencies 部分
-        if (/^dependencies:/) {
-          in_dependencies = 1
-        }
-      } END {
-        # 如果文件结束时仍在 dependencies 部分，在文件末尾插入
-        if (in_dependencies) {
-          print ""
-          print "  w_tools:"
-          print "    path: " path
-        }
-      }' "$pubspec_file" > "$pubspec_file.tmp"
-      run_command mv "$pubspec_file.tmp" "$pubspec_file"
-    else
-      # 如果没有找到 dependencies 部分，在文件末尾添加
-      # 追加写不需要经过命令执行器，直接在 shell 里重定向更清楚
-      {
-        printf '\n'
-        printf 'dependencies:\n'
-        printf '  w_tools:\n'
-        printf '    path: %s\n' "$W_TOOLS_PATH"
-      } >> "$pubspec_file"
+  local pkg=""
+
+  for pkg in $W_TOOLS_SUBPACKAGES; do
+    if ! run_command_with_timeout 300 run_in_project flutter pub add "w_tools_${pkg}:^1.0.0"; then
+      handle_error "添加依赖失败: w_tools_${pkg}"
     fi
+  done
+
+  # doctor / init 等工具（只在开发期用，不进构建）
+  if ! run_command_with_timeout 300 run_in_project flutter pub add w_tools_cli --dev; then
+    log_warn "添加 w_tools_cli 失败（不影响编译，但缺少 dart run w_tools_cli:doctor）"
   fi
+
+  log_info "w_tools 分包依赖配置完成（未包含 w_tools_map）"
   
   # 添加 assets 配置（无论 w_tools 是否存在，都执行）
   log_info "检查是否已存在 assets 配置"
@@ -706,6 +692,46 @@ EOF
   log_info "项目依赖配置完成"
 }
 
+# 生成 w_tools 的接入骨架
+#
+# 由 w_tools_cli:init 生成（单一来源）：
+#   lib/app/w/toolkit.dart            聚合入口：业务代码统一 import 它
+#   lib/app/design_system/README.md   暂存层规则
+#   .w_tools_doctor.yaml              doctor 配置（全注释，不改变默认行为）
+#   AGENTS.md                         w_tools 规则片段（AI 会自动读这一段）
+#
+# init 不可用时只兜底写 toolkit.dart，其余靠 `dart run w_tools_cli:init` 补。
+create_w_tools_scaffold() {
+  log_info "生成 w_tools 接入骨架..."
+
+  if run_in_project dart run w_tools_cli:init >/dev/null 2>&1; then
+    log_info "已通过 w_tools_cli:init 生成接入骨架"
+    return 0
+  fi
+
+  log_warn "w_tools_cli:init 不可用，改为写入最小可用的聚合入口"
+  local toolkit_file="$PROJECT_NAME/lib/app/w/toolkit.dart"
+  mkdir -p "$(dirname "$toolkit_file")"
+  cat > "$toolkit_file" << EOF
+// 本项目用到的 w_tools 能力清单（w_tools_cli:init 生成的兜底版本）。
+//
+// 业务代码统一 import 这里，不要直接 import 各个子包 ——
+// 换依赖方式时只改这一个文件。
+//
+// 为什么不用 meta 包 w_tools：它会经 w_tools_map 拖进 google_maps_flutter 原生 SDK。
+library;
+
+export 'package:w_tools_core/w_tools_core.dart';
+export 'package:w_tools_app/w_tools_app.dart';
+export 'package:w_tools_form/w_tools_form.dart';
+export 'package:w_tools_ui/w_tools_ui.dart';
+export 'package:w_tools_api/w_tools_api.dart';
+export 'package:w_tools_toast/w_tools_toast.dart';
+export 'package:w_tools_qr/w_tools_qr.dart';
+EOF
+  log_info "已写入 $toolkit_file（可再跑 dart run w_tools_cli:init 补全 AGENTS/doctor 配置）"
+}
+
 # 创建核心文件
 # 功能：创建项目所需的核心数据层文件
 # 包括：
@@ -736,32 +762,28 @@ EOF
   # 创建 main.dart
   # 应用入口文件
   log_info "创建应用入口文件..."
-  cat > "$project_dir/lib/main.dart" << 'EOF'
+  # main.dart 按 w_tools_app 1.x 的 WApp API 生成：
+  #   - WApp 没有 designWidth / envFileName（旧版 API），屏幕适配与 .env 由插件负责
+  #   - 用 start() 而不是 init() + run()，避免漏掉 init 的时序问题
+  cat > "$project_dir/lib/main.dart" << EOF
 import 'package:flutter/material.dart';
-import 'package:w_tools/w.dart';
+import 'package:${PROJECT_NAME}/app/w/toolkit.dart';
 
 import 'app/routes/app_pages.dart';
 
-void main() async {
-  // 创建 WApp 实例，用于管理应用的初始化和运行
-  var app = WApp()
-  // 设置设计稿宽度，用于屏幕适配
-    ..designWidth = 375.0
-  // 设置应用标题
-    ..title = "Flutter W Example"
-  // 设置初始路由
-    ..initialRoute = AppPages.INITIAL
-  // 设置路由页面列表
-    ..getPages = AppPages.routes
-    ..envFileName = '.env'
+Future<void> main() async {
+  final app = WApp()
+    // run() 会校验 title / initialRoute / getPages 非空，title 必须在启动前设置
+    ..title = 'Flutter W Example'
     ..theme = ThemeData(primarySwatch: Colors.blue);
 
-  // 初始化应用
-  // 这会执行一系列初始化任务，如设置系统UI、加载环境变量等
-  await app.init();
-
-  // 运行应用
-  app.run();
+  // 一站式启动 = await init() + run()
+  // 屏幕适配（ScreenUtil）/.env/日志等能力用插件注册：
+  //   app.addPlugins([...])，参考 w_tools_app 的 WAppPlugin
+  await app.start(
+    initialRoute: AppPages.INITIAL,
+    getPages: AppPages.routes,
+  );
 }
 EOF
    
@@ -1039,30 +1061,34 @@ main() {
   
   CURRENT_STEP=9
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  create_core_files
+  create_w_tools_scaffold
   
   CURRENT_STEP=10
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  generate_code
+  create_core_files
   
   CURRENT_STEP=11
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  format_code
+  generate_code
   
   CURRENT_STEP=12
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  update_analysis_options
+  format_code
   
   CURRENT_STEP=13
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
-  initialize_tests
+  update_analysis_options
   
   CURRENT_STEP=14
+  show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
+  initialize_tests
+  
+  CURRENT_STEP=15
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   initialize_git
   create_ci_cd_config
   
-  CURRENT_STEP=15
+  CURRENT_STEP=16
   show_progress "$CURRENT_STEP" "$TOTAL_STEPS"
   health_check
   
@@ -1073,16 +1099,17 @@ main() {
   
   log_info "项目已成功初始化，包含以下内容："
   log_info "1. 使用 flutter create 创建了 Flutter 项目"
-  log_info "2. 安装了必要的依赖包"
+  log_info "2. 安装了必要的依赖包（retrofit 钉 4.9.0）"
   log_info "3. 创建了完整的目录结构"
-  log_info "4. 添加了 w_tools 本地依赖"
-  log_info "5. 创建了核心数据层文件"
-  log_info "6. 生成了 Retrofit 代码"
-  log_info "7. 格式化了代码"
-  log_info "8. 初始化了测试文件"
-  log_info "9. 初始化了 Git 仓库"
-  log_info "10. 创建了 CI/CD 配置"
-  log_info "11. 执行了项目健康检查"
+  log_info "4. 添加了 w_tools 分包依赖（不含 w_tools_map）"
+  log_info "5. 生成了 w_tools 接入骨架（toolkit / design_system / AGENTS / doctor 配置）"
+  log_info "6. 创建了核心数据层文件"
+  log_info "7. 生成了 Retrofit 代码"
+  log_info "8. 格式化了代码"
+  log_info "9. 初始化了测试文件"
+  log_info "10. 初始化了 Git 仓库"
+  log_info "11. 创建了 CI/CD 配置"
+  log_info "12. 执行了项目健康检查"
   log_info ""
   log_info "接下来需要："
   log_info "1. 根据实际需求修改 API 路径和接口"

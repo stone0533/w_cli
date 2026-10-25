@@ -12,6 +12,23 @@
   | `ww api --models --full` | `ww api models --force` |
 - 生成器自检 `verify_generated_models` 现在真的会检查重复 class（之前只查 import）
 
+### Changed
+
+- `lib/sh/setup.sh` 1.1.0：按当前项目结构重写脚手架
+  - 依赖改为 **w_tools 分包**（`core`/`app`/`form`/`ui`/`api`/`toast`/`qr`），不再安装 meta 包
+    `w_tools`（会经 `w_tools_map` 拖进 `google_maps_flutter`）。一律用 **pub 发布版本**
+    `^1.0.0`，不写本地 `path` 依赖（需要联调时用 `dependency_overrides`）；
+    随之移除已无用的 `W_TOOLS_PATH` 配置
+  - `retrofit` 钉 `4.9.0`、`json_annotation` 钉 `^4.9.0` —— 与 `retrofit_generator` 9.x 兼容
+    （4.9.2 起 `Parser` 新增 `DartMappable`，9.x 的 switch 不认，`build_runner` 会编译失败）
+  - devDependencies 增加 `w_tools_cli`：新项目可直接 `dart run w_tools_cli:doctor`
+  - 新增步骤：`dart run w_tools_cli:init` 生成 `lib/app/w/toolkit.dart`、
+    `lib/app/design_system/`、`.w_tools_doctor.yaml`、`AGENTS.md` 片段；
+    init 不可用时兜底写聚合入口
+  - 目录结构补 `lib/app/w`、`lib/app/design_system`
+  - `main.dart` 模板改用 w_tools_app 1.x 的 `WApp.start()`：去掉已不存在的
+    `designWidth` / `envFileName`（屏幕适配与 `.env` 由插件负责）
+
 ### Fixed
 
 - **`ww build` / `ww create` / `ww project` 无法运行**：脚本被提取成临时文件后没有可执行位，
