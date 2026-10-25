@@ -11,6 +11,7 @@
 | [`ww open`](#ww-open) | Dart | 打开 IDE 或目录 |
 | [`ww deps`](#ww-deps) | Dart | 升级依赖与 Gradle |
 | [`ww gen`](#ww-gen) | Dart | 跑 build_runner |
+| [`ww fmt`](#内置短命令-fmt--get--pod--analyze) / `get` / `pod` / `analyze` | Dart | 常用长命令的短写法 |
 | [`ww build`](#ww-build) | **bash** | 打包 APK / AAB / IPA |
 
 > 除 `build` 外全部是纯 Dart，Windows 可直接用；`build` 需要 bash（Git Bash / WSL）。
@@ -119,6 +120,27 @@ ww o b             # 短别名：i / a / b / r
 | `root` | 项目根目录；同上 |
 
 无参数或 `--help` 打印帮助（退出 0）；未知参数退出 2；打开失败返回非零。
+
+## 内置短命令：fmt / get / pod / analyze
+
+四条长命令的短写法，都在项目根目录执行，退出码原样透传：
+
+| 命令 | 等价于 |
+| --- | --- |
+| `ww fmt` | `dart format .` |
+| `ww get` | `flutter pub get` |
+| `ww pod` | `pod install --project-directory=ios`（不用手动 `cd ios`） |
+| `ww analyze` | `flutter analyze` |
+
+执行前会打印展开后的命令行，不是黑魔法：
+
+```console
+$ ww fmt
+$ dart format .
+Formatted 38 files (0 changed) in 0.05 seconds.
+```
+
+项目特有的命令用 `.ww/tasks` + `ww run`（见下一节）。
 
 ## ww deps
 

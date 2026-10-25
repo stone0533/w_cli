@@ -44,6 +44,11 @@
   `handleGenerateLocales/Model`、`handleInstallCommand`、`handleRemoveCommand`）：
   它们都只打印「not yet implemented」，对应命令也从未在 `bin` 注册
 
+### Added
+
+- 四个内置短命令：`ww fmt`（dart format .）、`ww get`（flutter pub get）、
+  `ww pod`（pod install --project-directory=ios）、`ww analyze`（flutter analyze）
+
 ### Changed
 
 - 命令改名（旧名保留一版并提示）：

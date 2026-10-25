@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:args/args.dart';
 import 'package:w_cli/src/cli/help.dart' as cli_help;
+import 'package:w_cli/src/commands/task_commands.dart' as tasks;
 import 'package:w_cli/w_cli.dart' as w;
 
 /// 一个 `ww` 子命令的完整声明。
@@ -174,6 +175,13 @@ List<CommandSpec> commandSpecs() => [
     usage: 'ww deps upgrade                   # 升级项目依赖与 Gradle',
     run: (results) => _deps(results),
   ),
+  // 内置短命令：把常用长命令收成 ww <动词>
+  for (final task in tasks.builtinTasks)
+    CommandSpec(
+      name: task.name,
+      usage: task.usage,
+      run: (results) => tasks.TaskRunner().run(task),
+    ),
   CommandSpec(
     name: 'gen',
     usage:
