@@ -109,7 +109,8 @@ Future<int> executeScript(
       if (successMessage.isNotEmpty) {
         print('\n✅ $successMessage');
       }
-    } else {
+    } else if (failureMessage.isNotEmpty) {
+      // 有些调用方（如 ww ios setup）已经自己打印了具体错误，这里不再补一句空话
       print('\n❌ $failureMessage with exit code: $exitCode');
     }
     return exitCode;
