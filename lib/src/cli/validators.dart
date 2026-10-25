@@ -13,7 +13,8 @@ final RegExp _allowedChars = RegExp(r'^[a-z0-9_]+$');
 /// 当前目录是否已经是一个 Dart/Flutter 工程（有 pubspec.yaml）。
 ///
 /// 在工程里继续 `ww create` 会把工程嵌套在自己下面，几乎总是敲错了目录。
-bool insideExistingProject() => File('pubspec.yaml').existsSync();
+bool insideExistingProject({String dir = '.'}) =>
+    File('$dir/pubspec.yaml').existsSync();
 
 /// 项目名必须小写字母开头、只含小写字母/数字/下划线。
 bool validateProjectName(String projectName) {
