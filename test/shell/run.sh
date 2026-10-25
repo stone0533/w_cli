@@ -422,7 +422,42 @@ noarg build
 assert_eq "ww build 无参数打印帮助并退出 0" 0 "$?"
 rm -rf "$noarg_root"
 
-# 10) ww build 的参数透传：--name / 未知参数
+# 10) 内置短命令（fmt / get / pod / analyze）
+tasks_root="$(mktemp -d)"
+mkdir -p "$tasks_root/bin"
+cat > "$tasks_root/bin/dart" << 'STUB'
+#!/bin/bash
+echo "dart $*" >> "$TASKS_LOG"
+if [ "$1" = "format" ]; then exec "$REAL_DART" "$@"; fi
+exit "${TASKS_EXIT:-0}"
+STUB
+cat > "$tasks_root/bin/flutter" << 'STUB'
+#!/bin/bash
+echo "flutter $*" >> "$TASKS_LOG"
+exit "${TASKS_EXIT:-0}"
+STUB
+chmod +x "$tasks_root/bin/dart" "$tasks_root/bin/flutter"
+
+run_ww_task() { # 参数...
+  : > "$tasks_root/calls.log"
+  ( cd "$tasks_root" && CI=true REAL_DART="$(command -v dart)" \
+      TASKS_LOG="$tasks_root/calls.log" TASKS_EXIT="${TASKS_EXIT:-0}" \
+      PATH="$tasks_root/bin:$PATH" \
+      "$(command -v dart)" run "$ROOT/bin/w_cli.dart" "$@" ) > /dev/null 2>&1
+}
+
+run_ww_task fmt
+assert_eq "ww fmt 退出 0" 0 "$?"
+assert_contains "ww fmt 调 dart format ." "dart format ." "$(cat "$tasks_root/calls.log")"
+
+run_ww_task get
+assert_contains "ww get 调 flutter pub get" "flutter pub get" "$(cat "$tasks_root/calls.log")"
+
+TASKS_EXIT=2 run_ww_task analyze
+assert_eq "ww analyze 透传退出码" 2 "$?"
+rm -rf "$tasks_root"
+
+# 11) ww build 的参数透传：--name / 未知参数
 run_ww_build() { # 参数...（在 demo 工程里跑 ww build）
   ( cd "$build_root/demo" && CI=true PATH="$build_root/bin:$PATH" \
       "$(command -v dart)" run "$ROOT/bin/w_cli.dart" build "$@" ) > /dev/null 2>&1
@@ -435,7 +470,7 @@ assert_eq "ww build --name 进产物文件名" "present" \
 run_ww_build apk --bogus-option
 assert_eq "ww build 未知参数退出 2" 2 "$?"
 
-# 11) 并行构建：Android 内部串行、失败会传播
+# 12) 并行构建：Android 内部串行、失败会传播
 run_build_parallel() { # 参数...（PARALLEL_BUILD=true）
   ( cd "$build_root/demo" && PARALLEL_BUILD=true PATH="$build_root/bin:$PATH" \
       bash "$SH/build.sh" "$@" ) > /dev/null 2>&1
@@ -448,7 +483,7 @@ assert_eq "并行构建两个产物都在" "present" \
 assert_contains "Android 内部串行提示" "Android 内部串行" \
   "$( cd "$build_root/demo" && PARALLEL_BUILD=true PATH="$build_root/bin:$PATH" bash "$SH/build.sh" apk aab 2>&1 )"
 
-# 12) MIN_BUILD_SIZE 可配：阈值超过产物大小时失败且不落产物
+# 13) MIN_BUILD_SIZE 可配：阈值超过产物大小时失败且不落产物
 rm -rf "$build_root/demo/w_build" "$build_root/demo/build"
 ( cd "$build_root/demo" && MIN_BUILD_SIZE=999999 PATH="$build_root/bin:$PATH" \
     bash "$SH/build.sh" apk ) > /dev/null 2>&1

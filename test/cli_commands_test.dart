@@ -5,6 +5,7 @@ import 'package:w_cli/src/cli/process.dart';
 import 'package:w_cli/src/commands/clean_command.dart';
 import 'package:w_cli/src/commands/open_command.dart';
 import 'package:w_cli/src/commands/project_command.dart';
+import 'package:w_cli/src/commands/task_commands.dart';
 
 /// 记录调用、按需返回退出码的假实现——命令类不再直接摸 `Process`，
 /// 于是「删了哪些文件、拼了哪些参数、退出码怎么传」都能直接断言。
@@ -211,6 +212,66 @@ void main() {
           runner: FakeProcessRunner(),
         ).run(['--bogus']),
         2,
+      );
+    });
+  });
+
+  group('TaskRunner', () {
+    test('fmt 跑 dart format .，工作目录是项目根', () async {
+      final runner = FakeProcessRunner();
+      final code = await TaskRunner(
+        root: project.path,
+        runner: runner,
+      ).run(builtinTask('fmt')!);
+
+      expect(code, 0);
+      expect(runner.starts.single.exe, 'dart');
+      expect(runner.starts.single.args.join(' '), 'format .');
+      expect(runner.starts.single.cwd, project.path);
+    });
+
+    test('get 跑 flutter pub get', () async {
+      final runner = FakeProcessRunner();
+      await TaskRunner(
+        root: project.path,
+        runner: runner,
+      ).run(builtinTask('get')!);
+      expect(runner.starts.single.exe, 'flutter');
+      expect(runner.starts.single.args.join(' '), 'pub get');
+    });
+
+    test('pod 用 --project-directory，不 cd', () async {
+      final runner = FakeProcessRunner();
+      await TaskRunner(
+        root: project.path,
+        runner: runner,
+      ).run(builtinTask('pod')!);
+      expect(
+        runner.starts.single.args.join(' '),
+        'install --project-directory=ios',
+      );
+    });
+
+    test('工具不可用时退出 1 且不启动进程', () async {
+      final runner = FakeProcessRunner(available: {'flutter'});
+      expect(
+        await TaskRunner(
+          root: project.path,
+          runner: runner,
+        ).run(builtinTask('fmt')!),
+        1,
+      );
+      expect(runner.starts, isEmpty);
+    });
+
+    test('进程失败时退出码透传', () async {
+      final runner = FakeProcessRunner(startExitCode: 3);
+      expect(
+        await TaskRunner(
+          root: project.path,
+          runner: runner,
+        ).run(builtinTask('analyze')!),
+        3,
       );
     });
   });

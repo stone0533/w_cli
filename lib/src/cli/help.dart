@@ -74,6 +74,23 @@ const Map<String, String> _help = {
   android, a    Android Studio 打开 android/
   build, b      文件管理器打开 w_build/
   root, r       文件管理器打开项目根目录''',
+  'fmt': '''
+用法: ww fmt
+
+执行 dart format .（在项目根目录）。''',
+  'get': '''
+用法: ww get
+
+执行 flutter pub get。''',
+  'pod': '''
+用法: ww pod
+
+执行 pod install --project-directory=ios（仅 macOS / Linux 有意义）。
+不需要手动 cd 到 ios/。''',
+  'analyze': '''
+用法: ww analyze
+
+执行 flutter analyze。''',
   'deps': '''
 用法: ww deps upgrade
 
