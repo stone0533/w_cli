@@ -114,6 +114,30 @@ void main() {
       expect(await DoctorCommand(root: project.path, runner: runner).run(), 1);
     });
 
+    test('报告 iOS 签名来源：零配置（pbxproj 有 team）', () async {
+      File('${project.path}/pubspec.yaml').writeAsStringSync('name: demo\n');
+      Directory(
+        '${project.path}/ios/Runner.xcodeproj',
+      ).createSync(recursive: true);
+      File(
+        '${project.path}/ios/Runner.xcodeproj/project.pbxproj',
+      ).writeAsStringSync('DEVELOPMENT_TEAM = ABC123DEF4;\n');
+
+      final runner = FakeProcessRunner(available: {'flutter', 'dart'});
+      expect(await DoctorCommand(root: project.path, runner: runner).run(), 0);
+    });
+
+    test('报告 iOS 签名来源：配置文件存在时优先', () async {
+      File('${project.path}/pubspec.yaml').writeAsStringSync('name: demo\n');
+      Directory('${project.path}/ios').createSync(recursive: true);
+      File(
+        '${project.path}/ios/ExportOptions.plist',
+      ).writeAsStringSync('<plist/>\n');
+
+      final runner = FakeProcessRunner(available: {'flutter', 'dart'});
+      expect(await DoctorCommand(root: project.path, runner: runner).run(), 0);
+    });
+
     test('核心项齐全时退出 0（pod / ios 可以缺）', () async {
       File('${project.path}/pubspec.yaml').writeAsStringSync('name: demo\n');
       final runner = FakeProcessRunner(available: {'flutter', 'dart'});

@@ -189,6 +189,7 @@ w_build/
 非 macOS 或探测不到时，退回「请填写」的提示。
 
 ```bash
+ww build ios --show-config                          # 只看用了哪套签名，不构建
 ww build ios                                        # 本地/测试，无需配置
 ww build ios --method=ad-hoc                        # 换分发方式
 ww build ios --method=app-store --team=ABC123DEF4 \

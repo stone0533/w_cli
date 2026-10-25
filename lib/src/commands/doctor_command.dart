@@ -37,6 +37,7 @@ class DoctorCommand {
       hint: '没有 android/ 目录，ww build apk 不适用',
     );
     _checkFile('.ww/tasks', required: false, hint: '没有 .ww/tasks，ww run 无任务可用');
+    _reportSigningSource();
 
     stdout.writeln('');
     if (!ok) {
@@ -45,6 +46,35 @@ class DoctorCommand {
     }
     stdout.writeln('环境检查通过');
     return 0;
+  }
+
+  /// iOS 签名配置从哪来（不真正解析，只报告来源）
+  void _reportSigningSource() {
+    final candidates = [
+      ('w_build/ios.plist', '个人覆盖'),
+      ('ios/ExportOptions.plist', '团队共用（可提交）'),
+    ];
+    for (final (path, label) in candidates) {
+      if (File('$root/$path').existsSync()) {
+        stdout.writeln('✓ iOS 签名：$label（$path）');
+        return;
+      }
+    }
+
+    final pbxproj = File('$root/ios/Runner.xcodeproj/project.pbxproj');
+    if (pbxproj.existsSync()) {
+      final content = pbxproj.readAsStringSync();
+      final team = RegExp(
+        r'DEVELOPMENT_TEAM = ([A-Z0-9]+);',
+      ).firstMatch(content)?.group(1);
+      if (team != null) {
+        stdout.writeln('✓ iOS 签名：零配置（自动探测 team $team）');
+      } else {
+        stdout.writeln('- iOS 签名：未配置（需 --team= 或 ios/ExportOptions.plist）');
+      }
+      return;
+    }
+    stdout.writeln('- iOS 签名：无 ios 工程，跳过');
   }
 
   bool _checkTool(String name, {required bool required, String? hint}) {

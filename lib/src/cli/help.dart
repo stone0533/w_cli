@@ -51,6 +51,7 @@ const Map<String, String> _help = {
   --open                  构建完打开输出目录
   --name=<name>           产物文件名中的应用名（默认取目录名）
   --export-options=<file> 指定 iOS 导出配置（默认按下方顺序查找）
+  --show-config           只打印生效的签名配置，不构建
 
 iOS 签名（优先级从高到低）:
   1. --method= / --team= / --bundle-id= / --cert= / --profile= / --automatic / --manual

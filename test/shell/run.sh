@@ -688,6 +688,22 @@ head -c 100 /dev/zero > "$build_root/demo/w_build/keep_live_9.9.9.apk"
 assert_eq "失败清理保留输出目录里的成品" "present" \
   "$([ -f "$build_root/demo/w_build/keep_live_9.9.9.apk" ] && echo present || echo gone)"
 
+# 8.3) --show-config：只打印生效配置，不构建
+cfg_root="$(mktemp -d)"
+mkdir -p "$cfg_root/demo/ios/Runner.xcodeproj"
+printf 'name: demo\nversion: 2.1.0\n' > "$cfg_root/demo/pubspec.yaml"
+printf 'DEVELOPMENT_TEAM = ABC123DEF4;\nPRODUCT_BUNDLE_IDENTIFIER = com.example.demo;\n' \
+  > "$cfg_root/demo/ios/Runner.xcodeproj/project.pbxproj"
+
+cfg_out="$( cd "$cfg_root/demo" && bash "$SH/build.sh" ios --show-config 2>&1 )"
+assert_eq "--show-config 退出 0" 0 "$?"
+assert_contains "--show-config 报出来源" "自动探测" "$cfg_out"
+assert_contains "--show-config 报出 team" "ABC123DEF4" "$cfg_out"
+assert_contains "--show-config 报出 bundle" "com.example.demo" "$cfg_out"
+assert_eq "--show-config 不建输出目录" "absent" \
+  "$([ -d "$cfg_root/demo/w_build" ] && echo present || echo absent)"
+rm -rf "$cfg_root"
+
 # 8.4) 日志精简：子进程输出进 build.log，终端只留关键行
 quiet_root="$(mktemp -d)"
 mkdir -p "$quiet_root/bin" "$quiet_root/demo/android" "$quiet_root/demo/w_build"
