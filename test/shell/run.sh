@@ -387,6 +387,27 @@ assert_eq "证书名保留空格" "Apple Distribution: My Company (GHI567JKL8)" 
 assert_eq "method 取值正常" "app-store" "$(plist_value "$plist_dir/ios.plist" method)"
 assert_eq "手动签名配置校验通过" 0 "$(plist_valid "$plist_dir/ios.plist")"
 
+# 同行的 <key>k</key><string>v</string> 也要能解析（plutil 路径；grep 兜底不支持）
+cat > "$plist_dir/single_line.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>method</key><string>ad-hoc</string>
+    <key>signingStyle</key><string>manual</string>
+</dict>
+</plist>
+PLIST
+assert_eq "同行写法的 plist 也能取值（plutil 优先）" "ad-hoc" \
+  "$(plist_value "$plist_dir/single_line.plist" method)"
+
+# 没有 plutil 的平台（Linux CI）走 awk 兜底，结果必须一致
+plist_value_no_plutil() {
+  bash -c '. "$1"; command_available() { [ "$1" != plutil ] && command -v "$1" > /dev/null 2>&1; }; get_plist_value "$2" "$3"' \
+    _ "$SH/build.sh" "$1" "$2" 2>/dev/null | tail -1
+}
+assert_eq "同行写法的 plist 也能取值（awk 兜底）" "ad-hoc" \
+  "$(plist_value_no_plutil "$plist_dir/single_line.plist" method)"
+
 sed 's/ABC123DEF4//' "$plist_dir/ios.plist" > "$plist_dir/no_team.plist"
 assert_eq "缺 teamID 校验失败" 1 "$(plist_valid "$plist_dir/no_team.plist")"
 
