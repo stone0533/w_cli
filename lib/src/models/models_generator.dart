@@ -40,6 +40,9 @@ class ModelsGenerator {
 
   final List<({String temp, String target})> _pending = [];
 
+  /// 同一类诊断只报一次（多份主模型可能触发同一条）。
+  final Set<String> _diagnostics = {};
+
   /// 返回进程退出码：0 成功，1 失败。
   Future<int> generate() async {
     final base = root == '.' ? '' : '$root/';
@@ -76,12 +79,20 @@ class ModelsGenerator {
 
     final configFile = File('$base$jsonDir/w_json.config');
     final specs = _parseConfig(configFile, '$base$jsonDir');
-    final standalones = _loadStandalones(specs);
+    if (specs == null) {
+      return 1;
+    }
+    final samples = _loadSamples(specs);
+    if (samples == null) {
+      return 1;
+    }
+    final groups = _groupSamples(samples);
+    final standalones = _buildStandalones(groups);
 
     // 独立类先落盘：主模型的增量检查要靠磁盘上的 mtime
-    if (specs.isNotEmpty) {
+    if (groups.isNotEmpty) {
       Cli.detail('生成配置文件声明的独立类...');
-      if (!_generateStandalones(specs, standalones, configFile, base)) {
+      if (!_generateStandalones(groups, configFile, base, standalones)) {
         return 1;
       }
       if (!await _flush()) {
@@ -110,6 +121,7 @@ class ModelsGenerator {
         data: data,
         partName: target.dartName,
         standalones: standalones,
+        sourceName: _basename(target.jsonPath),
       );
       _enqueue(target.dartPath, content);
     }
@@ -156,12 +168,12 @@ class ModelsGenerator {
     return true;
   }
 
-  /// 配置：`# ClassName` 行声明类名，下一行 `file.json node.path` 声明来源
-  List<({String className, String jsonPath, String node})> _parseConfig(
-    File config,
-    String jsonDirPath,
-  ) {
-    final specs = <({String className, String jsonPath, String node})>[];
+  /// 配置：`# ClassName` 行声明类名，其下每行 `file.json node.path` 是该类的一份样例。
+  ///
+  /// 返回 null 表示配置有错（缺类名行、JSON 文件不存在），调用方直接失败，
+  /// 不带着坏配置继续跑。
+  List<_Spec>? _parseConfig(File config, String jsonDirPath) {
+    final specs = <_Spec>[];
     if (!config.existsSync()) {
       Cli.detail('配置文件不存在: ${config.path}，跳过自定义类生成');
       return specs;
@@ -169,6 +181,7 @@ class ModelsGenerator {
     Cli.detail('读取配置文件: ${config.path}');
 
     var currentClass = '';
+    var ok = true;
     for (final line in config.readAsLinesSync()) {
       if (line.trim().isEmpty) {
         continue;
@@ -186,97 +199,373 @@ class ModelsGenerator {
       final jsonFile = match.group(1)!;
       final node = match.group(2)!;
       if (currentClass.isEmpty) {
-        Cli.error('跳过配置行，缺少类名: $line');
+        Cli.error('配置行缺少类名（上一行应为 # ClassName）: $line');
+        ok = false;
         continue;
       }
 
       final path = '$jsonDirPath/$jsonFile';
       if (!File(path).existsSync()) {
         Cli.error('JSON 文件不存在: $path');
+        ok = false;
         continue;
       }
-      specs.add((className: currentClass, jsonPath: path, node: node));
+      specs.add(_Spec(currentClass, path, node));
     }
-    return specs;
+    return ok ? specs : null;
   }
 
-  List<StandaloneClass> _loadStandalones(
-    List<({String className, String jsonPath, String node})> specs,
-  ) {
-    final loaded = <StandaloneClass>[];
+  /// 取出每份样例的节点内容（数组取首元素），按 (类名, 文件, 节点) 去重。
+  ///
+  /// 返回 null 表示有样例取不到节点，调用方直接失败。
+  List<_Sample>? _loadSamples(List<_Spec> specs) {
+    final seen = <String>{};
+    final samples = <_Sample>[];
+    var ok = true;
+
     for (final spec in specs) {
-      final node = _extractNode(spec.jsonPath, spec.node);
-      if (node == null) {
+      final id =
+          '${spec.className}\u0000${spec.jsonPath}\u0000${spec.nodePath}';
+      if (!seen.add(id)) {
         continue;
       }
-      loaded.add(StandaloneClass(spec.className, node.keys.toList()..sort()));
+      final data = _extractNode(spec);
+      if (data == null) {
+        ok = false;
+        continue;
+      }
+      if (data.isEmpty) {
+        // 空对象样例不会贡献形状，但也不该让整个生成失败（老行为允许）。
+        Cli.detail(
+          '  ~ ${spec.className}: ${_basename(spec.jsonPath)} '
+          '${spec.nodePath} 是空对象，不贡献字段',
+        );
+      }
+      samples.add(_Sample(spec, data));
     }
-    return loaded;
+    return ok ? samples : null;
   }
 
-  Map<String, dynamic>? _extractNode(String jsonPath, String nodePath) {
+  /// 节点路径必须落到一个对象；落到数组时取首元素（`xxxList.json data.List` 的写法）。
+  Map<String, dynamic>? _extractNode(_Spec spec) {
     Object? current;
     try {
-      current = jsonDecode(File(jsonPath).readAsStringSync());
-    } on FormatException {
+      current = jsonDecode(File(spec.jsonPath).readAsStringSync());
+    } on FormatException catch (error) {
+      Cli.error('解析 JSON 失败: ${_basename(spec.jsonPath)} ($error)');
       return null;
     }
-    for (final part in nodePath.split('.')) {
+
+    final walked = <String>[];
+    for (final part in spec.nodePath.split('.')) {
+      walked.add(part);
       if (current is Map<String, dynamic> && current.containsKey(part)) {
         current = current[part];
       } else {
+        Cli.error(
+          '类 ${spec.className} 的配置行取不到节点: '
+          '${_basename(spec.jsonPath)} ${spec.nodePath}'
+          '（在 ${walked.join('.')} 处中断）',
+        );
         return null;
       }
     }
-    return current is Map<String, dynamic> ? current : null;
+
+    if (current is List) {
+      if (current.isEmpty) {
+        Cli.error(
+          '类 ${spec.className} 的样例是空数组，无法推断结构: '
+          '${_basename(spec.jsonPath)} ${spec.nodePath}',
+        );
+        return null;
+      }
+      final first = current.first;
+      if (first is! Map<String, dynamic>) {
+        Cli.error(
+          '类 ${spec.className} 的样例数组元素不是对象: '
+          '${_basename(spec.jsonPath)} ${spec.nodePath}',
+        );
+        return null;
+      }
+      Cli.detail(
+        '  ~ ${spec.className}: ${_basename(spec.jsonPath)} '
+        '${spec.nodePath} 取数组首元素',
+      );
+      return first;
+    }
+
+    if (current is! Map<String, dynamic>) {
+      Cli.error(
+        '类 ${spec.className} 的样例节点不是对象（是 ${current.runtimeType}）: '
+        '${_basename(spec.jsonPath)} ${spec.nodePath}',
+      );
+      return null;
+    }
+    return current;
   }
 
+  /// 同类名的多份样例归在一起（保持配置里的出现顺序）。
+  Map<String, List<_Sample>> _groupSamples(List<_Sample> samples) {
+    final groups = <String, List<_Sample>>{};
+    for (final sample in samples) {
+      (groups[sample.spec.className] ??= []).add(sample);
+    }
+    return groups;
+  }
+
+  /// 匹配用：每个类登记它**每一份**样例的键集合。
+  ///
+  /// 列表元素与详情对象只差几个字段时，两边都能命中同一个类。
+  List<StandaloneClass> _buildStandalones(Map<String, List<_Sample>> groups) =>
+      [
+        for (final entry in groups.entries)
+          StandaloneClass(entry.key, [
+            for (final sample in entry.value) sample.keys,
+          ]),
+      ];
+
   bool _generateStandalones(
-    List<({String className, String jsonPath, String node})> specs,
-    List<StandaloneClass> standalones,
+    Map<String, List<_Sample>> groups,
     File configFile,
     String base,
+    List<StandaloneClass> standalones,
   ) {
-    final seen = <String>{};
+    final configTime = configFile.existsSync()
+        ? configFile.lastModifiedSync()
+        : null;
 
-    for (final spec in specs) {
-      if (!seen.add(spec.className)) {
-        continue;
-      }
-      final dartName = _snakeCase(spec.className);
+    for (final entry in groups.entries) {
+      final className = entry.key;
+      final samples = entry.value;
+      final dartName = _snakeCase(className);
       final dartPath = '$base$modelsDir/$dartName.dart';
       final dartFile = File(dartPath);
 
       if (!force && dartFile.existsSync()) {
-        final jsonTime = File(spec.jsonPath).lastModifiedSync();
-        final configTime = configFile.existsSync()
-            ? configFile.lastModifiedSync()
-            : jsonTime;
-        final dartTime = dartFile.lastModifiedSync();
-        if (!jsonTime.isAfter(dartTime) && !configTime.isAfter(dartTime)) {
+        var newest = samples.first.jsonTime;
+        for (final sample in samples.skip(1)) {
+          if (sample.jsonTime.isAfter(newest)) {
+            newest = sample.jsonTime;
+          }
+        }
+        if (configTime != null && configTime.isAfter(newest)) {
+          newest = configTime;
+        }
+        if (!newest.isAfter(dartFile.lastModifiedSync())) {
           Cli.detail('  - $dartName.dart (无需更新)');
           continue;
         }
       }
 
-      final node = _extractNode(spec.jsonPath, spec.node);
-      if (node == null) {
-        Cli.error('无法提取节点内容: ${spec.node}');
-        continue;
+      final merged = _mergeSamples(className, samples);
+      if (merged == null) {
+        return false;
       }
 
       _enqueue(
         dartPath,
         _assembleFile(
-          className: spec.className,
-          data: node,
+          className: className,
+          data: merged,
           partName: dartName,
           standalones: standalones,
+          sourceName: _sampleLabels(samples),
         ),
       );
       Cli.detail('  ~ $dartName.dart (生成/更新)');
     }
     return true;
+  }
+
+  String _sampleLabels(List<_Sample> samples) {
+    final labels = <String>[];
+    for (final sample in samples) {
+      final label = _basename(sample.spec.jsonPath);
+      if (!labels.contains(label)) {
+        labels.add(label);
+      }
+    }
+    return labels.join(' + ');
+  }
+
+  /// 把同一个类名下的多份样例合并成一个节点。
+  ///
+  /// 键取并集：第一份样例的键序优先，后面样例的新键按出现顺序追加——样例一致
+  /// 时合并结果与单份完全相同，产物逐字节不变。类型冲突直接失败，不猜。
+  Map<String, dynamic>? _mergeSamples(String className, List<_Sample> samples) {
+    final conflicts = <String>[];
+    final merged = _mergeObjectMaps(
+      samples: [
+        for (final sample in samples)
+          (file: _basename(sample.spec.jsonPath), value: sample.data),
+      ],
+      path: '',
+      conflicts: conflicts,
+    );
+    if (conflicts.isEmpty) {
+      return merged;
+    }
+
+    Cli.error('独立类 $className 的样例无法合并，已放弃生成：');
+    for (final conflict in conflicts) {
+      Cli.error('  - $conflict');
+    }
+    Cli.error('  请统一 w_json.config 里 $className 各样例的字段类型');
+    return null;
+  }
+
+  Map<String, dynamic> _mergeObjectMaps({
+    required List<({String file, Map<String, dynamic> value})> samples,
+    required String path,
+    required List<String> conflicts,
+  }) {
+    final keys = <String>[];
+    final seen = <String>{};
+    for (final sample in samples) {
+      for (final key in sample.value.keys) {
+        if (seen.add(key)) {
+          keys.add(key);
+        }
+      }
+    }
+
+    final merged = <String, dynamic>{};
+    for (final key in keys) {
+      final entries = <({String file, Object? value})>[
+        for (final sample in samples)
+          if (sample.value.containsKey(key))
+            (file: sample.file, value: sample.value[key]),
+      ];
+      merged[key] = _mergeValues(
+        path: path.isEmpty ? key : '$path.$key',
+        entries: entries,
+        conflicts: conflicts,
+      );
+    }
+    return merged;
+  }
+
+  Object? _mergeValues({
+    required String path,
+    required List<({String file, Object? value})> entries,
+    required List<String> conflicts,
+  }) {
+    final nonNull = entries.where((entry) => entry.value != null).toList();
+    if (nonNull.isEmpty) {
+      return null;
+    }
+
+    final objects = nonNull
+        .where((entry) => entry.value is Map<String, dynamic>)
+        .toList();
+    if (objects.length == nonNull.length) {
+      return _mergeObjectMaps(
+        samples: [
+          for (final entry in objects)
+            (file: entry.file, value: entry.value as Map<String, dynamic>),
+        ],
+        path: path,
+        conflicts: conflicts,
+      );
+    }
+
+    final lists = nonNull.where((entry) => entry.value is List).toList();
+    if (lists.length == nonNull.length) {
+      return _mergeLists(path: path, entries: lists, conflicts: conflicts);
+    }
+
+    if (_hasTypeConflict(nonNull)) {
+      conflicts.add('$path 的字段类型不一致（${_describeTypes(nonNull)}）');
+      return null;
+    }
+    return nonNull.first.value;
+  }
+
+  Object? _mergeLists({
+    required String path,
+    required List<({String file, Object? value})> entries,
+    required List<String> conflicts,
+  }) {
+    // 渲染只看首元素，合并也只合并首元素；样例里的空数组不贡献结构。
+    final objects = <({String file, Map<String, dynamic> value})>[];
+    final others = <({String file, Object? value})>[];
+    for (final entry in entries) {
+      final list = entry.value as List;
+      if (list.isEmpty) {
+        continue;
+      }
+      final first = list.first;
+      if (first is Map<String, dynamic>) {
+        objects.add((file: entry.file, value: first));
+      } else {
+        others.add((file: entry.file, value: first));
+      }
+    }
+
+    if (objects.isNotEmpty && others.isNotEmpty) {
+      conflicts.add('$path 的元素在不同样例里一个是对象、一个是标量');
+      return null;
+    }
+
+    if (objects.isNotEmpty) {
+      return [
+        _mergeObjectMaps(
+          samples: objects,
+          path: '$path[0]',
+          conflicts: conflicts,
+        ),
+      ];
+    }
+
+    if (others.isNotEmpty) {
+      if (_hasTypeConflict(others)) {
+        conflicts.add('$path 的元素类型不一致（${_describeTypes(others)}）');
+        return null;
+      }
+      return [others.first.value];
+    }
+
+    return <dynamic>[];
+  }
+
+  static bool _hasTypeConflict(List<({String file, Object? value})> entries) {
+    final categories = <String>{};
+    for (final entry in entries) {
+      categories.add(_category(entry.value));
+    }
+    return categories.length > 1;
+  }
+
+  static String _describeTypes(List<({String file, Object? value})> entries) {
+    final seen = <String>{};
+    final parts = <String>[];
+    for (final entry in entries) {
+      final category = _category(entry.value);
+      if (!seen.add('${entry.file}:$category')) {
+        continue;
+      }
+      parts.add('${entry.file} 是 $category');
+    }
+    return parts.join('、');
+  }
+
+  static String _category(Object? value) {
+    if (value is Map) {
+      return 'object';
+    }
+    if (value is List) {
+      return 'array';
+    }
+    if (value is bool) {
+      return 'bool';
+    }
+    if (value is num) {
+      return 'number';
+    }
+    if (value is String) {
+      return 'string';
+    }
+    return 'unknown';
   }
 
   /// 增量判断；返回 null 表示全部最新。
@@ -363,11 +652,14 @@ class ModelsGenerator {
     required Object? data,
     required String partName,
     required List<StandaloneClass> standalones,
+    required String sourceName,
   }) {
     final modelContent = renderModelClasses(
       className,
       data,
       standalones,
+      sourceName: sourceName,
+      onDiagnostic: _reportDiagnostic,
     ).join('\n\n');
 
     final buffer = StringBuffer()
@@ -400,6 +692,13 @@ class ModelsGenerator {
     temp.parent.createSync(recursive: true);
     temp.writeAsStringSync(content);
     _pending.add((temp: temp.path, target: target));
+  }
+
+  /// 渲染期诊断（例如"差点命中独立类"）走这里，默认可见、同一句只报一次。
+  void _reportDiagnostic(String message) {
+    if (_diagnostics.add(message)) {
+      Cli.warn(message);
+    }
   }
 
   /// 一次 format 校验全部临时文件，全合法才落盘。
@@ -499,4 +798,25 @@ class ModelsGenerator {
     }
     return buffer.toString();
   }
+}
+
+/// `w_json.config` 里的一行：`# ClassName` 之下的一份样例。
+class _Spec {
+  const _Spec(this.className, this.jsonPath, this.nodePath);
+
+  final String className;
+  final String jsonPath;
+  final String nodePath;
+}
+
+/// 样例取出来的节点内容（数组已取首元素）。
+class _Sample {
+  _Sample(this.spec, this.data);
+
+  final _Spec spec;
+  final Map<String, dynamic> data;
+
+  List<String> get keys => data.keys.toList()..sort();
+
+  DateTime get jsonTime => File(spec.jsonPath).lastModifiedSync();
 }

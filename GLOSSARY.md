@@ -11,6 +11,7 @@
 | **增量（mtime）** | `models` 的默认策略：JSON 比产物新才重新生成；`--force` 忽略增量全量重写 |
 | **覆盖保护** | 整份重写的文件（`repository.dart` / `data_source_mixin.dart`）在发现「生成器不认识的方法」时**拒绝覆盖**，需 `--force`（[generated_file_guard.dart](lib/src/api/generated_file_guard.dart)） |
 | **自检** | `models` 全部写完后校验「无重复 import / 无重复 class」；只认结构性错误，语义错误靠 `flutter analyze` |
+| **独立类** | `w_json.config` 里用 `# 类名` 声明的跨文件复用模型。可挂多份样例（详情 + 列表），节点是数组时取首元素；类形状 = 各样例的合并，匹配按「任一样例的键集合」判定（[models_generator.dart](lib/src/models/models_generator.dart)） |
 | **golden** | `test/fixtures/` 与 `test/shell/fixtures/` 里的逐字节产物，用来钉住「生成结果不漂移」 |
 
 ## 工程与签名
